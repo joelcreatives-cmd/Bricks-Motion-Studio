@@ -1,0 +1,434 @@
+<?php
+/**
+ * Settings schema, defaults, sanitization and accessors.
+ *
+ * @package BricksMotionStudio
+ */
+
+namespace BricksMotionStudio;
+
+defined( 'ABSPATH' ) || exit;
+
+class Settings {
+
+	/** @var array|null Request cache. */
+	private static $cache = null;
+
+	/**
+	 * Default settings.
+	 *
+	 * @return array
+	 */
+	public static function defaults() {
+		return array(
+			'libraries'      => array(
+				'gsap'   => 1,
+				'three'  => 1,
+				'lenis'  => 0,
+				'anime'  => 0,
+				'motion' => 0,
+			),
+			'default_engine' => 'gsap',
+			'source'         => 'local',
+			'level'          => 'moderate',
+			'auto'           => array(
+				'enabled'           => 1,
+				'skip_header'       => 1,
+				'skip_footer'       => 0,
+				'skip_popups'       => 0,
+				'skip_interactions' => 1,
+				'exclude'           => '.splide, .swiper, .brxe-slider, .brxe-carousel, .brxe-offcanvas, .brxe-nav-menu, .brxe-nav-nested, .brxe-back-to-top, [data-bme-skip]',
+				'rules'             => self::default_rules(),
+			),
+			'defaults'       => array(
+				'duration' => 0.8,
+				'delay'    => 0,
+				'ease'     => 'smooth',
+				'distance' => 40,
+				'stagger'  => 0.08,
+				'offset'   => 12,
+				'batch'    => 0.08,
+				'speed'    => 0.3,
+				'replay'   => 0,
+			),
+			'lenis'          => array(
+				'lerp'    => 0.1,
+				'wheel'   => 1,
+				'touch'   => 0,
+				'anchors' => 1,
+			),
+			'three'          => array(
+				'dpr'    => 1.5,
+				'mobile' => 1,
+			),
+			'a11y'           => array(
+				'reduced'   => 'respect',
+				'min_width' => 0,
+			),
+			'perf'           => array(
+				'fouc'     => 1,
+				'failsafe' => 3000,
+				'always'   => 0,
+				'native'   => 1,
+			),
+			'debug'          => 0,
+		);
+	}
+
+	/**
+	 * Default auto-animate rules (element type or CSS class → preset).
+	 *
+	 * @return array
+	 */
+	public static function default_rules() {
+		$rule = static function ( $target, $preset, $scope = 'self', $type = 'element', $enabled = 1 ) {
+			return array(
+				'enabled' => $enabled,
+				'type'    => $type,
+				'target'  => $target,
+				'preset'  => $preset,
+				'scope'   => $scope,
+				'engine'  => '',
+			);
+		};
+
+		return array(
+			$rule( 'heading', 'split-words' ),
+			$rule( 'text-basic', 'fade-up' ),
+			$rule( 'text', 'fade-up' ),
+			$rule( 'image', 'zoom-out' ),
+			$rule( 'button', 'fade-up' ),
+			$rule( 'icon', 'zoom-in' ),
+			$rule( 'icon-box', 'fade-up' ),
+			$rule( 'list', 'fade-up', 'children' ),
+			$rule( 'social-icons', 'fade-up', 'children' ),
+			$rule( 'video', 'fade-up' ),
+			$rule( 'divider', 'clip-right' ),
+			$rule( 'posts', 'fade-up', '.bricks-layout-item' ),
+			$rule( 'image-gallery', 'fade-up', '.bricks-layout-item' ),
+			$rule( 'post-title', 'split-words' ),
+			$rule( 'pie-chart', 'zoom-in' ),
+			$rule( 'bme-reveal', 'fade-up', 'self', 'class', 0 ),
+			// Catch-all: every other content element (never wrappers or nestable containers).
+			$rule( '*', 'fade-up' ),
+		);
+	}
+
+	/**
+	 * All settings merged over defaults.
+	 *
+	 * @return array
+	 */
+	public static function all() {
+		if ( null === self::$cache ) {
+			$saved       = get_option( BME_OPTION, array() );
+			self::$cache = self::merge( self::defaults(), is_array( $saved ) ? $saved : array() );
+		}
+		return self::$cache;
+	}
+
+	/**
+	 * Read a setting by dot path, e.g. "auto.enabled".
+	 *
+	 * @param string $path    Dot path.
+	 * @param mixed  $default Fallback.
+	 * @return mixed
+	 */
+	public static function get( $path, $default = null ) {
+		// Memoized: rendering calls this for every element and loop item.
+		if ( array_key_exists( $path, self::$memo ) ) {
+			return null === self::$memo[ $path ] ? $default : self::$memo[ $path ];
+		}
+		$value = self::all();
+		foreach ( explode( '.', $path ) as $key ) {
+			if ( ! is_array( $value ) || ! array_key_exists( $key, $value ) ) {
+				self::$memo[ $path ] = null;
+				return $default;
+			}
+			$value = $value[ $key ];
+		}
+		self::$memo[ $path ] = $value;
+		return $value;
+	}
+
+	/** @var array<string,mixed> Resolved dot paths. */
+	private static $memo = array();
+
+	public static function flush() {
+		self::$cache = null;
+		self::$memo  = array();
+	}
+
+	public static function library_enabled( $lib ) {
+		return ! empty( self::get( 'libraries.' . $lib ) );
+	}
+
+	/**
+	 * Enabled engines able to run tween presets, default engine first.
+	 *
+	 * @return string[]
+	 */
+	public static function enabled_tween_engines() {
+		$out = array();
+		foreach ( Presets::TWEEN_ENGINES as $engine ) {
+			if ( self::library_enabled( $engine ) ) {
+				$out[] = $engine;
+			}
+		}
+		$default = self::default_engine();
+		if ( $default && in_array( $default, $out, true ) ) {
+			$out = array_values( array_unique( array_merge( array( $default ), $out ) ) );
+		}
+		return $out;
+	}
+
+	/**
+	 * The effective default engine (falls back to the first enabled tween engine).
+	 *
+	 * @return string Empty when no tween engine is enabled.
+	 */
+	public static function default_engine() {
+		$engine = (string) self::get( 'default_engine', 'gsap' );
+		if ( in_array( $engine, Presets::TWEEN_ENGINES, true ) && self::library_enabled( $engine ) ) {
+			return $engine;
+		}
+		foreach ( Presets::TWEEN_ENGINES as $candidate ) {
+			if ( self::library_enabled( $candidate ) ) {
+				return $candidate;
+			}
+		}
+		return '';
+	}
+
+	/**
+	 * Recursive merge where saved scalars override defaults; list values (rules) are replaced wholesale.
+	 *
+	 * @param array $defaults Defaults.
+	 * @param array $saved    Saved values.
+	 * @return array
+	 */
+	private static function merge( array $defaults, array $saved ) {
+		foreach ( $saved as $key => $value ) {
+			if ( 'rules' === $key ) {
+				$defaults[ $key ] = is_array( $value ) ? array_values( $value ) : array();
+				continue;
+			}
+			if ( isset( $defaults[ $key ] ) && is_array( $defaults[ $key ] ) ) {
+				// A group (libraries, perf…) only merges an array; a stray scalar never replaces it.
+				if ( is_array( $value ) ) {
+					$defaults[ $key ] = self::merge( $defaults[ $key ], $value );
+				}
+			} elseif ( array_key_exists( $key, $defaults ) && ! is_array( $value ) ) {
+				$defaults[ $key ] = $value;
+			}
+		}
+		return $defaults;
+	}
+
+	/* ---------------------------------------------------------------------
+	 * Sanitization
+	 * ------------------------------------------------------------------ */
+
+	public static function eases() {
+		return array(
+			'smooth'  => __( 'Smooth (cubic out)', 'bricks-motion-studio' ),
+			'soft'    => __( 'Soft (quad out)', 'bricks-motion-studio' ),
+			'strong'  => __( 'Strong (expo out)', 'bricks-motion-studio' ),
+			'in-out'  => __( 'In-out', 'bricks-motion-studio' ),
+			'back'    => __( 'Back (overshoot)', 'bricks-motion-studio' ),
+			'elastic' => __( 'Elastic', 'bricks-motion-studio' ),
+			'bounce'  => __( 'Bounce', 'bricks-motion-studio' ),
+			'sine'    => __( 'Sine in-out', 'bricks-motion-studio' ),
+			'linear'  => __( 'Linear', 'bricks-motion-studio' ),
+		);
+	}
+
+	/**
+	 * Sanitize the whole option array (Settings API callback).
+	 *
+	 * @param mixed $input Raw input.
+	 * @return array
+	 */
+	public static function sanitize( $input ) {
+		$d   = self::defaults();
+		$in  = is_array( $input ) ? wp_unslash( $input ) : array();
+		$out = array();
+
+		// Only what was submitted changes. A setting missing from the submission (a settings tab
+		// opened before an update added it, a partial import) keeps its current value instead of
+		// being read as "off". Unchecked switches still arrive as an explicit 0, and the rule list
+		// is replaced as a whole (the form always sends it, empty included).
+		$in = self::merge( self::all(), $in );
+
+		// Libraries.
+		foreach ( $d['libraries'] as $lib => $unused ) {
+			$out['libraries'][ $lib ] = empty( $in['libraries'][ $lib ] ) ? 0 : 1;
+		}
+
+		$out['default_engine'] = self::pick( $in['default_engine'] ?? '', Presets::TWEEN_ENGINES, $d['default_engine'] );
+		$out['source']         = self::pick( $in['source'] ?? '', array( 'local', 'cdn' ), 'local' );
+		$out['level']          = self::pick( $in['level'] ?? '', array_keys( Levels::SCALE ), $d['level'] );
+
+		// Auto-animate.
+		$auto                               = $in['auto'] ?? array();
+		$out['auto']['enabled']             = empty( $auto['enabled'] ) ? 0 : 1;
+		$out['auto']['skip_header']         = empty( $auto['skip_header'] ) ? 0 : 1;
+		$out['auto']['skip_footer']         = empty( $auto['skip_footer'] ) ? 0 : 1;
+		$out['auto']['skip_popups']         = empty( $auto['skip_popups'] ) ? 0 : 1;
+		$out['auto']['skip_interactions']   = empty( $auto['skip_interactions'] ) ? 0 : 1;
+		$out['auto']['exclude']             = self::sanitize_selector_list( $auto['exclude'] ?? '' );
+		if ( ! self::balanced_selector( $out['auto']['exclude'] ) ) {
+			$out['auto']['exclude'] = $d['auto']['exclude'];
+		}
+		$out['auto']['rules']               = self::sanitize_rules( $auto['rules'] ?? array() );
+
+		// Defaults.
+		$df                            = $in['defaults'] ?? array();
+		$out['defaults']['duration']   = self::num( $df['duration'] ?? null, 0, 10, $d['defaults']['duration'] );
+		$out['defaults']['delay']      = self::num( $df['delay'] ?? null, 0, 10, $d['defaults']['delay'] );
+		$out['defaults']['ease']       = self::pick( $df['ease'] ?? '', array_keys( self::eases() ), 'smooth' );
+		$out['defaults']['distance']   = self::num( $df['distance'] ?? null, 0, 400, $d['defaults']['distance'] );
+		$out['defaults']['stagger']    = self::num( $df['stagger'] ?? null, 0, 2, $d['defaults']['stagger'] );
+		$out['defaults']['offset']     = self::num( $df['offset'] ?? null, 0, 50, $d['defaults']['offset'] );
+		$out['defaults']['batch']      = self::num( $df['batch'] ?? null, 0, 1, $d['defaults']['batch'] );
+		$out['defaults']['speed']      = self::num( $df['speed'] ?? null, -2, 2, $d['defaults']['speed'] );
+		$out['defaults']['replay']     = empty( $df['replay'] ) ? 0 : 1;
+
+		// Lenis.
+		$ln                       = $in['lenis'] ?? array();
+		$out['lenis']['lerp']     = self::num( $ln['lerp'] ?? null, 0.01, 1, $d['lenis']['lerp'] );
+		$out['lenis']['wheel']    = self::num( $ln['wheel'] ?? null, 0.1, 5, $d['lenis']['wheel'] );
+		$out['lenis']['touch']    = empty( $ln['touch'] ) ? 0 : 1;
+		$out['lenis']['anchors']  = empty( $ln['anchors'] ) ? 0 : 1;
+
+		// Three.
+		$th                      = $in['three'] ?? array();
+		$out['three']['dpr']     = self::num( $th['dpr'] ?? null, 0.5, 3, $d['three']['dpr'] );
+		$out['three']['mobile']  = empty( $th['mobile'] ) ? 0 : 1;
+
+		// Accessibility.
+		$a                         = $in['a11y'] ?? array();
+		$out['a11y']['reduced']    = self::pick( $a['reduced'] ?? '', array( 'respect', 'fade', 'ignore' ), 'respect' );
+		$out['a11y']['min_width']  = (int) self::num( $a['min_width'] ?? null, 0, 4000, 0 );
+
+		// Performance.
+		$p                        = $in['perf'] ?? array();
+		$out['perf']['fouc']      = empty( $p['fouc'] ) ? 0 : 1;
+		$out['perf']['failsafe']  = (int) self::num( $p['failsafe'] ?? null, 500, 15000, $d['perf']['failsafe'] );
+		$out['perf']['always']    = empty( $p['always'] ) ? 0 : 1;
+		$out['perf']['native']    = empty( $p['native'] ) ? 0 : 1;
+
+		$out['debug'] = empty( $in['debug'] ) ? 0 : 1;
+
+		self::flush();
+		return $out;
+	}
+
+	/**
+	 * @param mixed $rules Raw rules.
+	 * @return array
+	 */
+	public static function sanitize_rules( $rules ) {
+		$out = array();
+		if ( ! is_array( $rules ) ) {
+			return $out;
+		}
+		foreach ( $rules as $rule ) {
+			if ( ! is_array( $rule ) ) {
+				continue;
+			}
+			$type   = self::pick( $rule['type'] ?? '', array( 'element', 'class' ), 'element' );
+			$target = 'class' === $type
+				? sanitize_html_class( ltrim( (string) ( $rule['target'] ?? '' ), '.' ) )
+				: ( '*' === trim( (string) ( $rule['target'] ?? '' ) ) ? '*' : sanitize_key( wp_strip_all_tags( (string) ( $rule['target'] ?? '' ) ) ) );
+			$preset = (string) ( $rule['preset'] ?? '' );
+
+			if ( '' === $target || ! Presets::exists( $preset ) ) {
+				continue;
+			}
+
+			$out[] = array(
+				'enabled' => empty( $rule['enabled'] ) ? 0 : 1,
+				'type'    => $type,
+				'target'  => $target,
+				'preset'  => $preset,
+				'scope'   => self::sanitize_scope( $rule['scope'] ?? 'self' ),
+				'engine'  => self::pick( $rule['engine'] ?? '', array_merge( array( 'native' ), Presets::TWEEN_ENGINES ), '' ),
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Scope: "self", "children" or a CSS selector (relative to the element).
+	 *
+	 * @param mixed $scope Raw.
+	 * @return string
+	 */
+	public static function sanitize_scope( $scope ) {
+		$scope = trim( wp_strip_all_tags( (string) $scope ) );
+		if ( '' === $scope || 'self' === $scope ) {
+			return 'self';
+		}
+		if ( 'children' === $scope ) {
+			return 'children';
+		}
+		return self::sanitize_selector_list( $scope );
+	}
+
+	/**
+	 * Keep a CSS selector list safe for attribute/inline-JS output: no tags, braces or semicolons.
+	 *
+	 * @param mixed $value Raw.
+	 * @return string
+	 */
+	public static function sanitize_selector_list( $value ) {
+		$value = wp_strip_all_tags( is_scalar( $value ) ? (string) $value : '' );
+		// '>' is kept (child combinator); '<', braces, semicolons and backslashes never survive.
+		$value = preg_replace( '/[{}<;\\\\]/', '', $value );
+		$value = preg_replace( '/\s+/', ' ', $value );
+		return trim( substr( $value, 0, 1000 ) );
+	}
+
+	/**
+	 * Parentheses/brackets balanced and no comments, so a selector can't reshape the boot CSS rule.
+	 *
+	 * @param string $selector Selector list.
+	 * @return bool
+	 */
+	public static function balanced_selector( $selector ) {
+		if ( false !== strpos( $selector, '/*' ) || false !== strpos( $selector, '*/' ) ) {
+			return false;
+		}
+		// Brackets inside quoted strings don't count (they could otherwise balance the check while
+		// closing the :not(:is(...)) wrapper they are printed into).
+		if ( substr_count( $selector, '"' ) % 2 || substr_count( $selector, "'" ) % 2 ) {
+			return false;
+		}
+		$unquoted = preg_replace( '/"[^"]*"|\'[^\']*\'/', '""', $selector );
+		$depth    = array( '(' => 0, '[' => 0 );
+		$pairs    = array( ')' => '(', ']' => '[' );
+		foreach ( str_split( (string) $unquoted ) as $ch ) {
+			if ( isset( $depth[ $ch ] ) ) {
+				$depth[ $ch ]++;
+			} elseif ( isset( $pairs[ $ch ] ) ) {
+				if ( --$depth[ $pairs[ $ch ] ] < 0 ) {
+					return false;
+				}
+			}
+		}
+		return 0 === $depth['('] && 0 === $depth['['];
+	}
+
+	private static function pick( $value, array $allowed, $fallback ) {
+		return in_array( $value, $allowed, true ) ? $value : $fallback;
+	}
+
+	private static function num( $value, $min, $max, $fallback ) {
+		if ( ! is_numeric( $value ) ) {
+			return $fallback;
+		}
+		$value = (float) $value;
+		return max( $min, min( $max, $value ) );
+	}
+}

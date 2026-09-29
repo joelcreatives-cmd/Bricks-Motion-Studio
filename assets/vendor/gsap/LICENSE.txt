@@ -1,0 +1,14 @@
+GSAP (https://gsap.com) — Copyright (c) Webflow, Inc.
+
+GSAP is NOT covered by this plugin's GPL license. It is distributed under the
+"GSAP Standard 'no charge' License": https://gsap.com/standard-license
+
+Summary (read the full license before redistributing this plugin):
+- Free to use on websites and web apps, including commercial projects.
+- Prohibited: using GSAP in no-code visual animation tools that compete with
+  Webflow's visual animation building capabilities, without Webflow's prior
+  written consent (contact: https://gsap.com/contact).
+- Keep the copyright banners inside the .min.js files intact.
+
+Files in this folder: gsap.min.js, ScrollTrigger.min.js, SplitText.min.js,
+ScrambleTextPlugin.min.js, DrawSVGPlugin.min.js (npm package gsap@3.15.0).
