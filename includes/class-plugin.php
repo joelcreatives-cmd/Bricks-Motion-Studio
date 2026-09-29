@@ -34,6 +34,10 @@ class Plugin {
 		if ( is_admin() ) {
 			new Admin();
 		}
+		// Update checks run in the dashboard, in background cron and in WP-CLI, never on the front end.
+		if ( is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
+			new Updater();
+		}
 
 		add_filter( 'plugin_action_links_' . plugin_basename( BME_FILE ), array( $this, 'action_links' ) );
 	}

@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<ruleset name="Bricks Motion Studio">
+	<description>WordPress coding standards and PHP 7.4+ compatibility.</description>
+	<file>bricks-motion-studio.php</file>
+	<file>uninstall.php</file>
+	<file>includes</file>
+	<arg name="extensions" value="php"/>
+	<arg value="s"/>
+
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.5"/>
+	<rule ref="PHPCompatibilityWP"/>
+
+	<rule ref="WordPress-Extra">
+		<!-- The bme / BME prefix and Bricks-style "bme/..." hook names are public API: saved settings and site code depend on them. -->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals"/>
+		<exclude name="WordPress.NamingConventions.ValidHookName"/>
+		<!-- Bricks element file naming (class-element-*.php). -->
+		<exclude name="WordPress.Files.FileName.InvalidClassFileName"/>
+		<!-- Hook callbacks must accept the arguments WordPress / Bricks pass. -->
+		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames"/>
+		<!-- Inline template conditionals and short one-line arrays read better as they are. -->
+		<exclude name="Squiz.ControlStructures.ControlSignature.NewlineAfterOpenBrace"/>
+		<exclude name="WordPress.Arrays.ArrayDeclarationSpacing.AssociativeArrayFound"/>
+		<exclude name="Universal.Operators.DisallowStandalonePostIncrementDecrement"/>
+	</rule>
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array"><element value="bricks-motion-studio"/></property>
+		</properties>
+	</rule>
+	<!-- base64 is only used for the admin menu's SVG icon (data: URI). -->
+	<rule ref="WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode">
+		<exclude-pattern>includes/class-admin.php</exclude-pattern>
+	</rule>
+</ruleset>

@@ -20,3 +20,4 @@ if ( is_multisite() ) {
 	delete_option( 'bme_settings' );
 	delete_option( 'bme_schema' );
 }
+delete_site_transient( 'bme_github_release' );

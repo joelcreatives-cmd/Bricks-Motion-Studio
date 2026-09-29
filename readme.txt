@@ -44,6 +44,10 @@ No — the builder canvas stays static so editing is never obstructed. Use Brick
 
 Select it in Bricks → Content → Motion Studio → Animation: Disabled. Or add the attribute `data-bme-skip`.
 
+= How do updates work? =
+
+Like any other plugin: WordPress checks this plugin's GitHub releases (from the dashboard and its background update check, never on the front end) and shows the update under Dashboard → Updates.
+
 = How do I see the page without the plugin? =
 
 While logged in as an editor or admin, append `?bme-disable=1` to any URL.
@@ -58,5 +62,6 @@ While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 * Respects each element's designed opacity and transform; accessible text splitting; reduced-motion options; fail-safes for blocked or delayed scripts; optimizer-plugin compatibility.
 * Minified runtime with the preset catalog built in; slim bundled builds of Anime.js and Motion; libraries load only on pages that use them.
 * Settings app with live previews, system checks, export / import / reset; end-to-end test suite.
+* Updates from GitHub releases; automated checks on every push.
 
 Licensing note: bundled GSAP is under the GSAP Standard License (see Description).

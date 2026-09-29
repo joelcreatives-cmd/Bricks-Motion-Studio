@@ -8,7 +8,9 @@ import { start } from './server.mjs';
 execFileSync( 'node', [ new URL( './make-harness.mjs', import.meta.url ).pathname ], { stdio: 'inherit' } );
 const server = await start();
 const executablePath = process.env.CHROME || ( process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome' );
-const browser = await puppeteer.launch( { executablePath, headless: 'new', args: [ '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist' ] } );
+// CI runners (Ubuntu 24.04) restrict the user namespaces Chrome's sandbox needs; the page is our own local harness.
+const ciArgs = process.env.CI ? [ '--no-sandbox' ] : [];
+const browser = await puppeteer.launch( { executablePath, headless: 'new', args: [ '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', ...ciArgs ] } );
 let failed = 0;
 
 async function run( mode ) {

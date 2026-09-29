@@ -233,6 +233,7 @@ class Bricks_Integration {
 
 		$c['bmeInfoManual'] = $g + array(
 			'type'     => 'info',
+			/* translators: %brx% is a literal Bricks token, not a placeholder: keep it unchanged. */
 			'content'  => esc_html__( 'On the element that starts it: Interactions → add. Action: JavaScript (Function). Target: CSS selector of this element (# Copy CSS ID). Function name: BricksMotion.play (or BricksMotion.reset). Arguments: click "Add item" (fills in %brx%).', 'bricks-motion-studio' ),
 			'required' => array( $custom, array( 'bmeTrigger', '=', 'manual' ) ),
 		);
@@ -509,7 +510,7 @@ class Bricks_Integration {
 			$levels[ $slug ] = $text[0];
 		}
 
-		$data['controls']['bmePageMode'] = array(
+		$data['controls']['bmePageMode']  = array(
 			'group'       => self::GROUP,
 			'label'       => esc_html__( 'Animations', 'bricks-motion-studio' ),
 			'type'        => 'select',

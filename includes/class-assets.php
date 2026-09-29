@@ -223,10 +223,10 @@ class Assets {
 		$exclude = (string) Settings::get( 'auto.exclude', '' );
 		$not     = ( $exclude && Settings::balanced_selector( $exclude ) ) ? ':not(:is(' . $exclude . ') [data-bme-opts*=\'"auto"\'])' : '';
 		// 0.01 instead of 0: visually invisible, but still a painted LCP candidate (Chrome ignores opacity:0).
-		$css     = 'html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-hide]' . $not . '{opacity:.01}';
+		$css = 'html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-hide]' . $not . '{opacity:.01}';
 		// Late or unseen content is handled by the runtime's own safety net (no CSS animation here:
 		// it would replace animations the element already has).
-		$css    .= '@media print{[data-bme-hide]{opacity:1!important}}';
+		$css .= '@media print{[data-bme-hide]{opacity:1!important}}';
 		printf( "<style id=\"bme-boot-css\">%s</style>\n", $css ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 
 		$js = sprintf(
@@ -355,23 +355,23 @@ class Assets {
 		$s = Settings::all();
 
 		$config = array(
-			'version'  => BME_VERSION,
-			'debug'    => (bool) $s['debug'],
-			'engine'   => Settings::default_engine(),
-			'engines'  => $engines,
-			'native'   => (bool) $s['perf']['native'],
-			'ownGsap'  => ! in_array( 'gsap', $engines, true ) || 'bme-gsap' === $this->external_gsap_handle(),
-			'defaults' => $s['defaults'],
-			'exclude'  => (string) $s['auto']['exclude'],
-			'popups'   => ! $s['auto']['skip_popups'],
+			'version'          => BME_VERSION,
+			'debug'            => (bool) $s['debug'],
+			'engine'           => Settings::default_engine(),
+			'engines'          => $engines,
+			'native'           => (bool) $s['perf']['native'],
+			'ownGsap'          => ! in_array( 'gsap', $engines, true ) || 'bme-gsap' === $this->external_gsap_handle(),
+			'defaults'         => $s['defaults'],
+			'exclude'          => (string) $s['auto']['exclude'],
+			'popups'           => ! $s['auto']['skip_popups'],
 			'skipInteractions' => (bool) $s['auto']['skip_interactions'],
-			'failsafe' => (int) $s['perf']['failsafe'],
-			'reduced'  => $s['a11y']['reduced'],
-			'minWidth' => (int) $s['a11y']['min_width'],
+			'failsafe'         => (int) $s['perf']['failsafe'],
+			'reduced'          => $s['a11y']['reduced'],
+			'minWidth'         => (int) $s['a11y']['min_width'],
 			// The built-in catalog is baked into runtime.min.js (cached across pages).
-			'presets'  => ( '' === self::min() || has_filter( 'bme/presets' ) ) ? Presets::all() : null,
-			'lenis'    => Settings::library_enabled( 'lenis' ) ? $s['lenis'] : null,
-			'three'    => null,
+			'presets'          => ( '' === self::min() || has_filter( 'bme/presets' ) ) ? Presets::all() : null,
+			'lenis'            => Settings::library_enabled( 'lenis' ) ? $s['lenis'] : null,
+			'three'            => null,
 		);
 
 		if ( Settings::library_enabled( 'three' ) ) {

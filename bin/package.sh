@@ -9,7 +9,8 @@ node bin/check.mjs >/dev/null || { node bin/check.mjs | grep -v OK; echo "Refusi
 rm -rf dist && mkdir -p dist/$SLUG
 rsync -a ./ dist/$SLUG/ --exclude dist --exclude node_modules --exclude .git --exclude src --exclude bin --exclude tests --exclude docs \
   --exclude package.json --exclude package-lock.json --exclude .DS_Store --exclude '*.map' \
-  --exclude README.md --exclude .gitignore \
+  --exclude README.md --exclude .gitignore --exclude .github \
+  --exclude /vendor --exclude composer.json --exclude composer.lock --exclude phpcs.xml.dist \
   --exclude assets/vendor/anime/anime.umd.min.js --exclude assets/vendor/motion/motion.js
 # (Full Anime.js / Motion builds are dev-only: bundled mode serves the slim builds, CDN mode
 #  loads the full npm builds from jsDelivr with the integrity hashes in includes/data/sri.json.)

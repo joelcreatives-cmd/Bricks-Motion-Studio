@@ -9,7 +9,7 @@
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain:       bricks-motion-studio
- * Update URI:        false
+ * Update URI:        https://github.com/joelcreatives-cmd/Bricks-Motion-Studio
  * Domain Path:       /languages
  *
  * @package BricksMotionStudio
@@ -31,6 +31,7 @@ require_once BME_PATH . 'includes/class-usage.php';
 require_once BME_PATH . 'includes/class-bricks-integration.php';
 require_once BME_PATH . 'includes/class-assets.php';
 require_once BME_PATH . 'includes/class-admin.php';
+require_once BME_PATH . 'includes/class-updater.php';
 require_once BME_PATH . 'includes/class-plugin.php';
 
 register_activation_hook( __FILE__, array( 'BricksMotionStudio\\Plugin', 'activate' ) );

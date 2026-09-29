@@ -270,53 +270,53 @@ class Settings {
 		$out['level']          = self::pick( $in['level'] ?? '', array_keys( Levels::SCALE ), $d['level'] );
 
 		// Auto-animate.
-		$auto                               = $in['auto'] ?? array();
-		$out['auto']['enabled']             = empty( $auto['enabled'] ) ? 0 : 1;
-		$out['auto']['skip_header']         = empty( $auto['skip_header'] ) ? 0 : 1;
-		$out['auto']['skip_footer']         = empty( $auto['skip_footer'] ) ? 0 : 1;
-		$out['auto']['skip_popups']         = empty( $auto['skip_popups'] ) ? 0 : 1;
-		$out['auto']['skip_interactions']   = empty( $auto['skip_interactions'] ) ? 0 : 1;
-		$out['auto']['exclude']             = self::sanitize_selector_list( $auto['exclude'] ?? '' );
+		$auto                             = $in['auto'] ?? array();
+		$out['auto']['enabled']           = empty( $auto['enabled'] ) ? 0 : 1;
+		$out['auto']['skip_header']       = empty( $auto['skip_header'] ) ? 0 : 1;
+		$out['auto']['skip_footer']       = empty( $auto['skip_footer'] ) ? 0 : 1;
+		$out['auto']['skip_popups']       = empty( $auto['skip_popups'] ) ? 0 : 1;
+		$out['auto']['skip_interactions'] = empty( $auto['skip_interactions'] ) ? 0 : 1;
+		$out['auto']['exclude']           = self::sanitize_selector_list( $auto['exclude'] ?? '' );
 		if ( ! self::balanced_selector( $out['auto']['exclude'] ) ) {
 			$out['auto']['exclude'] = $d['auto']['exclude'];
 		}
-		$out['auto']['rules']               = self::sanitize_rules( $auto['rules'] ?? array() );
+		$out['auto']['rules'] = self::sanitize_rules( $auto['rules'] ?? array() );
 
 		// Defaults.
-		$df                            = $in['defaults'] ?? array();
-		$out['defaults']['duration']   = self::num( $df['duration'] ?? null, 0, 10, $d['defaults']['duration'] );
-		$out['defaults']['delay']      = self::num( $df['delay'] ?? null, 0, 10, $d['defaults']['delay'] );
-		$out['defaults']['ease']       = self::pick( $df['ease'] ?? '', array_keys( self::eases() ), 'smooth' );
-		$out['defaults']['distance']   = self::num( $df['distance'] ?? null, 0, 400, $d['defaults']['distance'] );
-		$out['defaults']['stagger']    = self::num( $df['stagger'] ?? null, 0, 2, $d['defaults']['stagger'] );
-		$out['defaults']['offset']     = self::num( $df['offset'] ?? null, 0, 50, $d['defaults']['offset'] );
-		$out['defaults']['batch']      = self::num( $df['batch'] ?? null, 0, 1, $d['defaults']['batch'] );
-		$out['defaults']['speed']      = self::num( $df['speed'] ?? null, -2, 2, $d['defaults']['speed'] );
-		$out['defaults']['replay']     = empty( $df['replay'] ) ? 0 : 1;
+		$df                          = $in['defaults'] ?? array();
+		$out['defaults']['duration'] = self::num( $df['duration'] ?? null, 0, 10, $d['defaults']['duration'] );
+		$out['defaults']['delay']    = self::num( $df['delay'] ?? null, 0, 10, $d['defaults']['delay'] );
+		$out['defaults']['ease']     = self::pick( $df['ease'] ?? '', array_keys( self::eases() ), 'smooth' );
+		$out['defaults']['distance'] = self::num( $df['distance'] ?? null, 0, 400, $d['defaults']['distance'] );
+		$out['defaults']['stagger']  = self::num( $df['stagger'] ?? null, 0, 2, $d['defaults']['stagger'] );
+		$out['defaults']['offset']   = self::num( $df['offset'] ?? null, 0, 50, $d['defaults']['offset'] );
+		$out['defaults']['batch']    = self::num( $df['batch'] ?? null, 0, 1, $d['defaults']['batch'] );
+		$out['defaults']['speed']    = self::num( $df['speed'] ?? null, -2, 2, $d['defaults']['speed'] );
+		$out['defaults']['replay']   = empty( $df['replay'] ) ? 0 : 1;
 
 		// Lenis.
-		$ln                       = $in['lenis'] ?? array();
-		$out['lenis']['lerp']     = self::num( $ln['lerp'] ?? null, 0.01, 1, $d['lenis']['lerp'] );
-		$out['lenis']['wheel']    = self::num( $ln['wheel'] ?? null, 0.1, 5, $d['lenis']['wheel'] );
-		$out['lenis']['touch']    = empty( $ln['touch'] ) ? 0 : 1;
-		$out['lenis']['anchors']  = empty( $ln['anchors'] ) ? 0 : 1;
+		$ln                      = $in['lenis'] ?? array();
+		$out['lenis']['lerp']    = self::num( $ln['lerp'] ?? null, 0.01, 1, $d['lenis']['lerp'] );
+		$out['lenis']['wheel']   = self::num( $ln['wheel'] ?? null, 0.1, 5, $d['lenis']['wheel'] );
+		$out['lenis']['touch']   = empty( $ln['touch'] ) ? 0 : 1;
+		$out['lenis']['anchors'] = empty( $ln['anchors'] ) ? 0 : 1;
 
 		// Three.
-		$th                      = $in['three'] ?? array();
-		$out['three']['dpr']     = self::num( $th['dpr'] ?? null, 0.5, 3, $d['three']['dpr'] );
-		$out['three']['mobile']  = empty( $th['mobile'] ) ? 0 : 1;
+		$th                     = $in['three'] ?? array();
+		$out['three']['dpr']    = self::num( $th['dpr'] ?? null, 0.5, 3, $d['three']['dpr'] );
+		$out['three']['mobile'] = empty( $th['mobile'] ) ? 0 : 1;
 
 		// Accessibility.
-		$a                         = $in['a11y'] ?? array();
-		$out['a11y']['reduced']    = self::pick( $a['reduced'] ?? '', array( 'respect', 'fade', 'ignore' ), 'respect' );
-		$out['a11y']['min_width']  = (int) self::num( $a['min_width'] ?? null, 0, 4000, 0 );
+		$a                        = $in['a11y'] ?? array();
+		$out['a11y']['reduced']   = self::pick( $a['reduced'] ?? '', array( 'respect', 'fade', 'ignore' ), 'respect' );
+		$out['a11y']['min_width'] = (int) self::num( $a['min_width'] ?? null, 0, 4000, 0 );
 
 		// Performance.
-		$p                        = $in['perf'] ?? array();
-		$out['perf']['fouc']      = empty( $p['fouc'] ) ? 0 : 1;
-		$out['perf']['failsafe']  = (int) self::num( $p['failsafe'] ?? null, 500, 15000, $d['perf']['failsafe'] );
-		$out['perf']['always']    = empty( $p['always'] ) ? 0 : 1;
-		$out['perf']['native']    = empty( $p['native'] ) ? 0 : 1;
+		$p                       = $in['perf'] ?? array();
+		$out['perf']['fouc']     = empty( $p['fouc'] ) ? 0 : 1;
+		$out['perf']['failsafe'] = (int) self::num( $p['failsafe'] ?? null, 500, 15000, $d['perf']['failsafe'] );
+		$out['perf']['always']   = empty( $p['always'] ) ? 0 : 1;
+		$out['perf']['native']   = empty( $p['native'] ) ? 0 : 1;
 
 		$out['debug'] = empty( $in['debug'] ) ? 0 : 1;
 

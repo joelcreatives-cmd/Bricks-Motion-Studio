@@ -26,11 +26,11 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 	}
 
 	public function set_control_groups() {
-		$this->control_groups['scene'] = array(
+		$this->control_groups['scene']    = array(
 			'title' => esc_html__( 'Scene', 'bricks-motion-studio' ),
 			'tab'   => 'content',
 		);
-		$this->control_groups['model'] = array(
+		$this->control_groups['model']    = array(
 			'title'    => esc_html__( 'Model', 'bricks-motion-studio' ),
 			'tab'      => 'content',
 			'required' => array( 'scene', '=', 'model' ),
@@ -43,13 +43,13 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 
 	public function set_controls() {
 		$this->controls['scene'] = array(
-			'tab'         => 'content',
-			'group'       => 'scene',
-			'label'       => esc_html__( 'Scene', 'bricks-motion-studio' ),
-			'type'        => 'select',
-			'options'     => \BricksMotionStudio\Bricks_Integration::scene_options( true ),
-			'default'     => 'particles',
-			'inline'      => true,
+			'tab'     => 'content',
+			'group'   => 'scene',
+			'label'   => esc_html__( 'Scene', 'bricks-motion-studio' ),
+			'type'    => 'select',
+			'options' => \BricksMotionStudio\Bricks_Integration::scene_options( true ),
+			'default' => 'particles',
+			'inline'  => true,
 		);
 
 		$this->controls['height'] = array(
@@ -208,7 +208,7 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 		if ( 'model' === $scene ) {
 			$model_raw = $str( $settings['modelUrl'] ?? null );
 			$url       = '' !== $model_raw ? trim( (string) $this->render_dynamic_data( $model_raw ) ) : '';
-			$url = $url ? esc_url_raw( $url, array( 'http', 'https' ) ) : '';
+			$url       = $url ? esc_url_raw( $url, array( 'http', 'https' ) ) : '';
 			if ( $url ) {
 				$config['model'] = $url;
 			}

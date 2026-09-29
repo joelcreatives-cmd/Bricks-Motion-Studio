@@ -59,7 +59,7 @@ class Admin {
 		$title = __( 'Motion Studio', 'bricks-motion-studio' );
 		// Own top-level item (right below Bricks) so it is visible in the dashboard sidebar.
 		// The Motion Studio wave mark (same shape as the settings header). Filled, so WordPress can tint it.
-		$icon = 'data:image/svg+xml;base64,' . base64_encode( '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="black" d="' . self::WAVE_PATH . '"/><circle fill="black" cx="4" cy="5" r="2"/></svg>' );
+		$icon       = 'data:image/svg+xml;base64,' . base64_encode( '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="black" d="' . self::WAVE_PATH . '"/><circle fill="black" cx="4" cy="5" r="2"/></svg>' );
 		$this->hook = (string) add_menu_page( $title, $title, 'manage_options', self::SLUG, array( $this, 'render' ), $icon, 3 );
 	}
 
@@ -448,8 +448,8 @@ class Admin {
 
 		$missing = array();
 		// The files this install actually serves (minified builds unless SCRIPT_DEBUG).
-		$min     = Assets::min();
-		$files   = array( 'assets/js/runtime' . $min . '.js', 'assets/js/adapter-gsap' . $min . '.js', 'assets/js/adapter-anime' . $min . '.js', 'assets/js/adapter-motion' . $min . '.js', 'assets/js/smooth-scroll' . $min . '.js', 'assets/css/frontend' . $min . '.css', 'assets/js/three/bme-three.js', 'assets/vendor/gsap/gsap.min.js', 'assets/vendor/gsap/ScrollTrigger.min.js', 'assets/vendor/gsap/SplitText.min.js', 'assets/vendor/anime/anime.slim.min.js', 'assets/vendor/motion/motion.slim.min.js', 'assets/vendor/lenis/lenis.min.js' );
+		$min   = Assets::min();
+		$files = array( 'assets/js/runtime' . $min . '.js', 'assets/js/adapter-gsap' . $min . '.js', 'assets/js/adapter-anime' . $min . '.js', 'assets/js/adapter-motion' . $min . '.js', 'assets/js/smooth-scroll' . $min . '.js', 'assets/css/frontend' . $min . '.css', 'assets/js/three/bme-three.js', 'assets/vendor/gsap/gsap.min.js', 'assets/vendor/gsap/ScrollTrigger.min.js', 'assets/vendor/gsap/SplitText.min.js', 'assets/vendor/anime/anime.slim.min.js', 'assets/vendor/motion/motion.slim.min.js', 'assets/vendor/lenis/lenis.min.js' );
 		foreach ( $files as $file ) {
 			if ( ! is_readable( BME_PATH . $file ) ) {
 				$missing[] = $file;
