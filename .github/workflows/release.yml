@@ -1,0 +1,42 @@
+name: Release
+
+# Push a tag like v1.0.1 (matching "Version:" in bricks-motion-studio.php) to publish a release.
+# Sites running the plugin then see the update in WordPress (includes/class-updater.php).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: none
+          coverage: none
+      - name: Tag must match the plugin version
+        run: |
+          VERSION=$(grep -m1 "Version:" bricks-motion-studio.php | awk '{print $NF}')
+          STABLE=$(grep -m1 "Stable tag:" readme.txt | awk '{print $NF}')
+          test "v$VERSION" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match Version: $VERSION"; exit 1; }
+          test "$VERSION" = "$STABLE" || { echo "readme.txt Stable tag ($STABLE) does not match Version: $VERSION"; exit 1; }
+          grep -q "define( 'BME_VERSION', '$VERSION' )" bricks-motion-studio.php || { echo "BME_VERSION does not match Version: $VERSION"; exit 1; }
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:e2e
+        env:
+          CHROME: /usr/bin/google-chrome
+      - run: npm run zip
+      - name: Publish release with the plugin zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/bricks-motion-studio-*.zip --title "Bricks Motion Studio ${GITHUB_REF_NAME#v}" --generate-notes

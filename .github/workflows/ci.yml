@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  php:
+    name: PHP ${{ matrix.php }} lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['7.4', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: none
+          coverage: none
+      - name: Syntax check
+        run: find . -name '*.php' -not -path './node_modules/*' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
+
+  standards:
+    name: WordPress coding standards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: vendor/bin/phpcs
+
+  build-and-test:
+    name: Builds, checks and browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: none
+          coverage: none
+      - run: npm ci
+      # Stale minified builds, library version drift, CDN integrity hashes, JS/PHP syntax.
+      - run: npm run check
+      # Every preset on every engine, normal and reduced motion, on the sources and the shipped builds.
+      - run: npm run test:e2e
+        env:
+          CHROME: /usr/bin/google-chrome
+      - run: npm run zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bricks-motion-studio
+          path: dist/*.zip
