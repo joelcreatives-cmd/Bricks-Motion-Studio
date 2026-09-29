@@ -145,7 +145,7 @@ class Admin {
 		$data = json_decode( (string) $raw, true );
 
 		if ( ! is_array( $data ) ) {
-			wp_safe_redirect( add_query_arg( 'bme_notice', 'import_failed', self::page_url() ) );
+			wp_safe_redirect( add_query_arg( 'bme_notice', 'import_failed', self::page_url() ) . '#system' ); // back to where Import / Reset live
 			exit;
 		}
 
@@ -158,7 +158,7 @@ class Admin {
 
 		update_option( BME_OPTION, Settings::sanitize( wp_slash( $merged ) ) );
 		Settings::flush();
-		wp_safe_redirect( add_query_arg( 'bme_notice', 'imported', self::page_url() ) );
+		wp_safe_redirect( add_query_arg( 'bme_notice', 'imported', self::page_url() ) . '#system' ); // back to where Import / Reset live
 		exit;
 	}
 
@@ -169,7 +169,7 @@ class Admin {
 		check_admin_referer( 'bme_reset' );
 		update_option( BME_OPTION, Settings::defaults() );
 		Settings::flush();
-		wp_safe_redirect( add_query_arg( 'bme_notice', 'reset', self::page_url() ) );
+		wp_safe_redirect( add_query_arg( 'bme_notice', 'reset', self::page_url() ) . '#system' ); // back to where Import / Reset live
 		exit;
 	}
 

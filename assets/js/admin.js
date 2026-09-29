@@ -68,6 +68,12 @@
 				h.setAttribute( 'tabindex', '-1' );
 				h.focus( { preventScroll: true } );
 			}
+			// Switching sections from further down the page opens the new one at its top.
+			var app = $( '.bme-app' );
+			var top = app ? app.getBoundingClientRect().top : 0;
+			if ( top < 0 ) {
+				window.scrollTo( 0, window.scrollY + top - 40 );
+			}
 		}
 	}
 
@@ -80,6 +86,12 @@
 		} );
 	} );
 	show( ( location.hash || '#libraries' ).slice( 1 ), false );
+	// A one-time notice (imported, reset, import failed) must not come back on refresh.
+	if ( /[?&]bme_notice=/.test( location.search ) ) {
+		var clean = new URL( location.href );
+		clean.searchParams.delete( 'bme_notice' );
+		history.replaceState( null, '', clean.pathname + clean.search + clean.hash );
+	}
 	window.addEventListener( 'hashchange', function () {
 		show( ( location.hash || '#libraries' ).slice( 1 ), true );
 	} );
@@ -285,8 +297,10 @@
 		}
 		var prev = e.target.closest( '[data-bme-preview-rule]' );
 		if ( prev ) {
-			var select = $( '[data-bme-preset]', prev.closest( '.bme-rule' ) );
-			swatch( prev, select ? select.value : 'fade-up' );
+			var row = prev.closest( '.bme-rule' );
+			var select = $( '[data-bme-preset]', row );
+			var scope = $( 'input[name$="[scope]"]', row );
+			swatch( prev, select ? select.value : 'fade-up', scope && scope.value.trim() && scope.value.trim() !== 'self' );
 		}
 	} );
 
@@ -516,25 +530,40 @@
 	}
 
 	// Floating swatch preview for a rule row.
-	function swatch( anchor, slug ) {
+	// Lives inside .bme-wrap so it gets the screen's colour tokens (outside it, it rendered transparent).
+	// Rules that animate children preview three items so the stagger is visible.
+	var swatchTimer = 0;
+	function swatch( anchor, slug, children ) {
 		var old = $( '.bme-swatch' );
 		if ( old ) {
 			old.remove();
 		}
+		clearTimeout( swatchTimer );
+		var p = presets[ slug ] || {};
+		var isText = p.group === 'text';
 		var r = anchor.getBoundingClientRect();
 		var box = document.createElement( 'div' );
-		box.className = 'bme-swatch';
+		box.className = 'bme-swatch' + ( children && ! isText ? ' bme-swatch--kids' : '' );
 		box.setAttribute( 'aria-hidden', 'true' );
-		var inner = document.createElement( 'span' );
-		inner.textContent = ( presets[ slug ] && presets[ slug ].group === 'text' ) ? i18n.sample || 'Hello there' : 'Aa';
-		box.appendChild( inner );
-		box.style.left = Math.max( 8, r.left - 150 ) + 'px';
-		box.style.top = Math.max( 40, r.top - 26 ) + 'px';
-		document.body.appendChild( box );
-		playPreset( slug, [ inner ], presets[ slug ] && presets[ slug ].group === 'text' ? inner : null );
-		setTimeout( function () {
+		var items = [];
+		for ( var i = 0; i < ( children && ! isText ? 3 : 1 ); i++ ) {
+			var chip = document.createElement( 'span' );
+			chip.textContent = isText ? i18n.sample || 'Hello there' : ( children ? '' : 'Aa' );
+			box.appendChild( chip );
+			items.push( chip );
+		}
+		( $( '.bme-wrap' ) || document.body ).appendChild( box );
+		// Left of the play button, vertically centred on the row, kept inside the window.
+		var w = box.offsetWidth;
+		var h = box.offsetHeight;
+		box.style.left = Math.max( 8, r.left - w - 12 ) + 'px';
+		box.style.top = Math.min( window.innerHeight - h - 8, Math.max( 40, r.top + r.height / 2 - h / 2 ) ) + 'px';
+		playPreset( slug, items, isText ? items[ 0 ] : null );
+		var o = opts();
+		var ms = ( ( p.duration || o.duration ) + ( p.stagger || o.stagger ) * 6 ) * 1000 + 1200;
+		swatchTimer = setTimeout( function () {
 			box.remove();
-		}, 2200 );
+		}, Math.min( 6000, Math.max( 2400, ms ) ) );
 	}
 
 	// Reference cards: play on hover / focus.

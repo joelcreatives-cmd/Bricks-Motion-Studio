@@ -243,19 +243,22 @@
 
 /* Shell -------------------------------------------------------------------- */
 
+/* The nav column's tint lives on the shell so the nav itself can stay in view while long panels scroll. */
 .bme-shell {
 	display: grid;
 	grid-template-columns: 208px minmax(0, 1fr);
 	min-height: 640px;
+	background: #fbfafd;
 }
 
 .bme-nav {
+	position: sticky;
+	top: 90px; /* WordPress admin bar + the sticky top bar */
+	align-self: start;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
 	padding: 18px 10px;
-	border-inline-end: 1px solid var(--line);
-	background: #fbfafd;
 }
 
 .bme-nav__item {
@@ -320,6 +323,8 @@
 .bme-main {
 	padding: 28px 36px 40px;
 	min-width: 0;
+	background: var(--surface);
+	border-inline-start: 1px solid var(--line);
 }
 
 /* Panels ------------------------------------------------------------------- */
@@ -848,25 +853,36 @@
 .bme-swatch {
 	position: fixed;
 	z-index: 100000;
-	display: grid;
-	place-items: center;
-	width: 132px;
-	height: 84px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 10px;
+	width: 240px;
+	height: 128px;
+	padding: 16px;
 	border-radius: var(--radius-lg);
 	background: var(--ink);
-	box-shadow: 0 12px 32px -8px rgba(27, 26, 36, 0.35);
+	box-shadow: 0 16px 40px -10px rgba(27, 26, 36, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 	pointer-events: none;
 	overflow: hidden;
 }
 
 .bme-swatch span {
 	display: block;
-	padding: 8px 14px;
-	border-radius: 6px;
+	padding: 10px 18px;
+	border-radius: var(--radius);
 	background: var(--accent);
 	color: #fff;
 	font-weight: 650;
-	font-size: 14.5px;
+	font-size: 17px;
+	line-height: 1.25;
+	white-space: nowrap;
+}
+
+.bme-swatch--kids span {
+	width: 48px;
+	height: 48px;
+	padding: 0;
 }
 
 /* Timing & feel ------------------------------------------------------------ */
@@ -911,11 +927,12 @@
 	gap: 8px;
 }
 
+/* Three solid tiles so a stagger reads clearly (white outlines looked like empty slots). */
 .bme-preview__cards span {
 	height: 54px;
 	border-radius: 8px;
-	background: var(--surface);
-	border: 1px solid var(--line);
+	background: var(--accent-line);
+	border: 1px solid var(--accent-line);
 }
 
 .bme-preview__cards span:first-child {
@@ -1264,11 +1281,14 @@
 		grid-template-columns: 1fr;
 	}
 	.bme-nav {
+		position: static;
 		flex-direction: row;
 		overflow-x: auto;
-		border-inline-end: 0;
 		border-bottom: 1px solid var(--line);
 		padding: 8px;
+	}
+	.bme-main {
+		border-inline-start: 0;
 	}
 	.bme-nav__item {
 		flex: none;
