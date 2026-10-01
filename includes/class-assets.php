@@ -153,6 +153,7 @@ class Assets {
 		wp_register_script( 'bme-adapter-anime', $js . 'adapter-anime' . $min . '.js', array( 'bme-runtime', 'bme-anime' ), $ver, $def );
 		wp_register_script( 'bme-adapter-motion', $js . 'adapter-motion' . $min . '.js', array( 'bme-runtime', 'bme-motion' ), $ver, $def );
 		wp_register_script( 'bme-smooth', $js . 'smooth-scroll' . $min . '.js', array( 'bme-runtime', 'bme-lenis' ), $ver, $def );
+		wp_register_script( 'bme-timeline', $js . 'timeline' . $min . '.js', array(), $ver, $def );
 	}
 
 	/**
@@ -269,6 +270,7 @@ class Assets {
 		$always      = (bool) Settings::get( 'perf.always' );
 		$needs_anim  = $always || Usage::has( 'motion' ) || Usage::has( 'hover' );
 		$needs_three = Usage::has( 'three' ) && Settings::library_enabled( 'three' );
+		$needs_tl    = Usage::has( 'timeline' );
 		$lenis       = Settings::library_enabled( 'lenis' );
 
 		/**
@@ -276,8 +278,17 @@ class Assets {
 		 *
 		 * @param bool $load
 		 */
-		if ( ! apply_filters( 'bme/load', $needs_anim || $needs_three || $lenis ) ) {
+		if ( ! apply_filters( 'bme/load', $needs_anim || $needs_three || $needs_tl || $lenis ) ) {
 			return;
+		}
+
+		// Timelines run on their own small script (no runtime, no library).
+		if ( $needs_tl ) {
+			wp_enqueue_script( 'bme-timeline' );
+			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . wp_json_encode( array( 'reduced' => Settings::get( 'a11y.reduced', 'respect' ) ) ) . ';', 'before' );
+			if ( ! $needs_anim && ! $needs_three && ! $lenis ) {
+				return;
+			}
 		}
 
 		wp_enqueue_style( 'bme-frontend' ); // Normally already enqueued in <head>; harmless if so.

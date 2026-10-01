@@ -27,6 +27,21 @@ Updates arrive like any other plugin update (Dashboard → Updates), straight fr
 2. Push a matching tag: `git tag v1.0.1 && git push origin v1.0.1`.
 3. The **Release** workflow checks that the versions match, runs every check and browser test, builds the zip and publishes the GitHub release. Sites see the update within about 6 hours (immediately after **Dashboard → Updates → Check again**).
 
+## Timeline (keyframes)
+
+Every element's **Motion Studio** group has a **Timeline** list. Each row animates one property of the element itself, of elements inside it (a selector), or of anything on the page (`page:.selector`):
+
+| Field | Values |
+|---|---|
+| Trigger | **Scroll position** (keyframes are % of the element's trip through the screen, so a tall section can choreograph a sticky stage), **Scrolled into view** (once), **Hover** (reverses on leave), **Hover out** (plays on leave instead of reversing), **Loop** |
+| Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour |
+| Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%`. Numbers with px % vw vh em rem deg, `#hex` / `rgba()`, `auto` (the element's designed value), `-overflow` (slide until the far edge reaches the parent's edge) |
+| Duration / delay / easing | timed triggers; easing includes exact quad/cubic/quart/quint/expo/sine/circ/back curves (GSAP power1-4 …) |
+| Scroll range | optional ScrollTrigger-style `"<element edge> <screen line>"`, e.g. `top 15%` → `bottom bottom`, measured on this element or another |
+| Screen sizes | all, desktop (992px+), or tablet and phone (991px and below) |
+
+Rows replace the part of the designed transform they animate (like GSAP's x / y / rotate / scale) and keep the rest. Timelines run on `assets/js/timeline.js` (3 KB gzipped, no library), enqueued only on pages that use them. Under reduced motion, scroll rows still follow the scrollbar (the visitor drives them, and stacked sections need them for layout); view and hover rows jump to their end state and loops stay parked.
+
 ## Settings (dashboard → Motion Studio)
 
 | Section | What it controls |
@@ -202,6 +217,7 @@ assets/
   js/adapter-{gsap,anime,motion}.js
   js/*.min.js, css/frontend.min.css  production builds (SCRIPT_DEBUG loads the sources)
   js/smooth-scroll.js             Lenis integration
+  js/timeline.js                  Timeline keyframes (scroll / view / hover / loop), library-free
   js/three/                       built Three.js scenes (ES modules, lazy)
   js/admin.js, css/*.css
   vendor/{gsap,anime,motion,lenis}/  bundled libraries + licenses (Anime.js / Motion as slim builds)

@@ -49,6 +49,25 @@ body += `<style>.a-trans{transition:all .3s}.a-tx{position:relative;left:50%;wid
 <div id="a-clone-src" data-bme="fade-up" data-bme-engine="native" data-bme-hide data-case2="audit-clone-src">clone source</div>
 <div id="a-clone-dst"></div>
 <script>document.addEventListener('DOMContentLoaded',function(){setTimeout(function(){var c=document.getElementById('a-clone-src').cloneNode(true);c.id='a-clone';c.setAttribute('data-case2','audit-clone');document.getElementById('a-clone-dst').appendChild(c);},300);});</script>`;
+// Timelines (asserted in run.mjs via data-case3 = "tl-*").
+const tl = (rows) => "data-bme-tl='" + JSON.stringify(rows) + "'";
+body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{position:sticky;top:0;height:300px}.tl-d{position:absolute;left:50%;transform:translateX(-50%);width:100px}.tl-strip-wrap{overflow:hidden;width:400px}.tl-strip{display:flex;width:max-content}.tl-strip>div{width:300px;height:40px;flex:none}</style>
+<section class="tl-stage" data-case3="tl-scroll" ${tl([
+  { on: 'scroll', s: '.a', p: 'x', k: [[0, '0px'], [100, '200px']] },
+  { on: 'scroll', s: '.b', p: 'width', k: [[0, '10px'], [100, '110px']] },
+  { on: 'scroll', s: '.c', p: 'backgroundColor', k: [[0, '#ff0000'], [100, '#0000ff']] },
+  { on: 'scroll', s: '.tl-d', p: 'y', k: [[0, '0px'], [100, '50px']] },
+  { on: 'scroll', s: '.e', p: 'opacity', k: [[40, '0'], [60, '1']] },
+  { on: 'scroll', s: '.f', p: 'y', k: [[0, '0px'], [100, '100px']], rs: 'top center', re: 'bottom center' },
+  { on: 'scroll', s: '.tl-strip', p: 'x', k: [[0, '0px'], [100, '-overflow']] },
+  { on: 'scroll', s: '.g', p: 'x', k: [[0, '0px'], [100, '99px']], bp: 'tablet' },
+])}><div class="pin"><div class="a" data-case3="tl-a">a</div><div class="b" data-case3="tl-b" style="height:10px;background:#333"></div><div class="c" data-case3="tl-c" style="height:10px"></div><div class="tl-d" data-case3="tl-d">centred</div><div class="e" data-case3="tl-e">e</div><div class="f" data-case3="tl-f">f</div><div class="tl-strip-wrap"><div class="tl-strip" data-case3="tl-strip"><div>1</div><div>2</div><div>3</div></div></div><div class="g" data-case3="tl-g">g</div></div></section>
+<div data-case3="tl-view" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0.3, o: 0 }, { on: 'view', p: 'y', k: [[0, '40px'], [100, '0px']], d: 0.3, o: 0 }])}>view</div>
+<div data-case3="tl-hover" style="width:120px;height:40px;background:#eee" ${tl([{ on: 'hover', s: '.ov', p: 'x', k: [[0, '-100%'], [100, '0%']], d: 0.2, e: 'linear' }, { on: 'leave', s: '.ov', p: 'x', k: [[0, '0%'], [100, '100%']], d: 0.2, e: 'linear' }])}><div class="ov" data-case3="tl-ov" style="width:120px;height:40px;background:#333"></div></div>
+<div data-case3="tl-loop" ${tl([{ on: 'loop', p: 'x', k: [[0, '0%'], [100, '-100%']], d: 1, e: 'linear' }])} style="width:100px">loop</div>
+<div style="transform:translateY(10px)" data-case3="tl-auto" ${tl([{ on: 'hover', p: 'y', k: [[0, 'auto'], [100, '30px']], d: 0.2 }])}>auto</div>
+<div style="height:2500px"></div>
+`;
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>BME harness</title>
 <style>html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-hide]{opacity:.01}</style>
 <script>(function(d,w){var h=d.documentElement;h.classList.add("bme-js");try{if(w.matchMedia("(prefers-reduced-motion: reduce)").matches)h.classList.add("bme-off")}catch(e){}w.setTimeout(function(){if(!(w.BricksMotion&&w.BricksMotion.started))h.classList.add("bme-failsafe")},3000);d.addEventListener("DOMContentLoaded",function(){if(!w.BricksMotion){h.classList.add("bme-failsafe")}})})(document,window);</script>
@@ -57,6 +76,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><title>BME harnes
 </head><body>${body}
 <script>window.BME_CONFIG=${JSON.stringify(cfg)};</script>
 <script src="/plugin/assets/js/runtime${m}.js" defer></script>
+<script>window.BME_TL={reduced:'respect'};</script><script src="/plugin/assets/js/timeline${m}.js" defer></script>
 ${['gsap','ScrollTrigger','SplitText','ScrambleTextPlugin','DrawSVGPlugin'].map(f=>`<script src="/plugin/assets/vendor/gsap/${f}.min.js" defer></script>`).join('')}
 <script src="/plugin/assets/vendor/anime/${MIN ? 'anime.slim.min.js' : 'anime.umd.min.js'}" defer></script><script src="/plugin/assets/vendor/motion/${MIN ? 'motion.slim.min.js' : 'motion.js'}" defer></script><script src="/plugin/assets/vendor/lenis/lenis.min.js" defer></script>
 <script src="/plugin/assets/js/adapter-gsap${m}.js" defer></script><script src="/plugin/assets/js/adapter-anime${m}.js" defer></script><script src="/plugin/assets/js/adapter-motion${m}.js" defer></script><script src="/plugin/assets/js/smooth-scroll${m}.js" defer></script>

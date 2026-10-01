@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-09-29T10:19:41+00:00\n"
+"POT-Creation-Date: 2026-10-01T10:48:57+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: bricks-motion-studio\n"
@@ -33,7 +33,7 @@ msgstr ""
 #: includes/class-admin.php:513
 #: includes/class-admin.php:519
 #: includes/class-bricks-integration.php:94
-#: includes/class-bricks-integration.php:504
+#: includes/class-bricks-integration.php:609
 msgid "Motion Studio"
 msgstr ""
 
@@ -357,7 +357,7 @@ msgid "Class rules are checked before element rules. Set an element to Disabled 
 msgstr ""
 
 #: includes/class-admin.php:621
-#: includes/class-bricks-integration.php:525
+#: includes/class-bricks-integration.php:630
 msgid "Animation level"
 msgstr ""
 
@@ -452,6 +452,7 @@ msgstr ""
 
 #: includes/class-admin.php:723
 #: includes/class-bricks-integration.php:297
+#: includes/class-bricks-integration.php:426
 msgid "Easing"
 msgstr ""
 
@@ -717,7 +718,7 @@ msgid "Custom"
 msgstr ""
 
 #: includes/class-bricks-integration.php:176
-#: includes/class-bricks-integration.php:519
+#: includes/class-bricks-integration.php:624
 msgid "Disabled"
 msgstr ""
 
@@ -785,6 +786,9 @@ msgid "Custom selector (staggered)"
 msgstr ""
 
 #: includes/class-bricks-integration.php:248
+#: includes/class-bricks-integration.php:393
+#: includes/class-bricks-integration.php:453
+#: includes/class-bricks-integration.php:458
 msgid "This element"
 msgstr ""
 
@@ -793,10 +797,12 @@ msgid "Selector"
 msgstr ""
 
 #: includes/class-bricks-integration.php:261
+#: includes/class-bricks-integration.php:409
 msgid "Duration (s)"
 msgstr ""
 
 #: includes/class-bricks-integration.php:273
+#: includes/class-bricks-integration.php:418
 msgid "Delay (s)"
 msgstr ""
 
@@ -849,85 +855,298 @@ msgid "3D tilt"
 msgstr ""
 
 #: includes/class-bricks-integration.php:363
-#: includes/class-bricks-integration.php:378
+#: includes/class-bricks-integration.php:483
 msgid "None"
 msgstr ""
 
-#: includes/class-bricks-integration.php:370
+#: includes/class-bricks-integration.php:369
+msgid "Timeline (keyframes)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:371
+msgid "Choreograph this element and anything inside it. Each row animates one property. Scroll rows follow this element's trip through the screen (0 = its top reaches the bottom of the screen, 100 = its bottom leaves the top), so a tall section can run a whole sequence."
+msgstr ""
+
+#: includes/class-bricks-integration.php:374
+msgid "Rows"
+msgstr ""
+
+#: includes/class-bricks-integration.php:379
+msgid "Trigger"
+msgstr ""
+
+#: includes/class-bricks-integration.php:382
+#: includes/class-bricks-integration.php:388
+msgid "Scroll position"
+msgstr ""
+
+#: includes/class-bricks-integration.php:383
+msgid "Scrolled into view (once)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:384
+msgid "Hover (reverses on leave)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:385
+msgid "Hover out (plays on leave instead of reversing)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:386
+msgid "Loop forever"
+msgstr ""
+
+#: includes/class-bricks-integration.php:391
+msgid "Target"
+msgstr ""
+
+#: includes/class-bricks-integration.php:394
+msgid "A selector inside this element (.card-image), or page:.selector for anywhere on the page."
+msgstr ""
+
+#: includes/class-bricks-integration.php:397
+msgid "Property"
+msgstr ""
+
+#: includes/class-bricks-integration.php:400
+#: includes/class-bricks-integration.php:905
+msgid "Move up / down (y)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:403
+msgid "Keyframes"
+msgstr ""
+
+#: includes/class-bricks-integration.php:406
+msgid "percent: value pairs. Values: numbers with px, %, vw, vh, em, rem or deg; colours as #hex or rgba(); auto = the element's own designed value; -overflow = slide until its far edge reaches its parent's edge."
+msgstr ""
+
+#: includes/class-bricks-integration.php:415
+msgid "Not used by scroll rows."
+msgstr ""
+
+#: includes/class-bricks-integration.php:429
+#: includes/class-bricks-integration.php:921
+msgid "Smooth"
+msgstr ""
+
+#: includes/class-bricks-integration.php:432
+msgid "Start line (%)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:437
+msgid "Scrolled-into-view rows: how far above the bottom of the screen the element must reach."
+msgstr ""
+
+#: includes/class-bricks-integration.php:440
+msgid "Scroll range start"
+msgstr ""
+
+#: includes/class-bricks-integration.php:443
+msgid "Scroll rows: \"<element edge> <screen line>\" (top, center, bottom, 20% or 100px), e.g. top 15%. Default: the element's top reaches the bottom of the screen."
+msgstr ""
+
+#: includes/class-bricks-integration.php:446
+msgid "Scroll range end"
+msgstr ""
+
+#: includes/class-bricks-integration.php:451
+msgid "Measure start on"
+msgstr ""
+
+#: includes/class-bricks-integration.php:456
+msgid "Measure end on"
+msgstr ""
+
+#: includes/class-bricks-integration.php:461
+msgid "Screen sizes"
+msgstr ""
+
+#: includes/class-bricks-integration.php:464
+msgid "Desktop only (992px and up)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:465
+msgid "Tablet and phone only (991px and below)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:467
+msgid "All"
+msgstr ""
+
+#: includes/class-bricks-integration.php:475
 msgid "3D background (Three.js)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:375
+#: includes/class-bricks-integration.php:480
 #: includes/elements/class-element-3d-scene.php:30
 #: includes/elements/class-element-3d-scene.php:48
 msgid "Scene"
 msgstr ""
 
 #. translators: %d: color number
-#: includes/class-bricks-integration.php:387
+#: includes/class-bricks-integration.php:492
 #: includes/elements/class-element-3d-scene.php:74
 #, php-format
 msgid "Color %d"
 msgstr ""
 
-#: includes/class-bricks-integration.php:395
+#: includes/class-bricks-integration.php:500
 #: includes/elements/class-element-3d-scene.php:83
 msgid "Density"
 msgstr ""
 
-#: includes/class-bricks-integration.php:407
+#: includes/class-bricks-integration.php:512
 #: includes/elements/class-element-3d-scene.php:96
 msgid "Speed"
 msgstr ""
 
-#: includes/class-bricks-integration.php:419
+#: includes/class-bricks-integration.php:524
+#: includes/class-bricks-integration.php:907
 #: includes/elements/class-element-3d-scene.php:108
 msgid "Opacity"
 msgstr ""
 
-#: includes/class-bricks-integration.php:431
+#: includes/class-bricks-integration.php:536
 #: includes/elements/class-element-3d-scene.php:120
 msgid "React to pointer"
 msgstr ""
 
-#: includes/class-bricks-integration.php:448
+#: includes/class-bricks-integration.php:553
 msgid "Liquid gradient (shader)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:449
+#: includes/class-bricks-integration.php:554
 msgid "Particle field"
 msgstr ""
 
-#: includes/class-bricks-integration.php:450
+#: includes/class-bricks-integration.php:555
 msgid "Wave grid"
 msgstr ""
 
-#: includes/class-bricks-integration.php:451
+#: includes/class-bricks-integration.php:556
 msgid "Floating shapes"
 msgstr ""
 
-#: includes/class-bricks-integration.php:454
+#: includes/class-bricks-integration.php:559
 msgid "3D model (GLB/GLTF)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:515
+#: includes/class-bricks-integration.php:620
 msgid "Animations"
 msgstr ""
 
-#: includes/class-bricks-integration.php:518
+#: includes/class-bricks-integration.php:623
 msgid "Only elements set to Custom"
 msgstr ""
 
-#: includes/class-bricks-integration.php:521
+#: includes/class-bricks-integration.php:626
 msgid "Site settings"
 msgstr ""
 
-#: includes/class-bricks-integration.php:528
+#: includes/class-bricks-integration.php:633
 msgid "Site level"
 msgstr ""
 
-#: includes/class-bricks-integration.php:531
+#: includes/class-bricks-integration.php:636
 msgid "Overrides the site-wide level for element rules on this page. Class rules keep their exact preset."
+msgstr ""
+
+#: includes/class-bricks-integration.php:906
+msgid "Move left / right (x)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:908
+msgid "Scale"
+msgstr ""
+
+#: includes/class-bricks-integration.php:909
+msgid "Scale width (scaleX)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:910
+msgid "Scale height (scaleY)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:911
+msgid "Rotate"
+msgstr ""
+
+#: includes/class-bricks-integration.php:912
+msgid "Width"
+msgstr ""
+
+#: includes/class-bricks-integration.php:913
+#: includes/elements/class-element-3d-scene.php:58
+msgid "Height"
+msgstr ""
+
+#: includes/class-bricks-integration.php:914
+msgid "Text colour"
+msgstr ""
+
+#: includes/class-bricks-integration.php:915
+msgid "Background colour"
+msgstr ""
+
+#: includes/class-bricks-integration.php:922
+#: includes/class-settings.php:242
+msgid "Linear"
+msgstr ""
+
+#: includes/class-bricks-integration.php:923
+msgid "Ease"
+msgstr ""
+
+#: includes/class-bricks-integration.php:924
+msgid "Ease in"
+msgstr ""
+
+#: includes/class-bricks-integration.php:925
+msgid "Ease out"
+msgstr ""
+
+#: includes/class-bricks-integration.php:926
+msgid "Ease in-out"
+msgstr ""
+
+#: includes/class-bricks-integration.php:927
+msgid "Soft"
+msgstr ""
+
+#: includes/class-bricks-integration.php:928
+msgid "Strong"
+msgstr ""
+
+#: includes/class-bricks-integration.php:929
+#: includes/class-settings.php:238
+msgid "Back (overshoot)"
+msgstr ""
+
+#: includes/class-bricks-integration.php:930
+msgid "Sine"
+msgstr ""
+
+#. translators: 1: direction (Out, In-out, In), 2: curve name.
+#: includes/class-bricks-integration.php:950
+#, php-format
+msgid "%1$s: %2$s"
+msgstr ""
+
+#. translators: 1: direction (Out, In-out, In), 2: curve name.
+#: includes/class-bricks-integration.php:950
+msgid "Out"
+msgstr ""
+
+#. translators: 1: direction (Out, In-out, In), 2: curve name.
+#: includes/class-bricks-integration.php:950
+msgid "In"
+msgstr ""
+
+#. translators: 1: direction (Out, In-out, In), 2: curve name.
+#: includes/class-bricks-integration.php:950
+#: includes/class-settings.php:237
+msgid "In-out"
 msgstr ""
 
 #: includes/class-levels.php:78
@@ -1026,14 +1245,6 @@ msgstr ""
 msgid "Strong (expo out)"
 msgstr ""
 
-#: includes/class-settings.php:237
-msgid "In-out"
-msgstr ""
-
-#: includes/class-settings.php:238
-msgid "Back (overshoot)"
-msgstr ""
-
 #: includes/class-settings.php:239
 msgid "Elastic"
 msgstr ""
@@ -1044,10 +1255,6 @@ msgstr ""
 
 #: includes/class-settings.php:241
 msgid "Sine in-out"
-msgstr ""
-
-#: includes/class-settings.php:242
-msgid "Linear"
 msgstr ""
 
 #: includes/class-updater.php:79
@@ -1064,10 +1271,6 @@ msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:39
 msgid "Fallback & accessibility"
-msgstr ""
-
-#: includes/elements/class-element-3d-scene.php:58
-msgid "Height"
 msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:129

@@ -364,6 +364,111 @@ class Bricks_Integration {
 			'inline'      => true,
 		);
 
+		// Timeline: keyframe rows for this element and the elements inside it.
+		$c['bmeTlSeparator'] = $g + array(
+			'label'       => esc_html__( 'Timeline (keyframes)', 'bricks-motion-studio' ),
+			'type'        => 'separator',
+			'description' => esc_html__( 'Choreograph this element and anything inside it. Each row animates one property. Scroll rows follow this element\'s trip through the screen (0 = its top reaches the bottom of the screen, 100 = its bottom leaves the top), so a tall section can run a whole sequence.', 'bricks-motion-studio' ),
+		);
+		$c['bmeTimeline']    = $g + array(
+			'label'         => esc_html__( 'Rows', 'bricks-motion-studio' ),
+			'type'          => 'repeater',
+			'titleProperty' => 'prop',
+			'fields'        => array(
+				'on'           => array(
+					'label'       => esc_html__( 'Trigger', 'bricks-motion-studio' ),
+					'type'        => 'select',
+					'options'     => array(
+						'scroll' => esc_html__( 'Scroll position', 'bricks-motion-studio' ),
+						'view'   => esc_html__( 'Scrolled into view (once)', 'bricks-motion-studio' ),
+						'hover'  => esc_html__( 'Hover (reverses on leave)', 'bricks-motion-studio' ),
+						'leave'  => esc_html__( 'Hover out (plays on leave instead of reversing)', 'bricks-motion-studio' ),
+						'loop'   => esc_html__( 'Loop forever', 'bricks-motion-studio' ),
+					),
+					'placeholder' => esc_html__( 'Scroll position', 'bricks-motion-studio' ),
+				),
+				'target'       => array(
+					'label'       => esc_html__( 'Target', 'bricks-motion-studio' ),
+					'type'        => 'text',
+					'placeholder' => esc_html__( 'This element', 'bricks-motion-studio' ),
+					'description' => esc_html__( 'A selector inside this element (.card-image), or page:.selector for anywhere on the page.', 'bricks-motion-studio' ),
+				),
+				'prop'         => array(
+					'label'       => esc_html__( 'Property', 'bricks-motion-studio' ),
+					'type'        => 'select',
+					'options'     => self::timeline_props(),
+					'placeholder' => esc_html__( 'Move up / down (y)', 'bricks-motion-studio' ),
+				),
+				'keys'         => array(
+					'label'       => esc_html__( 'Keyframes', 'bricks-motion-studio' ),
+					'type'        => 'text',
+					'placeholder' => '0: 100%, 100: 0%',
+					'description' => esc_html__( 'percent: value pairs. Values: numbers with px, %, vw, vh, em, rem or deg; colours as #hex or rgba(); auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge.', 'bricks-motion-studio' ),
+				),
+				'duration'     => array(
+					'label'       => esc_html__( 'Duration (s)', 'bricks-motion-studio' ),
+					'type'        => 'number',
+					'min'         => 0,
+					'max'         => 60,
+					'step'        => 0.05,
+					'placeholder' => '0.6',
+					'description' => esc_html__( 'Not used by scroll rows.', 'bricks-motion-studio' ),
+				),
+				'delay'        => array(
+					'label'       => esc_html__( 'Delay (s)', 'bricks-motion-studio' ),
+					'type'        => 'number',
+					'min'         => 0,
+					'max'         => 60,
+					'step'        => 0.05,
+					'placeholder' => '0',
+				),
+				'ease'         => array(
+					'label'       => esc_html__( 'Easing', 'bricks-motion-studio' ),
+					'type'        => 'select',
+					'options'     => self::timeline_eases(),
+					'placeholder' => esc_html__( 'Smooth', 'bricks-motion-studio' ),
+				),
+				'offset'       => array(
+					'label'       => esc_html__( 'Start line (%)', 'bricks-motion-studio' ),
+					'type'        => 'number',
+					'min'         => 0,
+					'max'         => 90,
+					'placeholder' => '12',
+					'description' => esc_html__( 'Scrolled-into-view rows: how far above the bottom of the screen the element must reach.', 'bricks-motion-studio' ),
+				),
+				'rangeStart'   => array(
+					'label'       => esc_html__( 'Scroll range start', 'bricks-motion-studio' ),
+					'type'        => 'text',
+					'placeholder' => 'top bottom',
+					'description' => esc_html__( 'Scroll rows: "<element edge> <screen line>" (top, center, bottom, 20% or 100px), e.g. top 15%. Default: the element\'s top reaches the bottom of the screen.', 'bricks-motion-studio' ),
+				),
+				'rangeEnd'     => array(
+					'label'       => esc_html__( 'Scroll range end', 'bricks-motion-studio' ),
+					'type'        => 'text',
+					'placeholder' => 'bottom top',
+				),
+				'rangeStartEl' => array(
+					'label'       => esc_html__( 'Measure start on', 'bricks-motion-studio' ),
+					'type'        => 'text',
+					'placeholder' => esc_html__( 'This element', 'bricks-motion-studio' ),
+				),
+				'rangeEndEl'   => array(
+					'label'       => esc_html__( 'Measure end on', 'bricks-motion-studio' ),
+					'type'        => 'text',
+					'placeholder' => esc_html__( 'This element', 'bricks-motion-studio' ),
+				),
+				'bp'           => array(
+					'label'       => esc_html__( 'Screen sizes', 'bricks-motion-studio' ),
+					'type'        => 'select',
+					'options'     => array(
+						'desktop' => esc_html__( 'Desktop only (992px and up)', 'bricks-motion-studio' ),
+						'tablet'  => esc_html__( 'Tablet and phone only (991px and below)', 'bricks-motion-studio' ),
+					),
+					'placeholder' => esc_html__( 'All', 'bricks-motion-studio' ),
+				),
+			),
+		);
+
 		// Three.js background (layout elements only).
 		if ( Settings::library_enabled( 'three' ) && in_array( $name, self::LAYOUT_ELEMENTS, true ) ) {
 			$c['bme3dSeparator'] = $g + array(
@@ -652,6 +757,15 @@ class Bricks_Integration {
 			$this->track( 'feature', 'hover' ); // engine-free: loads the runtime only
 		}
 
+		// Timeline rows (their own lightweight script; no animation library).
+		if ( 'off' !== $mode && ! empty( $settings['bmeTimeline'] ) ) {
+			$rows = self::timeline_rows( $settings['bmeTimeline'] );
+			if ( $rows ) {
+				$attributes['data-bme-tl'] = wp_json_encode( $rows );
+				$this->track( 'feature', 'timeline' );
+			}
+		}
+
 		// Three.js background.
 		$scene = self::str( $settings, 'bme3d' );
 		if ( '' !== $scene && Settings::library_enabled( 'three' ) && in_array( $name, self::LAYOUT_ELEMENTS, true ) ) {
@@ -785,6 +899,149 @@ class Bricks_Integration {
 	 * @param string $key Key.
 	 * @return string
 	 */
+	/** Animatable timeline properties (keys match assets/js/timeline.js). */
+	public static function timeline_props() {
+		return array(
+			'y'               => esc_html__( 'Move up / down (y)', 'bricks-motion-studio' ),
+			'x'               => esc_html__( 'Move left / right (x)', 'bricks-motion-studio' ),
+			'opacity'         => esc_html__( 'Opacity', 'bricks-motion-studio' ),
+			'scale'           => esc_html__( 'Scale', 'bricks-motion-studio' ),
+			'scaleX'          => esc_html__( 'Scale width (scaleX)', 'bricks-motion-studio' ),
+			'scaleY'          => esc_html__( 'Scale height (scaleY)', 'bricks-motion-studio' ),
+			'rotate'          => esc_html__( 'Rotate', 'bricks-motion-studio' ),
+			'width'           => esc_html__( 'Width', 'bricks-motion-studio' ),
+			'height'          => esc_html__( 'Height', 'bricks-motion-studio' ),
+			'color'           => esc_html__( 'Text colour', 'bricks-motion-studio' ),
+			'backgroundColor' => esc_html__( 'Background colour', 'bricks-motion-studio' ),
+		);
+	}
+
+	public static function timeline_eases() {
+		return array(
+			'smooth' => esc_html__( 'Smooth', 'bricks-motion-studio' ),
+			'linear' => esc_html__( 'Linear', 'bricks-motion-studio' ),
+			'ease'   => esc_html__( 'Ease', 'bricks-motion-studio' ),
+			'in'     => esc_html__( 'Ease in', 'bricks-motion-studio' ),
+			'out'    => esc_html__( 'Ease out', 'bricks-motion-studio' ),
+			'in-out' => esc_html__( 'Ease in-out', 'bricks-motion-studio' ),
+			'soft'   => esc_html__( 'Soft', 'bricks-motion-studio' ),
+			'strong' => esc_html__( 'Strong', 'bricks-motion-studio' ),
+			'back'   => esc_html__( 'Back (overshoot)', 'bricks-motion-studio' ),
+			'sine'   => esc_html__( 'Sine', 'bricks-motion-studio' ),
+		) + self::curve_eases();
+	}
+
+	/** Exact classic curves (GSAP power1-4, expo, sine, circ, back), in / out / in-out. */
+	private static function curve_eases() {
+		$names = array(
+			'quad'  => 'Quad (power1)',
+			'cubic' => 'Cubic (power2)',
+			'quart' => 'Quart (power3)',
+			'quint' => 'Quint (power4)',
+			'expo'  => 'Expo',
+			'sine'  => 'Sine',
+			'circ'  => 'Circ',
+			'back'  => 'Back',
+		);
+		$out   = array();
+		foreach ( array( 'out', 'in-out', 'in' ) as $dir ) {
+			foreach ( $names as $key => $label ) {
+				/* translators: 1: direction (Out, In-out, In), 2: curve name. */
+				$out[ $dir . '-' . $key ] = sprintf( esc_html__( '%1$s: %2$s', 'bricks-motion-studio' ), 'out' === $dir ? esc_html__( 'Out', 'bricks-motion-studio' ) : ( 'in' === $dir ? esc_html__( 'In', 'bricks-motion-studio' ) : esc_html__( 'In-out', 'bricks-motion-studio' ) ), $label );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Builder repeater rows → the compact, validated rows timeline.js reads.
+	 * Anything malformed is dropped row by row, never the whole timeline.
+	 *
+	 * @param mixed $input Saved repeater value.
+	 * @return array
+	 */
+	public static function timeline_rows( $input ) {
+		$out = array();
+		if ( ! is_array( $input ) ) {
+			return $out;
+		}
+		$props = self::timeline_props();
+		$eases = self::timeline_eases();
+		foreach ( array_slice( $input, 0, 100 ) as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$on   = isset( $row['on'] ) && in_array( $row['on'], array( 'scroll', 'view', 'hover', 'leave', 'loop' ), true ) ? $row['on'] : 'scroll';
+			$prop = isset( $row['prop'] ) && isset( $props[ $row['prop'] ] ) ? $row['prop'] : 'y';
+			$keys = self::timeline_keys( isset( $row['keys'] ) && is_scalar( $row['keys'] ) ? (string) $row['keys'] : '' );
+			if ( ! $keys ) {
+				continue;
+			}
+			$item   = array(
+				'on' => $on,
+				'p'  => $prop,
+				'k'  => $keys,
+			);
+			$target = isset( $row['target'] ) && is_scalar( $row['target'] ) ? trim( wp_strip_all_tags( (string) $row['target'] ) ) : '';
+			if ( '' !== $target ) {
+				$item['s'] = substr( $target, 0, 300 );
+			}
+			foreach ( array( 'duration' => 'd', 'delay' => 'dl' ) as $from => $to ) {
+				if ( isset( $row[ $from ] ) && is_numeric( $row[ $from ] ) ) {
+					$item[ $to ] = round( min( 60, max( 0, (float) $row[ $from ] ) ), 3 );
+				}
+			}
+			if ( 'scroll' !== $on && ! isset( $item['d'] ) ) {
+				$item['d'] = 0.6;
+			}
+			if ( isset( $row['ease'] ) && is_scalar( $row['ease'] ) ) {
+				$ease = (string) $row['ease'];
+				if ( isset( $eases[ $ease ] ) || preg_match( '/^cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\)$/', $ease ) ) {
+					$item['e'] = $ease;
+				}
+			}
+			if ( 'view' === $on ) {
+				$item['o'] = isset( $row['offset'] ) && is_numeric( $row['offset'] ) ? (int) min( 90, max( 0, (float) $row['offset'] ) ) : 12;
+			}
+			if ( 'scroll' === $on ) {
+				foreach ( array( 'rangeStart' => 'rs', 'rangeEnd' => 're' ) as $from => $to ) {
+					$v = isset( $row[ $from ] ) && is_scalar( $row[ $from ] ) ? strtolower( trim( (string) $row[ $from ] ) ) : '';
+					if ( preg_match( '/^(top|center|bottom|-?\d+(\.\d+)?(px|%))(\s+(top|center|bottom|-?\d+(\.\d+)?(px|%)))?$/', $v ) ) {
+						$item[ $to ] = $v;
+					}
+				}
+				foreach ( array( 'rangeStartEl' => 'rse', 'rangeEndEl' => 'ree' ) as $from => $to ) {
+					$v = isset( $row[ $from ] ) && is_scalar( $row[ $from ] ) ? trim( wp_strip_all_tags( (string) $row[ $from ] ) ) : '';
+					if ( '' !== $v ) {
+						$item[ $to ] = substr( $v, 0, 300 );
+					}
+				}
+			}
+			if ( isset( $row['bp'] ) && in_array( $row['bp'], array( 'desktop', 'tablet' ), true ) ) {
+				$item['bp'] = $row['bp'];
+			}
+			$out[] = $item;
+		}
+		return $out;
+	}
+
+	/**
+	 * "0: 100%, 50: -4%, 100: rgba(0,0,0,.5)" → [[0,"100%"],[50,"-4%"],[100,"rgba(0,0,0,.5)"]].
+	 * Only numbers with CSS units and colours are accepted, so nothing else reaches the page.
+	 *
+	 * @param string $text Keyframe text.
+	 * @return array
+	 */
+	public static function timeline_keys( $text ) {
+		$keys = array();
+		if ( preg_match_all( '/(-?\d+(?:\.\d+)?)\s*:\s*(auto\b|-?overflow\b|rgba?\([\d\s.,%\/]*\)|#[0-9a-f]{3,8}\b|-?\d*\.?\d+\s*(?:px|%|vw|vh|em|rem|deg)?)/i', $text, $m, PREG_SET_ORDER ) ) {
+			foreach ( array_slice( $m, 0, 50 ) as $pair ) {
+				$keys[] = array( round( min( 100, max( 0, (float) $pair[1] ) ), 3 ), preg_replace( '/\s+/', '', $pair[2] ) );
+			}
+		}
+		return $keys;
+	}
+
 	private static function str( array $s, $key ) {
 		return isset( $s[ $key ] ) && is_scalar( $s[ $key ] ) ? trim( (string) $s[ $key ] ) : '';
 	}

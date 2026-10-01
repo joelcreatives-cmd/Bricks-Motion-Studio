@@ -63,5 +63,7 @@ While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 * Minified runtime with the preset catalog built in; slim bundled builds of Anime.js and Motion; libraries load only on pages that use them.
 * Settings app with live previews, system checks, export / import / reset; end-to-end test suite.
 * Updates from GitHub releases; automated checks on every push.
+* Timeline: keyframe animations for an element and the elements inside it, started by scroll position, scrolling into view, hover (with an optional separate hover-out) or a loop. Animates position, rotation, scale, opacity, width, height and colours; custom scroll ranges; `auto` (the designed value) and `-overflow` (slide to the last card) values; exact GSAP-style easing curves; per-row screen sizes. Loads its own 3 KB script only on pages that use it.
+* Marquee preset (slides sideways forever).
 
 Licensing note: bundled GSAP is under the GSAP Standard License (see Description).

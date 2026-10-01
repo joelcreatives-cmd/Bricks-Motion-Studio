@@ -27,7 +27,7 @@ if ( process.argv[ 1 ] && process.argv[ 1 ].endsWith( 'build-js.mjs' ) ) {
 	const target = [ 'es2017' ];
 
 	// 1. Own scripts.
-	const OWN = [ 'runtime', 'adapter-gsap', 'adapter-anime', 'adapter-motion', 'smooth-scroll' ];
+	const OWN = [ 'runtime', 'adapter-gsap', 'adapter-anime', 'adapter-motion', 'smooth-scroll', 'timeline' ];
 	const presets = JSON.stringify( JSON.parse( read( 'includes/data/presets.json' ) ) );
 
 	for ( const name of OWN ) {

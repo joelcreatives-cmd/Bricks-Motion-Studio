@@ -108,9 +108,75 @@ async function run( mode ) {
 		const three = [ ...document.querySelectorAll( '[data-bme-3d]' ) ].filter( ( e ) => ! e.classList.contains( 'bme-3d-ready' ) ).map( ( e ) => e.dataset.case );
 		return { fail, three, adapters: Object.keys( BricksMotion.adapters ) };
 	}, mode );
-	const still = Object.entries( moving ).filter( ( [ k, v ] ) => /parallax|scroll-(fade|scale|rotate)|float|pulse|sway|spin/.test( k ) && v.size < 2 ).map( ( [ k ] ) => k );
+	// Timelines.
+	const tlFail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const q = ( c ) => document.querySelector( '[data-case3="' + c + '"]' );
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		const go = async ( y ) => { scrollTo( { top: y, behavior: 'instant' } ); await wait( 150 ); };
+		const stage = q( 'tl-scroll' ); let top = 0; for ( let n = stage; n; n = n.offsetParent ) top += n.offsetTop;
+		const vh = innerHeight, start = top - vh, len = vh + stage.offsetHeight;
+		const tx = ( el ) => new DOMMatrix( getComputedStyle( el ).transform );
+		const near = ( a, b, tol, what ) => { if ( Math.abs( a - b ) > tol ) fail.push( what + ': ' + a.toFixed( 2 ) + ' (want ' + b + ')' ); };
+		await go( start + 0.5 * len );
+		near( tx( q( 'tl-a' ) ).m41, 100, 2, 'tl scroll x at 50%' );
+		near( q( 'tl-b' ).getBoundingClientRect().width, 60, 2, 'tl scroll width at 50%' );
+		const bg = getComputedStyle( q( 'tl-c' ) ).backgroundColor.match( /\d+/g ).map( Number );
+		near( bg[ 0 ], 128, 3, 'tl colour red at 50%' ); near( bg[ 2 ], 128, 3, 'tl colour blue at 50%' );
+		near( tx( q( 'tl-d' ) ).m42, 25, 2, 'tl y on a designed transform' );
+		near( tx( q( 'tl-d' ) ).m41, -50, 2, 'tl keeps the designed translateX(-50%)' );
+		near( +getComputedStyle( q( 'tl-e' ) ).opacity, 0.5, 0.05, 'tl keyframes 40..60 at 50%' );
+		// custom range: top of stage at the centre → bottom of stage at the centre
+		const fStart = top - vh / 2, fLen = stage.offsetHeight;
+		await go( fStart + 0.25 * fLen ); near( tx( q( 'tl-f' ) ).m42, 25, 2, 'tl custom range at 25%' );
+		await go( start + len + 50 );
+		const strip = q( 'tl-strip' ); near( tx( strip ).m41, -( strip.scrollWidth - strip.parentElement.clientWidth ), 2, 'tl -overflow at the end' );
+		near( tx( q( 'tl-a' ) ).m41, 200, 2, 'tl holds the last keyframe after the range' );
+		await go( 0 ); near( tx( q( 'tl-a' ) ).m41, 0, 2, 'tl holds the first keyframe before the range' );
+		if ( tx( q( 'tl-g' ) ).m41 !== 0 ) fail.push( 'tl tablet-only row ran on desktop' );
+		// view
+		q( 'tl-view' ).scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( 700 );
+		near( +getComputedStyle( q( 'tl-view' ) ).opacity, 1, 0.02, 'tl view ends visible' ); near( tx( q( 'tl-view' ) ).m42, 0, 1, 'tl view ends in place' );
+		// hover + leave (leave plays forward, it does not reverse)
+		const h = q( 'tl-hover' ), ov = q( 'tl-ov' );
+		h.scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( 100 );
+		near( tx( ov ).m41, -120, 2, 'tl hover rest' );
+		h.dispatchEvent( new PointerEvent( 'pointerenter' ) ); await wait( 400 ); near( tx( ov ).m41, 0, 2, 'tl hovered' );
+		h.dispatchEvent( new PointerEvent( 'pointerleave' ) ); await wait( 400 ); near( tx( ov ).m41, 120, 2, 'tl hover-out exits the other way' );
+		// auto = the designed value
+		const au = q( 'tl-auto' ); near( tx( au ).m42, 10, 1, 'tl auto rests at the designed value' );
+		au.dispatchEvent( new PointerEvent( 'pointerenter' ) ); await wait( 400 ); near( tx( au ).m42, 30, 1, 'tl auto → 30px' );
+		// loop
+		const lp = q( 'tl-loop' ); lp.scrollIntoView( { block: 'center', behavior: 'instant' } );
+		const a1 = tx( lp ).m41; await wait( 300 ); const a2 = tx( lp ).m41;
+		if ( mode === 'default' && a1 === a2 ) fail.push( 'tl loop not moving' );
+		if ( mode === 'reduced' && ( a1 !== 0 || a2 !== 0 ) ) fail.push( 'tl loop moves under reduced motion' );
+		// exact easing curves (GSAP power1-4 / expo / back)
+		const E = window.BricksMotionTimeline && window.BricksMotionTimeline.ease;
+		if ( ! E ) fail.push( 'tl not running' );
+		else {
+			near( E( 'in-out-quad', 0.25 ), 0.125, 1e-9, 'ease in-out-quad' ); near( E( 'out-cubic', 0.5 ), 0.875, 1e-9, 'ease out-cubic' );
+			near( E( 'out-quart', 0.3 ), 1 - Math.pow( 0.7, 4 ), 1e-9, 'ease out-quart' ); near( E( 'in-out-expo', 0.5 ), 0.5, 1e-9, 'ease in-out-expo' );
+			near( E( 'out-back', 0.5 ), 1 + 2.70158 * Math.pow( -0.5, 3 ) + 1.70158 * 0.25, 1e-9, 'ease out-back' );
+		}
+		return fail;
+	}, mode );
+	res.fail.push( ...tlFail );
+	// Crossing the 992px breakpoint rebuilds timelines: tablet-only rows switch on, and switch off
+	// again (inline styles restored) on the way back. A layout change must not cancel the rebuild.
+	if ( mode === 'default' ) {
+		const gX = () => page.evaluate( () => { const g = document.querySelector( '[data-case3="tl-g"]' ); return { x: new DOMMatrix( getComputedStyle( g ).transform ).m41, style: g.getAttribute( 'style' ) || '' }; } );
+		await page.evaluate( () => { const s = document.querySelector( '[data-case3="tl-scroll"]' ); s.scrollIntoView( { block: 'start', behavior: 'instant' } ); } );
+		await page.setViewport( { width: 900, height: 800 } ); await new Promise( ( r ) => setTimeout( r, 700 ) );
+		const on = await gX();
+		await page.setViewport( { width: 1280, height: 800 } ); await new Promise( ( r ) => setTimeout( r, 700 ) );
+		const off = await gX();
+		if ( ! ( on.x > 0 ) ) res.fail.push( 'tl tablet row did not switch on below 992px (x=' + on.x + ')' );
+		if ( off.x !== 0 || /transform/.test( off.style ) ) res.fail.push( 'tl tablet row left styles behind on desktop: ' + off.style );
+	}
+	const still = Object.entries( moving ).filter( ( [ k, v ] ) => /parallax|scroll-(fade|scale|rotate)|float|pulse|sway|spin|marquee/.test( k ) && v.size < 2 ).map( ( [ k ] ) => k );
 	if ( mode === 'default' && still.length ) res.fail.push( 'not moving: ' + still.join( ', ' ) );
-	if ( mode === 'reduced' && Object.entries( moving ).some( ( [ k, v ] ) => /float|pulse|sway|spin/.test( k ) && v.size > 1 ) ) res.fail.push( 'loops move under reduced motion' );
+	if ( mode === 'reduced' && Object.entries( moving ).some( ( [ k, v ] ) => /float|pulse|sway|spin|marquee/.test( k ) && v.size > 1 ) ) res.fail.push( 'loops move under reduced motion' );
 	if ( res.three.length ) res.fail.push( '3D not mounted: ' + res.three.join( ', ' ) );
 	if ( playLoopBroken ) res.fail.push( 'audit: BricksMotion.play() stopped a loop' );
 	if ( zeroStarts ) res.fail.push( zeroStarts + ' hidden start states use opacity 0 (must be .01 for LCP)' );

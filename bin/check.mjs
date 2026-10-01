@@ -25,7 +25,7 @@ for ( const f of walk( root ) ) {
 	const { readFileSync, existsSync } = await import( 'node:fs' );
 	const hashOf = ( ...parts ) => createHash( 'sha1' ).update( parts.join( '\0' ) ).digest( 'hex' ).slice( 0, 10 );
 	const presets = JSON.stringify( JSON.parse( readFileSync( join( root, 'includes/data/presets.json' ), 'utf8' ) ) );
-	const pairs = [ 'runtime', 'adapter-gsap', 'adapter-anime', 'adapter-motion', 'smooth-scroll' ].map( ( n ) => [ `assets/js/${ n }.js`, `assets/js/${ n }.min.js`, n === 'runtime' ? presets : '' ] );
+	const pairs = [ 'runtime', 'adapter-gsap', 'adapter-anime', 'adapter-motion', 'smooth-scroll', 'timeline' ].map( ( n ) => [ `assets/js/${ n }.js`, `assets/js/${ n }.min.js`, n === 'runtime' ? presets : '' ] );
 	pairs.push( [ 'assets/css/frontend.css', 'assets/css/frontend.min.css', '' ] );
 	for ( const [ src, min, extra ] of pairs ) {
 		const want = hashOf( readFileSync( join( root, src ), 'utf8' ), extra );
