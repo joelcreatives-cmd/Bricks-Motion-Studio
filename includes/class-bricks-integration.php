@@ -132,7 +132,10 @@ class Bricks_Integration {
 		if ( ! $this->controls_needed() ) {
 			// Frontend: only the control type Bricks needs to merge component-instance values
 			// into the timeline rows (it does that for repeaters only). No labels, no fields.
-			$controls['bmeTimeline'] = $controls['bmeTimeline'] ?? array( 'type' => 'repeater' );
+			$controls['bmeTimeline'] = $controls['bmeTimeline'] ?? array(
+				'type'   => 'repeater',
+				'fields' => array(), // Bricks' inline-CSS pass reads the fields of every repeater
+			);
 			return $controls;
 		}
 		$matches = array();

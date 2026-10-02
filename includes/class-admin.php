@@ -527,7 +527,7 @@ class Admin {
 					</div>
 					<p class="bme-bar__summary" data-bme-summary></p>
 					<div class="bme-bar__actions">
-						<span class="bme-bar__state" data-bme-state><?php esc_html_e( 'All changes saved', 'bricks-motion-studio' ); ?></span>
+						<span class="bme-bar__state" data-bme-state role="status"><?php esc_html_e( 'All changes saved', 'bricks-motion-studio' ); ?></span>
 						<button type="submit" form="bme-form" class="bme-btn bme-btn--primary" data-bme-save>
 							<?php esc_html_e( 'Save', 'bricks-motion-studio' ); ?>
 							<kbd class="bme-kbd" aria-hidden="true" data-bme-kbd><?php echo esc_html_x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ); ?></kbd>
@@ -542,7 +542,7 @@ class Admin {
 								<?php echo self::icon( $panel[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 								<span><?php echo esc_html( $panel[0] ); ?></span>
 								<?php if ( 'system' === $id && $issues ) : ?>
-									<span class="bme-nav__badge"><?php echo esc_html( (string) $issues ); ?></span>
+									<span class="bme-nav__badge"><?php echo esc_html( (string) $issues ); ?><span class="screen-reader-text"> <?php echo esc_html( _n( 'issue', 'issues', (int) $issues, 'bricks-motion-studio' ) ); ?></span></span>
 								<?php endif; ?>
 							</a>
 						<?php endforeach; ?>
@@ -797,8 +797,8 @@ class Admin {
 									<legend class="bme-row__label"><?php esc_html_e( 'Visitors who prefer reduced motion', 'bricks-motion-studio' ); ?></legend>
 									<?php
 									$reduced = array(
-										'respect' => array( __( 'No animation', 'bricks-motion-studio' ), __( 'Content appears instantly. Recommended.', 'bricks-motion-studio' ) ),
-										'fade'    => array( __( 'Gentle fades', 'bricks-motion-studio' ), __( 'Opacity only, no movement.', 'bricks-motion-studio' ) ),
+										'respect' => array( __( 'No animation', 'bricks-motion-studio' ), __( 'Content appears instantly; scroll-driven timelines still follow the scrollbar. Recommended.', 'bricks-motion-studio' ) ),
+										'fade'    => array( __( 'Gentle fades', 'bricks-motion-studio' ), __( 'Opacity only; scroll-driven timelines still follow the scrollbar.', 'bricks-motion-studio' ) ),
 										'ignore'  => array( __( 'Full animation', 'bricks-motion-studio' ), __( 'Ignores the visitor setting. Not recommended.', 'bricks-motion-studio' ) ),
 									);
 									foreach ( $reduced as $value => $text ) :

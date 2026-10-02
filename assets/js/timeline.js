@@ -329,12 +329,13 @@
 		};
 		st.ox = st.oy = undefined;
 		st.cols = null;
+		st.last = {}; // inline styles were taken off: the next render writes everything again
 	}
 
 	function stateOf( el ) {
 		var st = states.get( el );
 		if ( ! st ) {
-			st = { saved: {}, vals: {} };
+			st = { saved: {}, vals: {}, last: {} };
 			readDesign( st, el );
 			states.set( el, st );
 		}
@@ -349,6 +350,7 @@
 	}
 
 	function restoreProps( st, el ) {
+		st.last = {};
 		Object.keys( st.saved ).forEach( function ( cssProp ) {
 			var o = st.saved[ cssProp ];
 			if ( o[ 0 ] ) {
@@ -380,13 +382,16 @@
 			var ok = el.style.getPropertyValue( 'color' ) !== '';
 			var got = ok ? parse( w.getComputedStyle( el ).color, 'color' ) : null;
 			cols[ raw ] = got && got.c ? got : null;
-			keep.forEach( function ( k ) {
+			var put = function ( k ) {
 				if ( k[ 1 ] ) {
 					el.style.setProperty( k[ 0 ], k[ 1 ], k[ 2 ] );
 				} else {
 					el.style.removeProperty( k[ 0 ] );
 				}
-			} );
+			};
+			put( keep[ 0 ] );
+			w.getComputedStyle( el ).color; // eslint-disable-line no-unused-expressions -- settle on the real colour while transitions are still off
+			put( keep[ 1 ] );
 			if ( el.getAttribute( 'style' ) === '' ) {
 				el.removeAttribute( 'style' );
 			}
@@ -440,6 +445,13 @@
 		return { n: 1, u: '' }; // scale
 	}
 
+	function put( st, el, cssProp, value ) {
+		if ( st.last[ cssProp ] !== value ) {
+			st.last[ cssProp ] = value;
+			el.style.setProperty( cssProp, value );
+		}
+	}
+
 	function write( el, prop, v ) {
 		var st = stateOf( el );
 		var cssProp = CSS_PROP( prop );
@@ -449,6 +461,7 @@
 			delete st.vals[ prop ];
 			if ( ! TRANSFORM[ prop ] ) {
 				var o = st.saved[ cssProp ];
+				delete st.last[ cssProp ];
 				if ( o[ 0 ] ) {
 					el.style.setProperty( cssProp, o[ 0 ], o[ 1 ] );
 				} else {
@@ -460,7 +473,7 @@
 			st.vals[ prop ] = v;
 		}
 		if ( ! TRANSFORM[ prop ] ) {
-			el.style.setProperty( cssProp, css( v ) );
+			put( st, el, cssProp, css( v ) );
 			return;
 		}
 		var s = st.vals;
@@ -482,7 +495,7 @@
 		if ( sx !== 1 || sy !== 1 ) {
 			out.push( 'scale(' + +sx.toFixed( 5 ) + ', ' + +sy.toFixed( 5 ) + ')' );
 		}
-		el.style.transform = out.length ? out.join( ' ' ) : 'none';
+		put( st, el, 'transform', out.length ? out.join( ' ' ) : 'none' );
 	}
 
 	function restoreAll() {
@@ -567,7 +580,11 @@
 	}
 
 	function trackFor( row ) {
-		var k = ( row.k || [] )
+		// Hand-written attributes can hold anything: only [percent, value] pairs count.
+		var k = ( Array.isArray( row.k ) ? row.k : [] )
+			.filter( function ( pair ) {
+				return Array.isArray( pair ) && pair.length > 1 && pair[ 1 ] !== null && pair[ 1 ] !== undefined;
+			} )
 			.map( function ( pair ) {
 				return { at: Math.min( 100, Math.max( 0, +pair[ 0 ] || 0 ) ) / 100, v: parse( pair[ 1 ], row.p ) };
 			} )
@@ -589,7 +606,7 @@
 				return;
 			}
 			var tr = trackFor( row );
-			var els = tr && targets( root, row.s || '' );
+			var els = tr && targets( root, typeof row.s === 'string' ? row.s : '' );
 			if ( ! els || ! els.length ) {
 				return;
 			}
@@ -601,8 +618,8 @@
 				item.range = {
 					rs: row.rs || 'top bottom',
 					re: row.re || 'bottom top',
-					se: targets( root, row.rse || '' )[ 0 ] || root,
-					ee: targets( root, row.ree || '' )[ 0 ] || root,
+					se: targets( root, typeof row.rse === 'string' ? row.rse : '' )[ 0 ] || root,
+					ee: targets( root, typeof row.ree === 'string' ? row.ree : '' )[ 0 ] || root,
 				};
 			}
 			g.rows.push( item );
@@ -818,8 +835,11 @@
 	function onScroll() {
 		ticking = false;
 		var y = w.scrollY || w.pageYOffset;
+		var doc = d.scrollingElement || d.documentElement;
+		var atEnd = y + w.innerHeight >= doc.scrollHeight - 2;
 		viewers = viewers.filter( function ( g ) {
-			if ( y >= g.trig ) {
+			// At the page end a start line near the bottom can never be reached: play what is on screen.
+			if ( y >= g.trig || ( atEnd && g.trig !== Infinity && g.root.getBoundingClientRect().top < w.innerHeight ) ) {
 				g.play();
 				return false;
 			}
@@ -902,6 +922,8 @@
 	/* ---------- binding ----------------------------------------------------- */
 
 	var cleanups = [];
+	var loopers = []; // loop timelines: { g, go } (BricksMotion.pauseAll / data-bme-pause-toggle)
+	var loopsPaused = false;
 
 	function bind( g, leaveGroup ) {
 		if ( g.on === 'leave' ) {
@@ -985,9 +1007,21 @@
 			return;
 		}
 		if ( g.on === 'view' ) {
-			g.play = function () {
-				pl.to( 1 );
+			var played = false;
+			var onFocus = function () {
+				g.play(); // keyboard users must never land on content still waiting to fade in
 			};
+			g.play = function () {
+				if ( ! played ) {
+					played = true;
+					g.root.removeEventListener( 'focusin', onFocus );
+					pl.to( 1 );
+				}
+			};
+			g.root.addEventListener( 'focusin', onFocus );
+			later( function () {
+				g.root.removeEventListener( 'focusin', onFocus );
+			} );
 			if ( inBox( g.root ) && 'IntersectionObserver' in w ) {
 				// A popup or a scrolling box moves without the page scrolling: the observer sees
 				// that scrolling too (the start line is then measured on the drawn box).
@@ -1016,20 +1050,24 @@
 			return;
 		}
 		later( pl.stop );
-		if ( ! ( 'IntersectionObserver' in w ) ) {
-			if ( ! reduced() ) {
+		var onScreen = true;
+		var go = function () {
+			if ( onScreen && ! reduced() && ! loopsPaused ) {
 				pl.to( 1, true );
+			} else {
+				pl.stop(); // loops rest while off-screen or paused
 			}
+		};
+		loopers.push( { g: g, go: go } );
+		if ( ! ( 'IntersectionObserver' in w ) ) {
+			go();
 			return;
 		}
 		var io = new w.IntersectionObserver(
 			function ( entries ) {
 				entries.forEach( function ( e ) {
-					if ( e.isIntersecting && ! reduced() ) {
-						pl.to( 1, true );
-					} else {
-						pl.stop(); // loops rest while off-screen
-					}
+					onScreen = e.isIntersecting;
+					go();
 				} );
 			},
 			{ rootMargin: '100px 0px' }
@@ -1080,7 +1118,12 @@
 			} catch ( e ) {
 				return;
 			}
-			var groups = build( root, Array.isArray( rows ) ? rows : [] );
+			var groups;
+			try {
+				groups = build( root, Array.isArray( rows ) ? rows : [] );
+			} catch ( e ) {
+				return; // one broken timeline never stops the others
+			}
 			fresh.push( groups );
 			// Read every designed value before the first write (no forced layout per element).
 			groups.forEach( function ( g ) {
@@ -1114,6 +1157,7 @@
 			item.fn();
 		} );
 		cleanups = [];
+		loopers = [];
 		scrollers = [];
 		viewers = [];
 		redraw = [];
@@ -1147,6 +1191,26 @@
 	}
 
 	function boot() {
+		// Paused earlier in this visit (BricksMotion.pauseAll / a data-bme-pause-toggle button).
+		try {
+			loopsPaused = !! w.sessionStorage.getItem( 'bme-paused' );
+		} catch ( e ) {
+			loopsPaused = false;
+		}
+		// Pages with timelines only (no runtime): the pause buttons work here too.
+		d.addEventListener( 'click', function ( e ) {
+			var b = ! w.BricksMotion && e.target.closest && e.target.closest( '[data-bme-pause-toggle]' );
+			if ( b ) {
+				e.preventDefault();
+				w.BricksMotionTimeline.pauseLoops( ! loopsPaused );
+				b.setAttribute( 'aria-pressed', loopsPaused ? 'true' : 'false' );
+				try {
+					w.sessionStorage.setItem( 'bme-paused', loopsPaused ? '1' : '' );
+				} catch ( err ) {
+					/* storage blocked */
+				}
+			}
+		} );
 		band = bandNow();
 		start();
 		w.addEventListener( 'scroll', requestScroll, { passive: true } );
@@ -1238,6 +1302,15 @@
 			refresh: remeasure,
 			rebuild: rebuild,
 			scan: scanNow,
+			pauseLoops: function ( on ) {
+				loopsPaused = !! on;
+				loopers = loopers.filter( function ( l ) {
+					return l.g.root.isConnected;
+				} );
+				loopers.forEach( function ( l ) {
+					l.go();
+				} );
+			},
 			ease: function ( name, t ) {
 				return easeFn( name )( t ); // exposed for tests and custom code
 			},

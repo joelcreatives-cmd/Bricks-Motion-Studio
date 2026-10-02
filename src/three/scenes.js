@@ -40,14 +40,24 @@ const DEFAULT_COLORS = [ '#5b3fc4', '#c8497a', '#2d9cdb' ];
 // modern syntax for us; an invalid colour leaves the sentinel untouched.
 let probe = null;
 function cssColor( v ) {
-	probe = probe || document.createElement( 'canvas' ).getContext( '2d' );
+	if ( ! probe ) {
+		const c = document.createElement( 'canvas' );
+		c.width = c.height = 1;
+		probe = c.getContext( '2d', { willReadFrequently: true } );
+	}
 	if ( ! probe || ! v ) {
 		return '';
 	}
 	probe.fillStyle = '#010203';
 	probe.fillStyle = v;
-	const out = String( probe.fillStyle );
-	return out === '#010203' && ! /^#010203$/i.test( v ) ? '' : out;
+	if ( String( probe.fillStyle ) === '#010203' && ! /^#010203$/i.test( v ) ) {
+		return ''; // not a colour
+	}
+	// Painted and read back: any syntax the browser knows comes out as plain sRGB.
+	probe.clearRect( 0, 0, 1, 1 );
+	probe.fillRect( 0, 0, 1, 1 );
+	const d = probe.getImageData( 0, 0, 1, 1 ).data;
+	return 'rgb(' + d[ 0 ] + ',' + d[ 1 ] + ',' + d[ 2 ] + ')';
 }
 
 function resolveColor( el, value, fallback ) {
@@ -55,6 +65,9 @@ function resolveColor( el, value, fallback ) {
 	const m = v.match( /^var\(\s*(--[\w-]+)\s*(?:,\s*(.+))?\)$/ );
 	if ( m ) {
 		v = getComputedStyle( el ).getPropertyValue( m[ 1 ] ).trim() || ( m[ 2 ] || '' ).trim();
+	}
+	if ( /^currentcolor$/i.test( v ) ) {
+		v = getComputedStyle( el ).color; // the canvas has no element to take it from
 	}
 	const c = new Color();
 	c.setStyle( cssColor( v ) || fallback );
@@ -533,6 +546,9 @@ export function mount( el, raw = {}, env = {} ) {
 		el.classList.add( 'bme-3d-fallback' );
 		if ( ctrl ) {
 			ctrl.destroy();
+		}
+		if ( env.onFail ) {
+			env.onFail();
 		}
 	};
 

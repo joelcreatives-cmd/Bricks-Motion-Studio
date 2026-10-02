@@ -350,7 +350,6 @@ async function run( mode ) {
 		}
 		// colour names / var() resolve correctly on an element with a CSS transition
 		await into( q( 'tl-trans' ), 100 );
-		if ( getComputedStyle( q( 'tl-trans' ) ).color !== 'rgb(0, 128, 0)' && mode === 'default' ) { await wait( 2200 ); }
 		if ( getComputedStyle( q( 'tl-trans' ) ).color !== 'rgb(0, 128, 0)' ) fail.push( 'var() colour with a CSS transition: ' + getComputedStyle( q( 'tl-trans' ) ).color );
 		// absolutely positioned target inside a pinned stage measures correctly
 		const ab = q( 'tl-abs' ), abT = q( 'tl-abs-t' );
@@ -381,6 +380,55 @@ async function run( mode ) {
 		return fail;
 	}, mode );
 	res.fail.push( ...c6Fail );
+	// QA round 4 regressions (data-case7).
+	const c7Fail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const q = ( c ) => document.querySelector( '[data-case7="' + c + '"]' );
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		const tx = ( el ) => new DOMMatrix( getComputedStyle( el ).transform );
+		const into = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( ms ); };
+		// destroy() takes the same targets as play() / reset(), and never throws
+		try { BricksMotion.destroy( '#nope-at-all' ); BricksMotion.destroy( null ); } catch ( e ) { fail.push( 'destroy() threw: ' + e.message ); }
+		if ( mode === 'default' ) {
+			// a focused link that slid out of the clipped marquee is moved back into view
+			const mq = q( 'mq-focus' ); await into( mq, 300 );
+			const far = mq.querySelector( '.far' ); far.focus( { preventScroll: true } ); await wait( 100 );
+			const box = mq.parentElement.getBoundingClientRect(), r = far.getBoundingClientRect();
+			if ( r.left < box.left - 1 || r.right > box.right + 1 ) fail.push( 'focused marquee link outside the visible strip' );
+			far.blur(); await wait( 50 );
+			if ( mq.style.translate ) fail.push( 'marquee focus shift left behind: ' + mq.style.translate );
+			// marquee in a grid that used row-gap keeps that spacing
+			const mg = q( 'mq-grid' ); await into( mg, 200 );
+			const k = [ ...mg.children ];
+			if ( k.length < 2 || Math.abs( k[ 1 ].offsetLeft - ( k[ 0 ].offsetLeft + k[ 0 ].offsetWidth ) - 25 ) > 1 ) fail.push( 'grid marquee spacing: ' + ( k[ 1 ] && k[ 1 ].offsetLeft - ( k[ 0 ].offsetLeft + k[ 0 ].offsetWidth ) ) );
+			// the pause button stops loops, marquees and timeline loops, and starts them again
+			const lp = q( 'loop-pause' ), tlp = q( 'tl-loop-pause' ), btn = q( 'pause-btn' );
+			await into( lp, 400 );
+			btn.click(); await wait( 100 );
+			const a1 = getComputedStyle( lp ).transform, b1 = getComputedStyle( tlp ).transform; await wait( 400 );
+			if ( getComputedStyle( lp ).transform !== a1 ) fail.push( 'loop still moving while paused' );
+			if ( getComputedStyle( tlp ).transform !== b1 ) fail.push( 'timeline loop still moving while paused' );
+			if ( btn.getAttribute( 'aria-pressed' ) !== 'true' ) fail.push( 'pause button aria-pressed not true' );
+			btn.click(); await wait( 400 );
+			if ( getComputedStyle( lp ).transform === a1 ) fail.push( 'loop did not resume' );
+			if ( getComputedStyle( tlp ).transform === b1 ) fail.push( 'timeline loop did not resume' );
+			if ( btn.getAttribute( 'aria-pressed' ) !== 'false' ) fail.push( 'pause button aria-pressed not false' );
+		}
+		// keyboard focus plays a timeline view row that has not been reached yet
+		scrollTo( { top: 0, behavior: 'instant' } ); await wait( 100 );
+		const tf = document.createElement( 'div' );
+		tf.setAttribute( 'data-bme-tl', JSON.stringify( [ { on: 'view', p: 'opacity', k: [ [ 0, '0' ], [ 100, '1' ] ], d: 0, o: 0 } ] ) );
+		tf.innerHTML = '<a href="#f" class="c7-f">focus me</a>';
+		q( 'tl-focus' ).after( tf ); await wait( 300 ); // picked up by the timeline's watcher, far below the screen
+		if ( +getComputedStyle( tf ).opacity > 0.01 ) fail.push( 'inserted view row not waiting below the screen: ' + getComputedStyle( tf ).opacity );
+		tf.querySelector( '.c7-f' ).focus( { preventScroll: true } ); await wait( 200 );
+		if ( +getComputedStyle( tf ).opacity < 0.99 ) fail.push( 'focus did not play the timeline view row: ' + getComputedStyle( tf ).opacity );
+		// a view row whose start line is below the page end still plays when the end is reached
+		scrollTo( { top: document.documentElement.scrollHeight, behavior: 'instant' } ); await wait( 500 );
+		if ( +getComputedStyle( q( 'tl-end' ) ).opacity < 0.99 ) fail.push( 'view row at the page end never played' );
+		return fail;
+	}, mode );
+	res.fail.push( ...c7Fail );
 	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
 	if ( mode === 'default' ) {
 		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );

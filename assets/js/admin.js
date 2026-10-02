@@ -158,6 +158,13 @@
 	var LIB_NAMES = { gsap: 'GSAP', anime: 'Anime.js', motion: 'Motion', three: 'Three.js', lenis: 'Lenis' };
 
 	function sync() {
+		// Rule buttons say which rule they act on ("Remove rule 3"), for screen-reader users.
+		$$( '.bme-rule' ).forEach( function ( row, i ) {
+			$$( '[data-bme-remove-rule], [data-bme-preview-rule]', row ).forEach( function ( btn ) {
+				btn.__bmeLabel = btn.__bmeLabel || btn.getAttribute( 'aria-label' );
+				btn.setAttribute( 'aria-label', btn.__bmeLabel + ' ' + ( i + 1 ) );
+			} );
+		} );
 		var on = Object.keys( LIB_NAMES ).filter( function ( k ) {
 			return val( 'libraries.' + k );
 		} );
@@ -289,7 +296,12 @@
 	document.addEventListener( 'click', function ( e ) {
 		var remove = e.target.closest( '[data-bme-remove-rule]' );
 		if ( remove ) {
-			remove.closest( '.bme-rule' ).remove();
+			// Keyboard focus moves to the next rule's Remove button (or the one before, or Add rule).
+			var row = remove.closest( '.bme-rule' );
+			var next = row.nextElementSibling || row.previousElementSibling;
+			row.remove();
+			var target = next && next.querySelector( '[data-bme-remove-rule]' );
+			( target || $( '[data-bme-add-rule]' ) || document.body ).focus();
 			updateEmpty();
 			checkDirty();
 			sync();

@@ -120,7 +120,12 @@
 	function enterEnd( trigger ) {
 		var doc = document.scrollingElement || document.documentElement;
 		var vh = window.innerHeight || doc.clientHeight;
-		var top = trigger.getBoundingClientRect().top + ( window.scrollY || 0 );
+		// Layout position, without the animation's own movement: the same value every time it is
+		// measured, so refresh() only rebuilds when the page really changed.
+		var top = 0;
+		for ( var n = trigger; n; n = n.offsetParent ) {
+			top += n.offsetTop;
+		}
 		var maxScroll = Math.max( 0, doc.scrollHeight - vh );
 		return Math.min( 1, Math.max( 0.35, ( top - maxScroll ) / vh ) );
 	}

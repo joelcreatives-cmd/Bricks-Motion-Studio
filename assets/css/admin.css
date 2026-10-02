@@ -4,6 +4,11 @@
  * One accent (royal violet #5b3fc4) on cool neutrals; violet marks actions and active state only.
  */
 
+/* The sticky bar must never cover the focused field (WCAG 2.4.11). */
+html:has(.bme-wrap) {
+	scroll-padding-top: 110px;
+}
+
 .bme-wrap {
 	--ink: #1b1a24;
 	--ink-2: #3d3b4b;
@@ -621,7 +626,7 @@
 }
 
 .bme-seg__opt.is-unavailable span {
-	color: #a09eb0;
+	color: #6b6980; /* 4.6:1 on the segment background */
 	text-decoration: line-through;
 	text-decoration-color: #cfcddb;
 }

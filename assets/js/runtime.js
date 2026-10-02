@@ -387,7 +387,7 @@
 	 */
 	function splitText( el, type, mask, opt ) {
 		opt = opt || {};
-		var label = el.textContent.replace( /\s+/g, ' ' ).trim();
+		var label = ( el.innerText || el.textContent ).replace( /\s+/g, ' ' ).trim(); // <br> → a space, not "HelloWorld"
 		var words = [];
 		var chars = [];
 		var groups = [];
@@ -742,7 +742,7 @@
 			duration: num( o.duration, num( p.duration, D.duration ) * lv[ 1 ] ),
 			delay: num( o.delay, D.delay ),
 			stagger: num( o.stagger, num( p.stagger, D.stagger ) * lv[ 2 ] ),
-			distance: num( o.distance, D.distance * lv[ 0 ] ),
+			distance: Math.max( -1000, Math.min( 1000, num( o.distance, D.distance * lv[ 0 ] ) ) ),
 			offset: num( o.offset, D.offset ),
 			speed: num( o.speed, D.speed ),
 			ease: o.ease || p.ease || D.ease,
@@ -788,15 +788,49 @@
 		if ( el.hasAttribute( 'data-bme-skip' ) ) {
 			return true;
 		}
-		if ( ! cfg.exclude ) {
+		var list = excludeList();
+		if ( ! list ) {
 			return false;
 		}
 		try {
-			var hit = el.parentElement && el.parentElement.closest( cfg.exclude );
+			var hit = el.parentElement && el.parentElement.closest( list );
 			return !! hit;
 		} catch ( e ) {
 			return false;
 		}
+	}
+
+	// "Never animate inside" without the selectors the browser rejects: one typo must not switch
+	// off every other entry (closest() throws on the whole list).
+	var excludeCache = null;
+	function excludeList() {
+		if ( excludeCache === null ) {
+			var parts = [];
+			var depth = 0;
+			var cur = '';
+			String( cfg.exclude || '' ).split( '' ).forEach( function ( ch ) {
+				depth += ch === '(' || ch === '[' ? 1 : ch === ')' || ch === ']' ? -1 : 0;
+				if ( ch === ',' && depth <= 0 ) {
+					parts.push( cur );
+					cur = '';
+				} else {
+					cur += ch;
+				}
+			} );
+			parts.push( cur );
+			var probe = document.createDocumentFragment();
+			excludeCache = parts.map( function ( x ) {
+				return x.trim();
+			} ).filter( function ( x ) {
+				try {
+					return x && ( probe.querySelector( x ), true );
+				} catch ( e ) {
+					log( 'Ignored invalid "never animate inside" selector:', x );
+					return false;
+				}
+			} ).join( ', ' );
+		}
+		return excludeCache;
 	}
 
 	function unhide( el ) {
@@ -1174,6 +1208,11 @@
 		}
 
 		if ( c.slug === 'scroll-highlight' ) {
+			if ( rec.fade ) {
+				unhide( el ); // reduced motion: readable text, nothing dimmed
+				rec.inert = true;
+				return;
+			}
 			setupHighlight( rec );
 			return;
 		}
@@ -1545,9 +1584,11 @@
 			return;
 		}
 		var cs = getComputedStyle( el );
+		var wasDisplay = cs.display; // cs is live: read before anything is written
+		var wasDirection = cs.flexDirection;
 		var parent = el.parentElement;
 		var m = {
-			style: [ 'display', 'width', 'flex-wrap', 'flex-direction', 'column-gap', 'padding-inline-end' ].map( function ( prop ) {
+			style: [ 'display', 'width', 'flex-wrap', 'flex-direction', 'column-gap', 'padding-inline-end', 'translate' ].map( function ( prop ) {
 				return [ prop, el.style.getPropertyValue( prop ) ];
 			} ),
 			parent: parent,
@@ -1571,11 +1612,11 @@
 		} );
 		// One row: Bricks containers and blocks are column flexboxes, and a grid with set columns
 		// would wrap the copies onto new rows.
-		if ( ! /flex/.test( cs.display ) ) {
-			el.style.display = /inline/.test( cs.display ) ? 'inline-flex' : 'flex';
+		if ( ! /flex/.test( wasDisplay ) ) {
+			el.style.display = /inline/.test( wasDisplay ) ? 'inline-flex' : 'flex';
 		}
-		var column = /column/.test( cs.flexDirection ) || /grid/.test( cs.display );
-		if ( /column/.test( cs.flexDirection ) || ! /flex/.test( cs.display ) ) {
+		var column = /column/.test( wasDirection ) || /grid/.test( wasDisplay );
+		if ( /column/.test( wasDirection ) || ! /flex/.test( wasDisplay ) ) {
 			el.style.flexDirection = 'row'; // row-reverse stays as designed
 		}
 		el.style.flexWrap = 'nowrap';
@@ -1596,19 +1637,52 @@
 			pauseLoop( rec );
 		};
 		var resume = function () {
-			if ( ! el.matches( ':hover' ) && ! el.contains( document.activeElement ) && inViewport( el ) ) {
+			if ( ! m.tapped && ! el.matches( ':hover' ) && ! el.contains( document.activeElement ) && inViewport( el ) ) {
 				resumeLoop( rec );
+			}
+		};
+		// Keyboard focus: pause, and if the focused item slid outside the clipped area, shift the
+		// strip (CSS translate, on top of the paused animation) until it is in view.
+		var onFocus = function ( e ) {
+			pause();
+			el.style.translate = '';
+			var box = ( parent || el ).getBoundingClientRect();
+			var r = e.target.getBoundingClientRect();
+			var dx = r.left < box.left ? box.left - r.left : r.right > box.right ? box.right - r.right : 0;
+			if ( dx ) {
+				el.style.translate = dx + 'px 0';
+			}
+		};
+		var onBlur = function () {
+			if ( ! el.contains( document.activeElement ) ) {
+				el.style.translate = '';
+			}
+			resume();
+		};
+		// Touch has no hover: a tap pauses and resumes the strip (WCAG 2.2.2).
+		var onTap = function ( e ) {
+			if ( e.pointerType !== 'touch' || e.target.closest( 'a, button' ) ) {
+				return;
+			}
+			if ( m.tapped ) {
+				m.tapped = false;
+				resume();
+			} else {
+				m.tapped = true;
+				pause();
 			}
 		};
 		el.addEventListener( 'pointerenter', pause );
 		el.addEventListener( 'pointerleave', resume );
-		el.addEventListener( 'focusin', pause );
-		el.addEventListener( 'focusout', resume );
+		el.addEventListener( 'focusin', onFocus );
+		el.addEventListener( 'focusout', onBlur );
+		el.addEventListener( 'pointerup', onTap );
 		m.off = function () {
 			el.removeEventListener( 'pointerenter', pause );
 			el.removeEventListener( 'pointerleave', resume );
-			el.removeEventListener( 'focusin', pause );
-			el.removeEventListener( 'focusout', resume );
+			el.removeEventListener( 'focusin', onFocus );
+			el.removeEventListener( 'focusout', onBlur );
+			el.removeEventListener( 'pointerup', onTap );
 		};
 	}
 
@@ -1641,7 +1715,7 @@
 	}
 
 	function resumeLoop( rec ) {
-		if ( rec.inert ) {
+		if ( rec.inert || allPaused ) {
 			return;
 		}
 		if ( ! rec.ctrl ) {
@@ -1664,6 +1738,47 @@
 		if ( rec.ctrl && rec.ctrl.pause ) {
 			rec.ctrl.pause();
 		}
+	}
+
+	/*
+	 * Pause / resume everything that keeps moving (WCAG 2.2.2): loops, marquees, timeline loops and
+	 * 3D backgrounds. BricksMotion.pauseAll() / resumeAll(), or any element with
+	 * data-bme-pause-toggle (a button in the footer, say) — remembered for the visit.
+	 */
+	var allPaused = false;
+	function setAllPaused( on ) {
+		allPaused = !! on;
+		records.forEach( function ( rec ) {
+			if ( rec.kind === 'loop' ) {
+				if ( allPaused ) {
+					pauseLoop( rec );
+				} else if ( rec.el.__bmeMarquee || inViewport( rec.el ) ) {
+					resumeLoop( rec );
+				}
+			}
+		} );
+		threeHosts.forEach( function ( host ) {
+			var s = host.__bme3d;
+			if ( s && s.ctrl ) {
+				if ( allPaused ) {
+					s.ctrl.pause();
+				} else if ( s.visible ) {
+					s.ctrl.resume();
+				}
+			}
+		} );
+		if ( window.BricksMotionTimeline && window.BricksMotionTimeline.pauseLoops ) {
+			window.BricksMotionTimeline.pauseLoops( allPaused );
+		}
+		toArray( document.querySelectorAll( '[data-bme-pause-toggle]' ) ).forEach( function ( b ) {
+			b.setAttribute( 'aria-pressed', allPaused ? 'true' : 'false' );
+		} );
+		try {
+			window.sessionStorage.setItem( 'bme-paused', allPaused ? '1' : '' );
+		} catch ( e ) {
+			/* storage blocked: just this page */
+		}
+		emit( allPaused ? 'bme:paused' : 'bme:resumed', {} );
 	}
 
 	/* ------------------------------------------------------------------
@@ -2023,9 +2138,12 @@
 							mountThree( entry.target );
 						} else if ( s.ctrl ) {
 							if ( entry.isIntersecting ) {
-								s.ctrl.resume();
+								if ( ! allPaused ) {
+									s.ctrl.resume();
+								}
 							} else {
 								s.ctrl.pause();
+								retryThree(); // its slot can now go to a scene waiting in view
 							}
 						}
 					} );
@@ -2042,7 +2160,7 @@
 		var freed = false;
 		threeHosts.forEach( function ( host ) {
 			var s = host.__bme3d;
-			if ( ! freed && host !== except && s && s.state === 'mounted' && ! s.visible && s.ctrl ) {
+			if ( ! freed && host !== except && s && s.state === 'mounted' && ! s.visible && s.ctrl && ! host.classList.contains( 'bme-3d-fallback' ) ) {
 				s.ctrl.destroy();
 				s.ctrl = null;
 				s.state = 'pending';
@@ -2050,6 +2168,16 @@
 			}
 		} );
 		return freed;
+	}
+
+	// A slot was freed (a scene failed, was destroyed or left the view): visible waiting scenes try again.
+	function retryThree() {
+		threeHosts.forEach( function ( host ) {
+			var s = host.__bme3d;
+			if ( s && s.state === 'waiting' && s.visible ) {
+				mountThree( host );
+			}
+		} );
 	}
 
 	function mountThree( el, retried ) {
@@ -2063,6 +2191,11 @@
 					return;
 				}
 				s.ctrl = mod.mount( el, opts, {
+					onFail: function () {
+						s.state = 'failed'; // model 404, lost GPU context: the scene already tore itself down
+						s.ctrl = null;
+						retryThree();
+					},
 					dpr: cfg.three.dpr || 1.5,
 					reduced: mqReduced.matches && cfg.reduced !== 'ignore',
 					debug: !! cfg.debug,
@@ -2082,7 +2215,7 @@
 					return;
 				}
 				s.state = 'mounted';
-				if ( ! s.visible && s.ctrl ) {
+				if ( ( ! s.visible || allPaused ) && s.ctrl ) {
 					s.ctrl.pause();
 				}
 				emit( 'bme:3d-ready', { element: el, scene: opts.scene }, el );
@@ -2477,7 +2610,30 @@
 		document.head.appendChild( s );
 	}
 
+	function bindPause() {
+		document.addEventListener( 'click', function ( e ) {
+			var b = e.target.closest && e.target.closest( '[data-bme-pause-toggle]' );
+			if ( b ) {
+				e.preventDefault();
+				setAllPaused( ! allPaused );
+			}
+		} );
+		toArray( document.querySelectorAll( '[data-bme-pause-toggle]' ) ).forEach( function ( b ) {
+			b.setAttribute( 'aria-pressed', 'false' );
+		} );
+		var saved = '';
+		try {
+			saved = window.sessionStorage.getItem( 'bme-paused' );
+		} catch ( e ) {
+			/* storage blocked */
+		}
+		if ( saved ) {
+			setAllPaused( true );
+		}
+	}
+
 	function bindBricks() {
+		bindPause();
 		needTimeline(); // content rendered after the page decided which scripts to load
 		var rescan = debounce( function () {
 			scan( document );
@@ -2565,6 +2721,7 @@
 				}
 				if ( added.length ) {
 					scanAdded();
+					needTimeline();
 				}
 			} ).observe( document.body, { childList: true, subtree: true } );
 		}
@@ -2810,7 +2967,19 @@
 				}
 			} );
 		},
-		destroy: destroy,
+		/** Pause / resume everything that keeps moving (loops, marquees, timeline loops, 3D). */
+		pauseAll: function () {
+			setAllPaused( true );
+		},
+		resumeAll: function () {
+			setAllPaused( false );
+		},
+		/** Stop and undo animations: an element, selector, list or Bricks' %brx%, like play() / reset(). */
+		destroy: function ( target ) {
+			resolveTargets( target ).forEach( function ( el ) {
+				destroy( el );
+			} );
+		},
 		on: function ( name, fn ) {
 			( listeners[ name ] = listeners[ name ] || [] ).push( fn );
 		},

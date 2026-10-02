@@ -34,7 +34,7 @@ Every element's **Motion Studio** group has a **Timeline** list. Each row animat
 | Field | Values |
 |---|---|
 | Trigger | **Scroll position** (keyframes are % of the element's trip through the screen, so a tall section can choreograph a sticky stage), **Scrolled into view** (once), **Hover** (reverses on leave), **Hover out** (plays on leave instead of reversing), **Loop** |
-| Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour |
+| Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour. Width and height re-lay-out the page on every frame: prefer scaleX / scaleY for smooth motion on long pages |
 | Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%` (`25%: 0%` works too). Values must suit the property: x / y / width / height take lengths (px % vw vh vmin vmax svh dvh lvh em rem), rotate takes deg or turn, scale / opacity take plain numbers or % (`80%` = 0.8), colours take `#hex`, `rgb()` / `rgba()` / `hsl()` (comma or space syntax), colour names, `transparent` or `var(--brand)`. Also `auto` (the element's designed value; resting on it hands the property back to the stylesheet) and `-overflow` (slide until the far edge reaches the parent's content edge). If any pair doesn't fit, the whole row is left out, never half-read. Colours blend like CSS transitions (premultiplied alpha). Elements that fade in from their first keyframe start invisible, so they never flash before the script runs. Targets written as `#brxe-…` also work inside query loops and components |
 | Duration / delay / easing | timed triggers; easing includes exact quad/cubic/quart/quint/expo/sine/circ/back curves (GSAP power1-4 …) |
 | Scroll range | optional ScrollTrigger-style `"<element edge> <screen line>"`, e.g. `top 15%` → `bottom bottom`, measured on this element or another |
@@ -123,13 +123,19 @@ Individual overrides also work: `data-bme-duration`, `data-bme-delay`, `data-bme
 
 Eases: `smooth`, `soft`, `strong`, `in-out`, `back`, `elastic`, `bounce`, `sine`, `linear` (mapped to each engine's equivalent).
 
+## Pause button (WCAG 2.2.2)
+
+Motion that lasts longer than five seconds (loops, marquees, timeline loops, 3D backgrounds) needs a way to stop it. Add `data-bme-pause-toggle` to any button (Bricks: **Attributes**), e.g. a "Pause animations" button in the footer: it pauses and resumes all of it, sets `aria-pressed`, and the choice is kept for the rest of the visit. Marquees also pause on hover, on keyboard focus (a focused link that slid out of view is moved back into view) and on tap.
+
 ## JavaScript API
 
 ```js
 BricksMotion.refresh( root? );   // scan for new elements (after custom AJAX), recalc triggers
 BricksMotion.play( target );     // (re)play now: element, selector, NodeList, or Bricks' %brx% object
 BricksMotion.reset( target );    // back to the start state, ready to play again
-BricksMotion.destroy( el );      // revert + stop an element
+BricksMotion.destroy( target );  // revert + stop (element, selector, NodeList or %brx%)
+BricksMotion.pauseAll();         // pause everything that keeps moving: loops, marquees, timeline loops, 3D
+BricksMotion.resumeAll();        // …and start it again (remembered for the visit)
 BricksMotion.lenis;              // Lenis instance when smooth scroll is enabled
 BricksMotion.adapters;           // { native, gsap, anime, motion } registered engines
 BricksMotion.registerAdapter( 'name', adapter ); // add your own engine (see runtime.js)

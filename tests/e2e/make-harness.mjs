@@ -108,10 +108,20 @@ body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{positio
 <div data-bme="fade-up" data-bme-engine="native" data-bme-opts='{"auto":true}' data-bme-hide data-case6="auto-child-tl" ${tl([{ on: 'hover', s: '.k', p: 'x', k: [[0, '0px'], [100, '5px']], d: 0.1 }])}><span class="k">child-only timeline keeps the auto reveal</span></div>
 <div class="c6-rowgap" data-bme="marquee" data-bme-engine="native" data-case6="mq-rowgap"><div>A</div><div>B</div></div>
 <div id="c6-insert"></div>
+<!-- QA round 4 (asserted in run.mjs via data-case7) -->
+<style>.c7-mq-wrap{width:200px}.c7-mq{display:flex;gap:10px}.c7-mq>a{display:block;width:150px;flex:none}.c7-grid{display:grid;grid-template-columns:1fr;row-gap:25px}.c7-grid>div{width:60px;height:20px;background:#ccc}</style>
+<div class="c7-mq-wrap"><div class="c7-mq" data-bme="marquee" data-bme-engine="native" data-case7="mq-focus"><a href="#1">one</a><a href="#2">two</a><a href="#3" class="far">three</a><a href="#4">four</a></div></div>
+<div class="c7-grid" data-bme="marquee" data-bme-engine="native" data-case7="mq-grid"><div>A</div><div>B</div></div>
+<div data-bme="spin" data-bme-engine="native" data-case7="loop-pause" style="width:40px;height:40px;background:#c00"></div>
+<div data-case7="tl-loop-pause" ${tl([{ on: 'loop', p: 'x', k: [[0, '0px'], [100, '100px']], d: 1, e: 'linear' }])} style="width:40px">tl loop</div>
+<button type="button" data-bme-pause-toggle data-case7="pause-btn">Pause animations</button>
+<div style="height:1200px"></div>
+<div data-case7="tl-focus" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0, o: 0 }])}><a href="#f" class="c7-f">focus me</a></div>
 <div class="bme-3d-scene" data-case6="3d-missing" data-bme-3d='{"scene":"model","mode":"element","model":"/missing.glb"}' style="height:120px"><img class="bme-3d-poster" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt=""></div>
 <div style="height:2500px"></div>
 <div style="height:60px"></div>
 ${['motion', 'anime', 'gsap'].map((e) => `<div data-bme="scroll-fade" data-bme-engine="${e}" data-case4="qa-endfade-${e}" style="height:40px">end fade ${e}</div>`).join('')}
+<div data-case7="tl-end" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0, o: 60 }])} style="height:30px">at the very end of the page</div>
 `;
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>BME harness</title>
 <style>html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-hide]{opacity:.01}</style>
