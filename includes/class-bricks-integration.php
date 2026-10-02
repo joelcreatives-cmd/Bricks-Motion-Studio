@@ -55,7 +55,9 @@ class Bricks_Integration {
 		add_filter( 'bricks/element/set_root_attributes', array( $this, 'root_attributes' ), 20, 2 );
 		// Root attributes are built before Bricks checks element conditions: only count what renders.
 		add_filter( 'bricks/element/render', array( $this, 'commit_usage' ), 9999, 2 );
-		add_action( 'wp_footer', array( $this, 'flush_usage' ), 14 );
+		// As late as possible before footer scripts print (wp_footer:20): Bricks templates assigned
+		// to wp_footer up to priority 18 are counted too.
+		add_action( 'wp_footer', array( $this, 'flush_usage' ), 18 );
 
 		add_action( 'bricks/frontend/before_render_data', array( $this, 'push_area' ), 10, 2 );
 		add_action( 'bricks/frontend/after_render_data', array( $this, 'pop_area' ), 10, 2 );
@@ -124,7 +126,13 @@ class Bricks_Integration {
 	}
 
 	public function add_controls( $controls ) {
-		if ( ! is_array( $controls ) || ! $this->controls_needed() ) {
+		if ( ! is_array( $controls ) ) {
+			return $controls;
+		}
+		if ( ! $this->controls_needed() ) {
+			// Frontend: only the control type Bricks needs to merge component-instance values
+			// into the timeline rows (it does that for repeaters only). No labels, no fields.
+			$controls['bmeTimeline'] = $controls['bmeTimeline'] ?? array( 'type' => 'repeater' );
 			return $controls;
 		}
 		$matches = array();
@@ -624,6 +632,7 @@ class Bricks_Integration {
 				'off'    => esc_html__( 'Disabled', 'bricks-motion-studio' ),
 			),
 			'placeholder' => esc_html__( 'Site settings', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'For pages and content templates. Header, footer and popup templates follow the setting of the page they appear on.', 'bricks-motion-studio' ),
 		);
 		$data['controls']['bmePageLevel'] = array(
 			'group'       => self::GROUP,
@@ -650,6 +659,12 @@ class Bricks_Integration {
 		}
 		$value = \Bricks\Database::$page_settings[ $key ] ?? '';
 		return is_string( $value ) ? $value : '';
+	}
+
+	/** The Bricks builder (main window, canvas iframe, or its own render requests). */
+	public static function in_builder() {
+		$builder_request = wp_doing_ajax() || ( defined( 'REST_REQUEST' ) && REST_REQUEST );
+		return function_exists( 'bricks_is_builder' ) && ( bricks_is_builder() || bricks_is_builder_iframe() || ( $builder_request && bricks_is_builder_call() ) );
 	}
 
 	public static function is_passive_context() {
@@ -744,7 +759,7 @@ class Bricks_Integration {
 			}
 		} elseif ( 'off' === $mode ) {
 			$attributes['data-bme-skip'] = '';
-		} elseif ( 'custom' === $mode || ! $tl_rows ) {
+		} elseif ( 'custom' === $mode || ! self::timeline_on_self( $tl_rows ) ) {
 			// An element with its own timeline is never also given a site-wide auto animation:
 			// both would write the same transform / opacity every frame.
 			$config = 'custom' === $mode ? $this->custom_config( $settings ) : $this->auto_config( $element, $name, $settings, $attributes );
@@ -1039,6 +1054,21 @@ class Bricks_Integration {
 	}
 
 	/**
+	 * Does any row animate the element itself (no target selector)?
+	 *
+	 * @param array $rows Validated rows.
+	 * @return bool
+	 */
+	public static function timeline_on_self( array $rows ) {
+		foreach ( $rows as $row ) {
+			if ( empty( $row['s'] ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
 	 * Does a row fade the element itself in from below full opacity (view, hover-free rows and
 	 * scroll rows start from their first keyframe)?
 	 *
@@ -1071,7 +1101,14 @@ class Bricks_Integration {
 	 * @return string
 	 */
 	public static function loop_safe_selector( $selector ) {
-		return preg_replace( '/#(brxe-[a-z0-9]+)\b(?![\w-])/i', ':is(#$1,.$1)', $selector );
+		return preg_replace_callback(
+			'/("[^"]*"|\'[^\']*\'|\[[^\]]*\])|#(brxe-[a-z0-9]+)(?![\w-])/i',
+			static function ( $m ) {
+				// Quoted strings and [attribute] parts (a[href="#brxe-…"]) are left exactly as written.
+				return '' !== $m[1] ? $m[1] : ':is(#' . $m[2] . ',.' . $m[2] . ')';
+			},
+			$selector
+		);
 	}
 
 	/**
@@ -1088,7 +1125,7 @@ class Bricks_Integration {
 		$keys   = array();
 		$number = '-?(?:\d+\.?\d*|\.\d+)';
 		$length = $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)?';
-		$colour = 'transparent|currentcolor|[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\(--[a-z0-9_-]+\)'
+		$colour = 'transparent|currentcolor|[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\(--[A-Za-z0-9_-]+\)'
 			. '|rgba?\((?:\d+(?:\.\d+)?%?)(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)'
 			. '|hsla?\(' . $number . '(?:deg|turn)?(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)';
 		switch ( $prop ) {
@@ -1120,10 +1157,17 @@ class Bricks_Integration {
 				continue; // a trailing comma
 			}
 			// "50: 1" and "50%: 1" are the same keyframe.
-			if ( ! preg_match( '/^\s*(-?\d+(?:\.\d+)?)\s*%?\s*:\s*(.+?)\s*$/s', $pair, $m ) ) {
+			if ( ! preg_match( '/^\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*%?\s*:\s*(.+?)\s*$/s', $pair, $m ) ) {
 				return array();
 			}
-			$value = strtolower( preg_replace( '/\s+/', ' ', $m[2] ) );
+			// Lower case, except custom property names (var(--Brand) and var(--brand) differ).
+			$value = preg_replace_callback(
+				'/var\(\s*--[A-Za-z0-9_-]+\s*\)|[^v]+|v/',
+				static function ( $part ) {
+					return 0 === strpos( $part[0], 'var(' ) ? preg_replace( '/\s+/', '', $part[0] ) : strtolower( $part[0] );
+				},
+				preg_replace( '/\s+/', ' ', $m[2] )
+			);
 			$value = preg_replace( '/\s*([,\/()])\s*/', '$1', $value );        // rgba( 0, 0 / .5 ) → rgba(0,0/.5)
 			$value = preg_replace( '/^(-?\d*\.?\d+) ([a-z%]+)$/', '$1$2', $value ); // "10 px" → "10px"
 			// The whole value must match, or the row is dropped (never half-parsed).
@@ -1371,7 +1415,8 @@ class Bricks_Integration {
 			return true; // Unreadable: stay on the safe side.
 		}
 		foreach ( $list as $item ) {
-			if ( is_array( $item ) && 'startAnimation' === ( $item['action'] ?? '' ) && in_array( $item['target'] ?? 'self', array( '', 'self' ), true ) && empty( $item['targetSelector'] ) ) {
+			// Like Bricks: target "self" (or none) ignores a selector left over from "CSS selector".
+			if ( is_array( $item ) && 'startAnimation' === ( $item['action'] ?? '' ) && in_array( $item['target'] ?? 'self', array( '', 'self' ), true ) ) {
 				return true;
 			}
 		}
@@ -1485,6 +1530,15 @@ class Bricks_Integration {
 			return array(
 				'preset' => $preset,
 				'engine' => 'native',
+			);
+		}
+
+		// SVG drawing: GSAP's DrawSVG when GSAP is on, otherwise the runtime's own tween (loading
+		// Anime.js or Motion would add nothing).
+		if ( ! empty( $p['draw'] ) ) {
+			return array(
+				'preset' => $preset,
+				'engine' => in_array( 'gsap', $enabled, true ) && in_array( $preferred, array( '', 'gsap' ), true ) ? 'gsap' : 'native',
 			);
 		}
 

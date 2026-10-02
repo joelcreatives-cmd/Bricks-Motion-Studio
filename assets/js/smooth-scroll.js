@@ -25,6 +25,7 @@
 
 	var gsap = window.gsap;
 	var tick = null;
+	var setLag = false;
 	var ST = window.ScrollTrigger;
 	var html = document.documentElement;
 
@@ -65,6 +66,7 @@
 		gsap.ticker.add( tick );
 		if ( ! BM.config || BM.config.ownGsap !== false ) {
 			gsap.ticker.lagSmoothing( 0 );
+			setLag = true;
 		}
 	}
 
@@ -105,6 +107,9 @@
 		}
 		if ( gsap && tick ) {
 			gsap.ticker.remove( tick );
+		}
+		if ( setLag ) {
+			gsap.ticker.lagSmoothing( 500, 33 ); // GSAP's default again
 		}
 		lenis.destroy();
 		html.style.scrollBehavior = scrollBehavior;

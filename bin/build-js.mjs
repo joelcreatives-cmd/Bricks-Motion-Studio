@@ -18,7 +18,7 @@ const stamp = ( hash ) => `/*! Bricks Motion Studio build ${ hash } */\n`;
 
 // Slim vendor bundles: only what the adapters use. Stamped with the library version + exports.
 export const SLIM = {
-	'assets/vendor/motion/motion.slim.min.js': { pkg: 'motion', contents: "import { animate, scroll, stagger } from 'motion'; window.Motion = { animate, scroll, stagger };" },
+	'assets/vendor/motion/motion.slim.min.js': { pkg: 'motion', contents: "import { animate, scroll, stagger } from 'motion'; window.Motion = { animate, scroll, stagger };" }, // the adapter gives a theme's own window.Motion back
 	'assets/vendor/anime/anime.slim.min.js': { pkg: 'animejs', contents: "import { animate, stagger, onScroll, engine } from 'animejs'; window.anime = { animate, stagger, onScroll, engine };" },
 };
 export const slimHash = ( spec ) => hashOf( JSON.parse( read( `node_modules/${ spec.pkg }/package.json` ) ).version, spec.contents );

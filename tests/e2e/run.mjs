@@ -105,7 +105,7 @@ async function run( mode ) {
 			if ( mode === 'default' && got === undefined && [ 'reveal', 'text', 'special' ].includes( p.group ) ) notPlayed.push( e.dataset.case );
 		} );
 		if ( notPlayed.length ) fail.push( 'never played: ' + notPlayed.join( ', ' ) );
-		const three = [ ...document.querySelectorAll( '[data-bme-3d]' ) ].filter( ( e ) => ! e.classList.contains( 'bme-3d-ready' ) ).map( ( e ) => e.dataset.case );
+		const three = [ ...document.querySelectorAll( '[data-case][data-bme-3d]' ) ].filter( ( e ) => ! e.classList.contains( 'bme-3d-ready' ) ).map( ( e ) => e.dataset.case );
 		return { fail, three, adapters: Object.keys( BricksMotion.adapters ) };
 	}, mode );
 	// Timelines.
@@ -326,6 +326,61 @@ async function run( mode ) {
 		return fail;
 	}, mode );
 	res.fail.push( ...c5Fail );
+	// QA round 3 regressions (data-case6).
+	const c6Fail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const q = ( c ) => document.querySelector( '[data-case6="' + c + '"]' );
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		const tx = ( el ) => new DOMMatrix( getComputedStyle( el ).transform );
+		const into = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( ms ); };
+		const near = ( a, b, tol, what ) => { if ( ! ( Math.abs( a - b ) <= tol ) ) fail.push( what + ': ' + ( +a ).toFixed( 2 ) + ' (want ' + b + ')' ); };
+		const replay = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); BricksMotion.reset( el ); await wait( 60 ); BricksMotion.play( el ); await wait( ms ); };
+		if ( mode === 'default' ) {
+			// Anime line reveal: lines start one line-height down (their own height), not hundreds of px
+			const la = q( 'lines-anime' ); await replay( la, 150 );
+			const pieces = [ ...la.querySelectorAll( '.bme-word, .bme-line' ) ].filter( ( l ) => l.offsetHeight );
+			const worst = Math.max( 0, ...pieces.map( ( l ) => tx( l ).m42 / l.offsetHeight ) );
+			if ( ! pieces.length ) fail.push( 'anime split-lines: nothing split' );
+			else if ( worst > 1.05 ) fail.push( 'anime split-lines start ' + worst.toFixed( 1 ) + ' line heights down (want ≤ 1)' );
+			// Motion elastic overshoots past its resting place (not a plain back-out)
+			const em = q( 'elastic-motion' ); em.scrollIntoView( { block: 'center', behavior: 'instant' } ); BricksMotion.reset( em ); await wait( 60 ); BricksMotion.play( em );
+			let minY = 99, crossings = 0, last = null;
+			for ( let i = 0; i < 40; i++ ) { await wait( 50 ); const y = tx( em ).m42; minY = Math.min( minY, y ); if ( last !== null && Math.sign( y ) !== Math.sign( last ) && Math.abs( y ) > 0.3 ) crossings++; last = y; }
+			if ( crossings < 2 ) fail.push( 'motion elastic: ' + crossings + ' overshoots (want an elastic wobble)' );
+		}
+		// colour names / var() resolve correctly on an element with a CSS transition
+		await into( q( 'tl-trans' ), 100 );
+		if ( getComputedStyle( q( 'tl-trans' ) ).color !== 'rgb(0, 128, 0)' && mode === 'default' ) { await wait( 2200 ); }
+		if ( getComputedStyle( q( 'tl-trans' ) ).color !== 'rgb(0, 128, 0)' ) fail.push( 'var() colour with a CSS transition: ' + getComputedStyle( q( 'tl-trans' ) ).color );
+		// absolutely positioned target inside a pinned stage measures correctly
+		const ab = q( 'tl-abs' ), abT = q( 'tl-abs-t' );
+		const top = ab.getBoundingClientRect().top + scrollY;
+		scrollTo( { top: top + 500, behavior: 'instant' } ); await wait( 100 );
+		window.BricksMotionTimeline.refresh(); await wait( 100 );
+		near( tx( abT ).m41, ( 500 - 50 ) / ( 2000 - innerHeight - 50 ) * 1000, 6, 'absolute target in a pinned stage' );
+		// a timeline aimed only at children leaves the element's auto reveal alone
+		const ac = q( 'auto-child-tl' ); await into( ac, 1500 );
+		if ( mode === 'default' && ac.dataset.bmeState !== 'done' ) fail.push( 'auto reveal skipped although the timeline only targets children (' + ac.dataset.bmeState + ')' );
+		if ( +getComputedStyle( ac ).opacity < 0.99 ) fail.push( 'auto-child-tl left hidden' );
+		// marquee in a column flexbox that used row-gap keeps that spacing between items
+		if ( mode === 'default' ) {
+			const mg = q( 'mq-rowgap' ); await into( mg, 200 );
+			const k = [ ...mg.children ];
+			near( k[ 1 ].offsetLeft - ( k[ 0 ].offsetLeft + k[ 0 ].offsetWidth ), 30, 1, 'marquee keeps the row-gap as its spacing' );
+		}
+		// a node with a timeline inserted by another script (no Bricks event) runs
+		const ins = document.createElement( 'div' );
+		ins.setAttribute( 'data-bme-tl', JSON.stringify( [ { on: 'view', p: 'opacity', k: [ [ 0, '0.2' ], [ 100, '0.6' ] ], d: 0, o: 0 } ] ) );
+		ins.setAttribute( 'data-bme-tl-hide', '' ); ins.textContent = 'inserted timeline';
+		document.getElementById( 'c6-insert' ).appendChild( ins ); await into( ins, 500 );
+		if ( ins.hasAttribute( 'data-bme-tl-hide' ) ) fail.push( 'inserted timeline left hidden' );
+		near( +getComputedStyle( ins ).opacity, 0.6, 0.01, 'inserted timeline played' );
+		// a 3D model that fails to load gives the poster back
+		const m3 = q( '3d-missing' ); await into( m3, 3000 );
+		if ( m3.classList.contains( 'bme-3d-ready' ) || ! m3.classList.contains( 'bme-3d-fallback' ) ) fail.push( '3D model 404: poster not shown (' + m3.className + ')' );
+		return fail;
+	}, mode );
+	res.fail.push( ...c6Fail );
 	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
 	if ( mode === 'default' ) {
 		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );

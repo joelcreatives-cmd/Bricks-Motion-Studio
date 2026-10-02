@@ -260,7 +260,7 @@
 				return { n: dv.n, u: dv.u, c: dv.c, raw: dv.raw, isAuto: true };
 			}
 			if ( v.col ) {
-				return resolveColour( el, v.raw ) || v;
+				return resolveColour( el, v.raw, prop ) || v;
 			}
 			return v.ovf ? { n: v.ovf * overflowOf( el, prop ), u: 'px' } : v;
 		};
@@ -364,21 +364,29 @@
 
 	// A colour CSS understands but the timeline can't read (red, hsl(), var(--brand)) → rgba,
 	// computed on the element itself so custom properties resolve where they are used.
-	function resolveColour( el, raw ) {
+	function resolveColour( el, raw, prop ) {
 		var st = stateOf( el );
+		if ( raw === 'currentcolor' && prop === 'backgroundColor' ) {
+			return st.design.color; // the element's own (designed) text colour
+		}
 		var cols = st.cols || ( st.cols = {} );
 		if ( ! ( raw in cols ) ) {
-			var prev = el.style.getPropertyValue( 'color' );
-			var prio = el.style.getPropertyPriority( 'color' );
+			var keep = [ 'color', 'transition' ].map( function ( p ) {
+				return [ p, el.style.getPropertyValue( p ), el.style.getPropertyPriority( p ) ];
+			} );
+			// A running CSS transition would report where it starts, not the colour asked for.
+			el.style.setProperty( 'transition', 'none', 'important' );
 			el.style.setProperty( 'color', raw, 'important' );
 			var ok = el.style.getPropertyValue( 'color' ) !== '';
 			var got = ok ? parse( w.getComputedStyle( el ).color, 'color' ) : null;
 			cols[ raw ] = got && got.c ? got : null;
-			if ( prev ) {
-				el.style.setProperty( 'color', prev, prio );
-			} else {
-				el.style.removeProperty( 'color' );
-			}
+			keep.forEach( function ( k ) {
+				if ( k[ 1 ] ) {
+					el.style.setProperty( k[ 0 ], k[ 1 ], k[ 2 ] );
+				} else {
+					el.style.removeProperty( k[ 0 ] );
+				}
+			} );
 			if ( el.getAttribute( 'style' ) === '' ) {
 				el.removeAttribute( 'style' );
 			}
@@ -687,6 +695,7 @@
 	// A pinned (position: sticky) ancestor reports where it is pinned right now, not where it sits
 	// in the page: measure with every sticky element on the way up un-stuck, then put them back
 	// (same task, nothing is painted in between).
+	var UNSTICK = [ 'position', 'top', 'bottom', 'left', 'right' ];
 	function unstick( els ) {
 		var undo = [];
 		var seen = new Set();
@@ -694,18 +703,28 @@
 			for ( var n = el; n && n !== d.body && ! seen.has( n ); n = n.parentElement ) {
 				seen.add( n );
 				if ( w.getComputedStyle( n ).position === 'sticky' ) {
-					undo.push( [ n, n.style.getPropertyValue( 'position' ), n.style.getPropertyPriority( 'position' ) ] );
-					n.style.setProperty( 'position', 'static', 'important' );
+					// relative with no offsets: sits exactly where it would without sticking, and
+					// stays the containing block of absolutely positioned layers inside it.
+					var saved = UNSTICK.map( function ( p ) {
+						return [ p, n.style.getPropertyValue( p ), n.style.getPropertyPriority( p ) ];
+					} );
+					undo.push( [ n, saved ] );
+					n.style.setProperty( 'position', 'relative', 'important' );
+					[ 'top', 'bottom', 'left', 'right' ].forEach( function ( p ) {
+						n.style.setProperty( p, 'auto', 'important' );
+					} );
 				}
 			}
 		} );
 		return function () {
 			undo.forEach( function ( u ) {
-				if ( u[ 1 ] ) {
-					u[ 0 ].style.setProperty( 'position', u[ 1 ], u[ 2 ] );
-				} else {
-					u[ 0 ].style.removeProperty( 'position' );
-				}
+				u[ 1 ].forEach( function ( k ) {
+					if ( k[ 1 ] ) {
+						u[ 0 ].style.setProperty( k[ 0 ], k[ 1 ], k[ 2 ] );
+					} else {
+						u[ 0 ].style.removeProperty( k[ 0 ] );
+					}
+				} );
 				if ( u[ 0 ].getAttribute( 'style' ) === '' ) {
 					u[ 0 ].removeAttribute( 'style' );
 				}
@@ -1141,14 +1160,17 @@
 		var resizeTimer = 0;
 		var layoutTimer = 0;
 		var lastWidth = w.innerWidth;
+		var lastHeight = w.innerHeight;
 		var coarse = w.matchMedia ? w.matchMedia( '(pointer: coarse)' ) : { matches: false };
 		w.addEventListener( 'resize', function () {
-			// The mobile address bar showing / hiding changes only the height: re-measuring then
-			// would make every scroll range jump mid-scroll (GSAP's ignoreMobileResize).
-			if ( coarse.matches && w.innerWidth === lastWidth ) {
+			// The mobile address bar showing / hiding changes only the height, by a little:
+			// re-measuring then would make every scroll range jump mid-scroll (GSAP's
+			// ignoreMobileResize). Real height changes (split screen, a resized window) still count.
+			if ( coarse.matches && w.innerWidth === lastWidth && Math.abs( w.innerHeight - lastHeight ) < 160 ) {
 				return;
 			}
 			lastWidth = w.innerWidth;
+			lastHeight = w.innerHeight;
 			clearTimeout( resizeTimer );
 			resizeTimer = setTimeout( function () {
 				// Crossing 992px changes which rows apply: rebuild from the designed styles.
@@ -1179,13 +1201,32 @@
 			reduceQuery.addListener( onReduce );
 		}
 		// Bricks: AJAX content brings new timelines; shown popups / tabs / accordions move things.
+		var scanNow = function () {
+			if ( running ) {
+				init();
+			} else {
+				unhide(); // switched off (small screen): new content is simply shown
+			}
+		};
 		[ 'bricks/ajax/nodes_added', 'bricks/ajax/query_result/displayed', 'bricks/ajax/load_page/completed', 'bricks/ajax/pagination/completed', 'bricks/ajax/popup/loaded' ].forEach( function ( evt ) {
-			d.addEventListener( evt, function () {
-				if ( running ) {
-					init();
-				}
-			} );
+			d.addEventListener( evt, scanNow );
 		} );
+		// Content other scripts insert (filter plugins, custom fetch) fires no Bricks event.
+		if ( 'MutationObserver' in w && d.body ) {
+			var addedTimer = 0;
+			new w.MutationObserver( function ( list ) {
+				for ( var i = 0; i < list.length; i++ ) {
+					for ( var j = 0; j < list[ i ].addedNodes.length; j++ ) {
+						var n = list[ i ].addedNodes[ j ];
+						if ( n.nodeType === 1 && ( n.hasAttribute( 'data-bme-tl' ) || n.querySelector( '[data-bme-tl]' ) ) ) {
+							clearTimeout( addedTimer );
+							addedTimer = setTimeout( scanNow, 30 );
+							return;
+						}
+					}
+				}
+			} ).observe( d.body, { childList: true, subtree: true } );
+		}
 		[ 'bricks/popup/open', 'bricks/accordion/open', 'bricks/accordion/close', 'bricks/tabs/changed' ].forEach( function ( evt ) {
 			d.addEventListener( evt, function () {
 				if ( running ) {
@@ -1196,11 +1237,7 @@
 		w.BricksMotionTimeline = {
 			refresh: remeasure,
 			rebuild: rebuild,
-			scan: function () {
-				if ( running ) {
-					init();
-				}
-			},
+			scan: scanNow,
 			ease: function ( name, t ) {
 				return easeFn( name )( t ); // exposed for tests and custom code
 			},

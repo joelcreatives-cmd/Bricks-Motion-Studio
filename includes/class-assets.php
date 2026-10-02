@@ -15,12 +15,16 @@ class Assets {
 	public function __construct() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'register' ), 5 );
 		add_action( 'wp_head', array( $this, 'print_boot' ), 2 );
-		// Bricks renders popups on wp_footer:10 and WordPress prints footer scripts on wp_footer:20.
-		add_action( 'wp_footer', array( $this, 'enqueue' ), 15 );
+		// Bricks renders popups on wp_footer:10 and WordPress prints footer scripts on wp_footer:20;
+		// usage is final at :18 (Bricks_Integration::flush_usage).
+		add_action( 'wp_footer', array( $this, 'enqueue' ), 19 );
 
 		// Cloudflare Rocket Loader, LiteSpeed, SiteGround, Autoptimize: keep our own small, deferred
 		// scripts out of "delay JS", otherwise content that is already visible animates late.
 		add_filter( 'wp_script_attributes', array( $this, 'script_attributes' ) );
+		// The settings snippets (window.BME_CONFIG / BME_TL, id "bme-…-js-before") too: a script
+		// that starts before its settings arrive runs with none.
+		add_filter( 'wp_inline_script_attributes', array( $this, 'script_attributes' ) );
 
 		// Optimization plugins: don't delay the engine, don't strip classes added at runtime.
 		add_filter( 'rocket_delay_js_exclusions', array( $this, 'js_exclusions' ) );
@@ -97,6 +101,7 @@ class Assets {
 		$list[] = 'cdn.jsdelivr.net/npm/lenis@';
 		$list[] = 'bme-boot';
 		$list[] = 'BME_CONFIG';
+		$list[] = 'BME_TL';
 		return $list;
 	}
 

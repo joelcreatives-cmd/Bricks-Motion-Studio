@@ -99,6 +99,16 @@ body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{positio
 <p data-bme="scroll-highlight" data-case5="highlight">Words light up as you scroll through this paragraph of text</p>
 <div style="display:none" id="c5-print-wrap"><div data-bme="fade-up" data-bme-engine="native" data-bme-hide data-case5="print-wait">printed while hidden</div></div>
 <div id="c5-insert"></div>
+<!-- QA round 3 (asserted in run.mjs via data-case6) -->
+<style>.c6-trans{transition:color 2s linear}.c6-st{height:2000px}.c6-st .pin{position:sticky;top:0;height:300px}.c6-st .abs{position:absolute;top:50px;left:0}.c6-rowgap{display:flex;flex-direction:column;row-gap:30px}.c6-rowgap>div{width:60px;height:20px;flex:none;background:#ccc}</style>
+<h2 data-bme="split-lines" data-bme-engine="anime" data-bme-opts='{"duration":2}' data-bme-hide data-case6="lines-anime">Masked line reveal on Anime that should rise into view smoothly from below its mask</h2>
+<div data-bme="fade-up" data-bme-engine="motion" data-bme-opts='{"duration":2,"ease":"elastic","distance":60}' data-bme-hide data-case6="elastic-motion">elastic on Motion</div>
+<div class="c6-trans" data-case6="tl-trans" ${tl([{ on: 'view', p: 'color', k: [[0, 'red'], [100, 'var(--qa-c)']], d: 0, o: 0 }])}>colour with a CSS transition</div>
+<section class="c6-st" data-case6="tl-abs" ${tl([{ on: 'scroll', s: '.abs', p: 'x', k: [[0, '0px'], [100, '1000px']], rs: 'top top', re: 'bottom bottom', rse: '.abs' }])}><div class="pin"><div class="abs" data-case6="tl-abs-t">absolute in a sticky stage</div></div></section>
+<div data-bme="fade-up" data-bme-engine="native" data-bme-opts='{"auto":true}' data-bme-hide data-case6="auto-child-tl" ${tl([{ on: 'hover', s: '.k', p: 'x', k: [[0, '0px'], [100, '5px']], d: 0.1 }])}><span class="k">child-only timeline keeps the auto reveal</span></div>
+<div class="c6-rowgap" data-bme="marquee" data-bme-engine="native" data-case6="mq-rowgap"><div>A</div><div>B</div></div>
+<div id="c6-insert"></div>
+<div class="bme-3d-scene" data-case6="3d-missing" data-bme-3d='{"scene":"model","mode":"element","model":"/missing.glb"}' style="height:120px"><img class="bme-3d-poster" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" alt=""></div>
 <div style="height:2500px"></div>
 <div style="height:60px"></div>
 ${['motion', 'anime', 'gsap'].map((e) => `<div data-bme="scroll-fade" data-bme-engine="${e}" data-case4="qa-endfade-${e}" style="height:40px">end fade ${e}</div>`).join('')}

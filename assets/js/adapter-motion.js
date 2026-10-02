@@ -10,6 +10,11 @@
 	if ( ! BM || ! M || typeof M.animate !== 'function' ) {
 		return;
 	}
+	// A theme/plugin loaded its own Motion first: keep ours private and give the global back.
+	var prev = BM.foreign && BM.foreign.motion;
+	if ( prev && prev !== M ) {
+		window.Motion = prev;
+	}
 
 	var EASE = {
 		linear: 'linear',
@@ -18,8 +23,8 @@
 		strong: [ 0.16, 1, 0.3, 1 ],
 		'in-out': 'easeInOut',
 		back: 'backOut',
-		elastic: 'backOut',
-		bounce: 'backOut',
+		elastic: BM.util.ease.elastic,
+		bounce: BM.util.ease.bounce,
 		sine: [ 0.37, 0, 0.63, 1 ],
 	};
 
@@ -118,6 +123,44 @@
 		return Math.min( 1, Math.max( 0.35, ( top - maxScroll ) / vh ) );
 	}
 
+
+	// "Enter" ranges end where the page can scroll to (enterEnd): when the page gets shorter or
+	// longer later (filters, accordions, lazy content), refresh() builds those scrubs again.
+	var enterScrubs = [];
+	function liveScrub( trigger, o, make ) {
+		var entry = { trigger: trigger, end: enterEnd( trigger ), make: make, cur: make(), dead: false };
+		if ( o.range !== 'enter' ) {
+			return entry.cur;
+		}
+		enterScrubs.push( entry );
+		return {
+			finished: entry.cur.finished,
+			pause: function () {
+				entry.cur.pause();
+			},
+			play: function () {
+				entry.cur.play();
+			},
+			revert: function () {
+				entry.dead = true;
+				entry.cur.revert();
+			},
+		};
+	}
+	function refreshEnterScrubs() {
+		enterScrubs = enterScrubs.filter( function ( e ) {
+			return ! e.dead && e.trigger.isConnected;
+		} );
+		enterScrubs.forEach( function ( e ) {
+			var end = enterEnd( e.trigger );
+			if ( Math.abs( end - e.end ) > 0.01 ) {
+				e.end = end;
+				e.cur.revert();
+				e.cur = e.make();
+			}
+		} );
+	}
+
 	BM.registerAdapter( 'motion', {
 		tween: function ( targets, from, to, o ) {
 			var opts = {
@@ -136,17 +179,21 @@
 			if ( typeof M.scroll !== 'function' ) {
 				return null;
 			}
-			var opts = { ease: 'linear', duration: 1 };
-			if ( o.stagger ) {
-				opts.delay = M.stagger( o.stagger );
-			}
-			var anim = M.animate( targets, keyframes( from, to ), opts );
-			var cancel = M.scroll( anim, {
-				target: trigger,
-				offset: o.range === 'enter' ? [ 'start end', 'start ' + +enterEnd( trigger ).toFixed( 3 ) ] : [ 'start end', 'end start' ],
+			return liveScrub( trigger, o, function () {
+				var opts = { ease: 'linear', duration: 1 };
+				if ( o.stagger ) {
+					opts.delay = M.stagger( o.stagger );
+				}
+				var anim = M.animate( targets, keyframes( from, to ), opts );
+				var cancel = M.scroll( anim, {
+					target: trigger,
+					offset: o.range === 'enter' ? [ 'start end', 'start ' + +enterEnd( trigger ).toFixed( 3 ) ] : [ 'start end', 'end start' ],
+				} );
+				return control( anim, cancel );
 			} );
-			return control( anim, cancel );
 		},
+
+		refresh: refreshEnterScrubs,
 
 		special: {},
 	} );

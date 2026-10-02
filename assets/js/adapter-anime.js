@@ -28,6 +28,22 @@
 		sine: 'inOutSine',
 	};
 
+	// A % of the element's own box, like CSS translate (Anime.js converts % against the parent's
+	// width, and caches that one result for every element).
+	function len( v, axis ) {
+		if ( typeof v === 'number' ) {
+			return v + 'px';
+		}
+		var m = /^(-?[\d.]+)%$/.exec( String( v ) );
+		if ( ! m ) {
+			return v;
+		}
+		var f = parseFloat( m[ 1 ] ) / 100;
+		return function ( el ) {
+			return f * ( axis === 'y' ? el.offsetHeight : el.offsetWidth );
+		};
+	}
+
 	/** Neutral from/to → Anime.js [from, to] tween values. */
 	function params( from, to ) {
 		var p = {};
@@ -46,7 +62,7 @@
 					break;
 				case 'x':
 				case 'y':
-					p[ k ] = [ typeof a === 'number' ? a + 'px' : a, typeof b === 'number' ? b + 'px' : b ];
+					p[ k ] = [ len( a, k ), len( b, k ) ];
 					break;
 				case 'rotate':
 				case 'rotateX':
@@ -109,6 +125,44 @@
 		return Math.min( 1, Math.max( 0.35, ( top - maxScroll ) / vh ) );
 	}
 
+
+	// "Enter" ranges end where the page can scroll to (enterEnd): when the page gets shorter or
+	// longer later (filters, accordions, lazy content), refresh() builds those scrubs again.
+	var enterScrubs = [];
+	function liveScrub( trigger, o, make ) {
+		var entry = { trigger: trigger, end: enterEnd( trigger ), make: make, cur: make(), dead: false };
+		if ( o.range !== 'enter' ) {
+			return entry.cur;
+		}
+		enterScrubs.push( entry );
+		return {
+			finished: entry.cur.finished,
+			pause: function () {
+				entry.cur.pause();
+			},
+			play: function () {
+				entry.cur.play();
+			},
+			revert: function () {
+				entry.dead = true;
+				entry.cur.revert();
+			},
+		};
+	}
+	function refreshEnterScrubs() {
+		enterScrubs = enterScrubs.filter( function ( e ) {
+			return ! e.dead && e.trigger.isConnected;
+		} );
+		enterScrubs.forEach( function ( e ) {
+			var end = enterEnd( e.trigger );
+			if ( Math.abs( end - e.end ) > 0.01 ) {
+				e.end = end;
+				e.cur.revert();
+				e.cur = e.make();
+			}
+		} );
+	}
+
 	BM.registerAdapter( 'anime', {
 		tween: function ( targets, from, to, o ) {
 			var p = params( from, to );
@@ -127,23 +181,26 @@
 			if ( typeof anime.onScroll !== 'function' ) {
 				return null;
 			}
-			var p = params( from, to );
-			p.ease = 'linear';
-			p.duration = 1000;
-			if ( o.stagger ) {
-				p.delay = anime.stagger( o.stagger * 1000 );
-			}
-			p.autoplay = anime.onScroll( {
-				target: trigger,
-				// Anime.js thresholds are "containerEdge targetEdge".
-				enter: 'end start',
-				leave: o.range === 'enter' ? Math.round( enterEnd( trigger ) * 100 ) + '% start' : 'start end',
-				sync: 0.4,
+			return liveScrub( trigger, o, function () {
+				var p = params( from, to );
+				p.ease = 'linear';
+				p.duration = 1000;
+				if ( o.stagger ) {
+					p.delay = anime.stagger( o.stagger * 1000 );
+				}
+				p.autoplay = anime.onScroll( {
+					target: trigger,
+					// Anime.js thresholds are "containerEdge targetEdge".
+					enter: 'end start',
+					leave: o.range === 'enter' ? Math.round( enterEnd( trigger ) * 100 ) + '% start' : 'start end',
+					sync: 0.4,
+				} );
+				return control( anime.animate( targets, p ) );
 			} );
-			return control( anime.animate( targets, p ) );
 		},
 
 		refresh: function () {
+			refreshEnterScrubs();
 			if ( anime.engine && typeof anime.engine.update === 'function' ) {
 				try {
 					anime.engine.update();

@@ -127,7 +127,8 @@ class Presets {
 			return array();
 		}
 		$plugins = isset( $p['plugins'] ) ? (array) $p['plugins'] : array();
-		if ( ! empty( $p['split'] ) && empty( $p['core'] ) ) {
+		// SplitText only does line reveals; words and characters use the built-in splitter.
+		if ( 'lines' === ( $p['split'] ?? '' ) && empty( $p['core'] ) ) {
 			$plugins[] = 'SplitText';
 		}
 		if ( ! empty( $p['scrub'] ) || ! empty( $p['pin'] ) ) {

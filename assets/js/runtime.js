@@ -544,9 +544,10 @@
 		if ( ! p ) {
 			return null;
 		}
-		var supported = ( p.engines || [ 'gsap', 'anime', 'motion' ] ).concat( nativeOk( p ) ? [ 'native' ] : [] );
+		// SVG drawing runs on the core tween unless GSAP (DrawSVG) is there: no other library needed.
+		var supported = ( p.engines || [ 'gsap', 'anime', 'motion' ] ).concat( nativeOk( p ) || p.draw ? [ 'native' ] : [] );
 		// No engine chosen for this element: the built-in engine handles what it can (no library needed).
-		var auto = ! preferred && cfg.native !== false ? 'native' : '';
+		var auto = ! preferred && cfg.native !== false && ! ( p.draw && has( adapters, 'gsap' ) ) ? 'native' : '';
 		var order = [ preferred, auto, cfg.engine ].concat( cfg.engines || [] ).concat( Object.keys( adapters ) );
 		for ( var i = 0; i < order.length; i++ ) {
 			var e = order[ i ];
@@ -1004,6 +1005,15 @@
 		return 'reveal';
 	}
 
+	// A timeline row that animates the element itself (no target selector): an auto animation
+	// would write the same transform / opacity. Rows aimed at children leave it free.
+	function ownTimeline( el ) {
+		var rows = parseJSON( el.getAttribute( 'data-bme-tl' ) );
+		return Array.isArray( rows ) && rows.some( function ( r ) {
+			return r && ! r.s;
+		} );
+	}
+
 	function create( el ) {
 		if ( byEl.has( el ) ) {
 			return null;
@@ -1022,8 +1032,8 @@
 			return null;
 		}
 
-		if ( claimed.has( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || el.hasAttribute( 'data-bme-tl' ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
-			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : el.hasAttribute( 'data-bme-tl' ) ? '(has its own timeline)' : '(excluded)' );
+		if ( claimed.has( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || ownTimeline( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
+			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : ownTimeline( el ) ? '(has its own timeline)' : '(excluded)' );
 			unhide( el );
 			byEl.set( el, { el: el, skipped: true } );
 			return null;
@@ -1537,7 +1547,7 @@
 		var cs = getComputedStyle( el );
 		var parent = el.parentElement;
 		var m = {
-			style: [ 'display', 'width', 'flex-wrap', 'flex-direction', 'padding-inline-end' ].map( function ( prop ) {
+			style: [ 'display', 'width', 'flex-wrap', 'flex-direction', 'column-gap', 'padding-inline-end' ].map( function ( prop ) {
 				return [ prop, el.style.getPropertyValue( prop ) ];
 			} ),
 			parent: parent,
@@ -1564,10 +1574,18 @@
 		if ( ! /flex/.test( cs.display ) ) {
 			el.style.display = /inline/.test( cs.display ) ? 'inline-flex' : 'flex';
 		}
-		el.style.flexDirection = 'row';
+		var column = /column/.test( cs.flexDirection ) || /grid/.test( cs.display );
+		if ( /column/.test( cs.flexDirection ) || ! /flex/.test( cs.display ) ) {
+			el.style.flexDirection = 'row'; // row-reverse stays as designed
+		}
 		el.style.flexWrap = 'nowrap';
 		el.style.width = 'max-content';
+		// A column layout spaced its items with row-gap: in one row that spacing is the column gap.
 		var gap = parseFloat( cs.columnGap );
+		if ( column && ! ( gap > 0 ) && parseFloat( cs.rowGap ) > 0 ) {
+			gap = parseFloat( cs.rowGap );
+			el.style.columnGap = gap + 'px';
+		}
 		if ( gap > 0 ) {
 			el.style.paddingInlineEnd = gap + 'px';
 		}
@@ -2001,7 +2019,7 @@
 							return;
 						}
 						s.visible = entry.isIntersecting;
-						if ( entry.isIntersecting && s.state === 'pending' ) {
+						if ( entry.isIntersecting && ( s.state === 'pending' || s.state === 'waiting' ) ) {
 							mountThree( entry.target );
 						} else if ( s.ctrl ) {
 							if ( entry.isIntersecting ) {
@@ -2018,7 +2036,23 @@
 		threeObserver.observe( el );
 	}
 
-	function mountThree( el ) {
+	// Browsers keep only so many WebGL contexts: a scene far out of view gives its slot to one that
+	// is coming into view, and is mounted again when it comes back.
+	function freeThreeSlot( except ) {
+		var freed = false;
+		threeHosts.forEach( function ( host ) {
+			var s = host.__bme3d;
+			if ( ! freed && host !== except && s && s.state === 'mounted' && ! s.visible && s.ctrl ) {
+				s.ctrl.destroy();
+				s.ctrl = null;
+				s.state = 'pending';
+				freed = true;
+			}
+		} );
+		return freed;
+	}
+
+	function mountThree( el, retried ) {
 		var s = el.__bme3d;
 		s.state = 'loading';
 		var opts = parseJSON( el.getAttribute( 'data-bme-3d' ) );
@@ -2033,13 +2067,21 @@
 					reduced: mqReduced.matches && cfg.reduced !== 'ignore',
 					debug: !! cfg.debug,
 				} );
+				if ( ! s.ctrl && mod.busy && mod.busy() && ! retried && freeThreeSlot( el ) ) {
+					// Every WebGL slot was held by scenes scrolled out of view: one was released.
+					mountThree( el, true );
+					return;
+				}
 				if ( ! s.ctrl ) {
+					if ( mod.busy && mod.busy() ) {
+						s.state = 'waiting'; // tried again when it next comes into view
+						return;
+					}
 					el.classList.add( 'bme-3d-fallback' );
 					s.state = 'failed';
 					return;
 				}
 				s.state = 'mounted';
-				el.classList.add( 'bme-3d-ready' );
 				if ( ! s.visible && s.ctrl ) {
 					s.ctrl.pause();
 				}
@@ -2427,10 +2469,16 @@
 		var s = document.createElement( 'script' );
 		s.src = cfg.timeline.src;
 		s.async = true;
+		s.onerror = function () {
+			toArray( document.querySelectorAll( '[data-bme-tl-hide]' ) ).forEach( function ( el ) {
+				el.removeAttribute( 'data-bme-tl-hide' ); // blocked or missing: show the content as designed
+			} );
+		};
 		document.head.appendChild( s );
 	}
 
 	function bindBricks() {
+		needTimeline(); // content rendered after the page decided which scripts to load
 		var rescan = debounce( function () {
 			scan( document );
 			needTimeline();
@@ -2495,7 +2543,7 @@
 					scan( node );
 				} );
 			}, 60 );
-			var RELEVANT = '[data-bme], [class*="bme-"], [data-bme-3d], [data-bme-hover], [data-bme-hide], [' + INLINE_ATTR + ']';
+			var RELEVANT = '[data-bme], [class*="bme-"], [data-bme-3d], [data-bme-hover], [data-bme-hide], [data-bme-tl], [' + INLINE_ATTR + ']';
 			new MutationObserver( function ( mutations ) {
 				var removed = false;
 				for ( var i = 0; i < mutations.length; i++ ) {
@@ -2661,14 +2709,14 @@
 			} );
 			if ( motionOff() ) {
 				toArray( document.querySelectorAll( '[data-bme-hide]' ) ).forEach( unhide );
-				// Running WebGL scenes get the still frame they would have had on load.
-				toArray( threeHosts ).forEach( function ( el ) {
-					if ( el.__bme3d && el.__bme3d.state === 'mounted' ) {
-						destroyThree( el );
-						setupThree( el );
-					}
-				} );
 			}
+			// Running WebGL scenes get the still frame they would have had on load (both modes).
+			toArray( threeHosts ).forEach( function ( el ) {
+				if ( el.__bme3d && el.__bme3d.state === 'mounted' ) {
+					destroyThree( el );
+					setupThree( el );
+				}
+			} );
 			emit( 'bme:reduced', {} );
 		};
 		if ( mqReduced.addEventListener ) {
@@ -2718,7 +2766,7 @@
 		adapters: adapters,
 		// Globals that existed before our libraries loaded (another plugin's copy), so adapters can
 		// hand them back instead of leaving our version in their place.
-		foreign: { anime: window.anime, lenis: window.lenis },
+		foreign: { anime: window.anime, lenis: window.lenis, motion: window.Motion },
 		registerAdapter: registerAdapter,
 		refresh: function ( root ) {
 			scan( root || document );

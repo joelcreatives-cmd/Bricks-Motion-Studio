@@ -36,18 +36,28 @@ const DEFAULT_COLORS = [ '#5b3fc4', '#c8497a', '#2d9cdb' ];
  * Helpers
  * ------------------------------------------------------------------------ */
 
+// Any CSS colour → '#rrggbb' / 'rgba(…)' (what three's Color reads). A 2D canvas normalises
+// modern syntax for us; an invalid colour leaves the sentinel untouched.
+let probe = null;
+function cssColor( v ) {
+	probe = probe || document.createElement( 'canvas' ).getContext( '2d' );
+	if ( ! probe || ! v ) {
+		return '';
+	}
+	probe.fillStyle = '#010203';
+	probe.fillStyle = v;
+	const out = String( probe.fillStyle );
+	return out === '#010203' && ! /^#010203$/i.test( v ) ? '' : out;
+}
+
 function resolveColor( el, value, fallback ) {
 	let v = ( value || '' ).trim();
-	const m = v.match( /^var\(\s*(--[\w-]+)\s*(?:,\s*([^)]+))?\)$/ );
+	const m = v.match( /^var\(\s*(--[\w-]+)\s*(?:,\s*(.+))?\)$/ );
 	if ( m ) {
 		v = getComputedStyle( el ).getPropertyValue( m[ 1 ] ).trim() || ( m[ 2 ] || '' ).trim();
 	}
 	const c = new Color();
-	try {
-		c.setStyle( v || fallback );
-	} catch ( e ) {
-		c.setStyle( fallback );
-	}
+	c.setStyle( cssColor( v ) || fallback );
 	return c;
 }
 
@@ -372,6 +382,11 @@ let active = 0;
 
 const clamp = ( v, min, max, fallback ) => ( typeof v === 'number' && isFinite( v ) ? Math.min( max, Math.max( min, v ) ) : fallback );
 
+/** Is every WebGL slot taken? */
+export function busy() {
+	return active >= MAX_ACTIVE;
+}
+
 export function mount( el, raw = {}, env = {} ) {
 	// Options can come from hand-written attributes: never trust their ranges.
 	const opts = Object.assign( {}, raw, {
@@ -382,8 +397,7 @@ export function mount( el, raw = {}, env = {} ) {
 		colors: Array.isArray( raw.colors ) ? raw.colors.slice( 0, 3 ).map( String ) : [],
 	} );
 	if ( active >= MAX_ACTIVE ) {
-		el.classList.add( 'bme-3d-fallback' );
-		return null;
+		return null; // no WebGL slot free: the runtime frees an off-screen scene and asks again
 	}
 	const isElement = opts.mode === 'element';
 	const canvas = document.createElement( 'canvas' );
@@ -512,13 +526,20 @@ export function mount( el, raw = {}, env = {} ) {
 	// fallback (poster) and give the WebGL slot back so other scenes on the page can use it.
 	let ctrl = null;
 	const fail = () => {
+		if ( destroyed ) {
+			return;
+		}
+		el.classList.remove( 'bme-3d-ready' );
 		el.classList.add( 'bme-3d-fallback' );
-		if ( ctrl && ! destroyed ) {
+		if ( ctrl ) {
 			ctrl.destroy();
 		}
 	};
 
 	canvas.addEventListener( 'webglcontextlost', ( e ) => {
+		if ( destroyed ) {
+			return; // our own teardown (forceContextLoss) is not a failure
+		}
 		e.preventDefault();
 		stop();
 		setTimeout( fail, 0 );
@@ -553,6 +574,8 @@ export function mount( el, raw = {}, env = {} ) {
 		}
 		size();
 		start();
+		// The poster gives way only now that the scene (or the loaded model) is drawn.
+		el.classList.add( 'bme-3d-ready' );
 	};
 
 	if ( opts.scene === 'model' ) {
@@ -598,6 +621,7 @@ export function mount( el, raw = {}, env = {} ) {
 			renderer.dispose();
 			renderer.forceContextLoss();
 			canvas.remove();
+			el.classList.remove( 'bme-3d-ready' );
 			el.style.position = hostStyle.position;
 			el.style.isolation = hostStyle.isolation;
 			el.classList.remove( 'bme-3d-interactive', 'bme-3d-orbit' );
