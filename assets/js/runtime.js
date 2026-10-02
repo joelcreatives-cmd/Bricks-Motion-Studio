@@ -387,7 +387,7 @@
 	 */
 	function splitText( el, type, mask, opt ) {
 		opt = opt || {};
-		var label = ( el.innerText || el.textContent ).replace( /\s+/g, ' ' ).trim(); // <br> → a space, not "HelloWorld"
+		var label = labelOf( el );
 		var words = [];
 		var chars = [];
 		var groups = [];
@@ -763,6 +763,16 @@
 		return s === 'true' || s === 'yes' || s === 'on' || !! num( s, 0 );
 	}
 
+	// The element's text for screen readers: <br> reads as a space ("Hello World", not
+	// "HelloWorld"); the source text, not the CSS text-transform innerText would apply.
+	function labelOf( el ) {
+		var copy = el.cloneNode( true );
+		toArray( copy.querySelectorAll( 'br' ) ).forEach( function ( br ) {
+			br.parentNode.replaceChild( document.createTextNode( ' ' ), br );
+		} );
+		return copy.textContent.replace( /\s+/g, ' ' ).trim();
+	}
+
 	function targetsFor( el, scope ) {
 		if ( ! scope || scope === 'self' ) {
 			return [ el ];
@@ -808,9 +818,16 @@
 			var parts = [];
 			var depth = 0;
 			var cur = '';
+			var quote = '';
 			String( cfg.exclude || '' ).split( '' ).forEach( function ( ch ) {
-				depth += ch === '(' || ch === '[' ? 1 : ch === ')' || ch === ']' ? -1 : 0;
-				if ( ch === ',' && depth <= 0 ) {
+				if ( quote ) {
+					quote = ch === quote ? '' : quote; // [data-x="a,b"] stays one selector
+				} else if ( ch === '"' || ch === "'" ) {
+					quote = ch;
+				} else {
+					depth += ch === '(' || ch === '[' ? 1 : ch === ')' || ch === ']' ? -1 : 0;
+				}
+				if ( ch === ',' && depth <= 0 && ! quote ) {
 					parts.push( cur );
 					cur = '';
 				} else {
@@ -1601,6 +1618,9 @@
 			copy.setAttribute( 'aria-hidden', 'true' );
 			copy.setAttribute( 'inert', '' );
 			copy.setAttribute( 'data-bme-clone', '' );
+			toArray( copy.querySelectorAll( 'a[href], button, input, select, textarea, [tabindex]' ) ).forEach( function ( f ) {
+				f.setAttribute( 'tabindex', '-1' );
+			} );
 			toArray( copy.querySelectorAll( '*' ) ).concat( [ copy ] ).forEach( function ( n ) {
 				// No duplicate ids, and the copy is never picked up as an animation of its own.
 				[ 'id', 'data-bme', 'data-bme-hide', 'data-bme-state', 'data-bme-opts', 'data-bme-tl', 'data-bme-tl-hide', INLINE_ATTR ].forEach( function ( a ) {
@@ -1631,13 +1651,14 @@
 			el.style.paddingInlineEnd = gap + 'px';
 		}
 		if ( parent && getComputedStyle( parent ).overflowX === 'visible' ) {
-			parent.style.overflowX = 'clip';
+			parent.style.overflowX = window.CSS && CSS.supports && CSS.supports( 'overflow-x', 'clip' ) ? 'clip' : 'hidden'; // Safari < 16
 		}
 		var pause = function () {
 			pauseLoop( rec );
 		};
-		var resume = function () {
-			if ( ! m.tapped && ! el.matches( ':hover' ) && ! el.contains( document.activeElement ) && inViewport( el ) ) {
+		var resume = function ( touch ) {
+			// Touch browsers keep :hover stuck on a tapped element: ignore it for touch.
+			if ( ! allPaused && ! m.tapped && ( touch === true || ! el.matches( ':hover' ) ) && ! el.contains( document.activeElement ) && inViewport( el ) ) {
 				resumeLoop( rec );
 			}
 		};
@@ -1666,12 +1687,13 @@
 			}
 			if ( m.tapped ) {
 				m.tapped = false;
-				resume();
+				resume( true );
 			} else {
 				m.tapped = true;
 				pause();
 			}
 		};
+		m.resume = resume;
 		el.addEventListener( 'pointerenter', pause );
 		el.addEventListener( 'pointerleave', resume );
 		el.addEventListener( 'focusin', onFocus );
@@ -1715,7 +1737,7 @@
 	}
 
 	function resumeLoop( rec ) {
-		if ( rec.inert || allPaused ) {
+		if ( rec.inert || allPaused || ( rec.el.__bmeMarquee && rec.el.__bmeMarquee.tapped ) ) {
 			return;
 		}
 		if ( ! rec.ctrl ) {
@@ -1749,12 +1771,19 @@
 	function setAllPaused( on ) {
 		allPaused = !! on;
 		records.forEach( function ( rec ) {
-			if ( rec.kind === 'loop' ) {
+			if ( rec.kind !== 'loop' ) {
+				return;
+			}
+			try {
 				if ( allPaused ) {
 					pauseLoop( rec );
-				} else if ( rec.el.__bmeMarquee || inViewport( rec.el ) ) {
+				} else if ( rec.el.__bmeMarquee ) {
+					rec.el.__bmeMarquee.resume(); // honours tap / hover / focus / on-screen
+				} else if ( inViewport( rec.el ) ) {
 					resumeLoop( rec );
 				}
+			} catch ( e ) {
+				log( 'Loop resume failed', rec.el, e ); // one broken loop never stops the others
 			}
 		} );
 		threeHosts.forEach( function ( host ) {
@@ -2633,11 +2662,13 @@
 	}
 
 	function bindBricks() {
-		bindPause();
 		needTimeline(); // content rendered after the page decided which scripts to load
 		var rescan = debounce( function () {
 			scan( document );
 			needTimeline();
+			toArray( document.querySelectorAll( '[data-bme-pause-toggle]' ) ).forEach( function ( b ) {
+				b.setAttribute( 'aria-pressed', allPaused ? 'true' : 'false' );
+			} );
 		}, 30 );
 
 		[ 'bricks/ajax/nodes_added', 'bricks/ajax/query_result/displayed', 'bricks/ajax/load_page/completed', 'bricks/ajax/pagination/completed', 'bricks/ajax/popup/loaded' ].forEach( function ( evt ) {
@@ -2721,7 +2752,9 @@
 				}
 				if ( added.length ) {
 					scanAdded();
-					needTimeline();
+					if ( ! window.BricksMotionTimeline ) {
+						needTimeline(); // once loaded, timeline.js watches inserted content itself
+					}
 				}
 			} ).observe( document.body, { childList: true, subtree: true } );
 		}
@@ -2745,6 +2778,11 @@
 
 		// The boot fail-safe only stands down once the first scan completed: if anything throws
 		// here, it still reveals the page.
+		try {
+			bindPause();
+		} catch ( e ) {
+			log( e );
+		}
 		try {
 			scan( document );
 			bindBricks();
@@ -2868,7 +2906,7 @@
 				toArray( document.querySelectorAll( '[data-bme-hide]' ) ).forEach( unhide );
 			}
 			// Running WebGL scenes get the still frame they would have had on load (both modes).
-			toArray( threeHosts ).forEach( function ( el ) {
+			Array.from( threeHosts ).forEach( function ( el ) {
 				if ( el.__bme3d && el.__bme3d.state === 'mounted' ) {
 					destroyThree( el );
 					setupThree( el );

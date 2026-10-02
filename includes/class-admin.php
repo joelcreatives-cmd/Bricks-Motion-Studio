@@ -83,6 +83,8 @@ class Admin {
 						'saved'   => __( 'All changes saved', 'bricks-motion-studio' ),
 						'copied'  => __( 'Copied', 'bricks-motion-studio' ),
 						'ctrlS'   => _x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ),
+						/* translators: 1: button name, e.g. "Remove rule", 2: rule number */
+						'ruleBtn' => __( '%1$s (rule %2$d)', 'bricks-motion-studio' ),
 						'leave'   => __( 'You have unsaved changes.', 'bricks-motion-studio' ),
 						'libOff'  => __( '(library off)', 'bricks-motion-studio' ),
 						'sample'  => __( 'Hello there', 'bricks-motion-studio' ),

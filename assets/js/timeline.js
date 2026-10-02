@@ -839,7 +839,7 @@
 		var atEnd = y + w.innerHeight >= doc.scrollHeight - 2;
 		viewers = viewers.filter( function ( g ) {
 			// At the page end a start line near the bottom can never be reached: play what is on screen.
-			if ( y >= g.trig || ( atEnd && g.trig !== Infinity && g.root.getBoundingClientRect().top < w.innerHeight ) ) {
+			if ( y >= g.trig || ( atEnd && g.trig !== Infinity && sized( g.root ) && g.root.getBoundingClientRect().top < w.innerHeight ) ) {
 				g.play();
 				return false;
 			}
@@ -979,7 +979,7 @@
 				if ( e && e.type === 'focusout' && g.root.matches( ':hover' ) ) {
 					return;
 				}
-				if ( e && e.type === 'pointerleave' && g.root.contains( d.activeElement ) && g.root.matches( ':focus-within' ) && d.activeElement.matches( ':focus-visible' ) ) {
+				if ( e && e.type === 'pointerleave' && g.root.contains( d.activeElement ) && visible( d.activeElement ) ) {
 					return;
 				}
 				inside = false;
@@ -1198,12 +1198,20 @@
 			loopsPaused = false;
 		}
 		// Pages with timelines only (no runtime): the pause buttons work here too.
+		var pressed = function () {
+			if ( ! w.BricksMotion ) {
+				Array.prototype.forEach.call( d.querySelectorAll( '[data-bme-pause-toggle]' ), function ( btn ) {
+					btn.setAttribute( 'aria-pressed', loopsPaused ? 'true' : 'false' );
+				} );
+			}
+		};
+		pressed();
 		d.addEventListener( 'click', function ( e ) {
 			var b = ! w.BricksMotion && e.target.closest && e.target.closest( '[data-bme-pause-toggle]' );
 			if ( b ) {
 				e.preventDefault();
 				w.BricksMotionTimeline.pauseLoops( ! loopsPaused );
-				b.setAttribute( 'aria-pressed', loopsPaused ? 'true' : 'false' );
+				pressed();
 				try {
 					w.sessionStorage.setItem( 'bme-paused', loopsPaused ? '1' : '' );
 				} catch ( err ) {

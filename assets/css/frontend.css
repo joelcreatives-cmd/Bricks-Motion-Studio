@@ -13,6 +13,7 @@
 
 .bme-mask {
 	display: inline-block;
+	overflow: hidden; /* Safari < 16 has no overflow: clip */
 	overflow: clip;
 	vertical-align: bottom;
 	/* keep descenders visible inside the mask */
@@ -39,12 +40,26 @@
 	transition: translate 0.35s cubic-bezier(0.215, 0.61, 0.355, 1), scale 0.35s cubic-bezier(0.215, 0.61, 0.355, 1);
 }
 
-.bme-hover-lift:hover,
+/* GSAP SplitText writes overflow: clip inline on its line masks; Safari < 16 drops it, this applies. */
+.bme-line-mask {
+	overflow: hidden;
+}
+
+/* :hover only where hovering exists: on touch screens a tapped card would stay lifted. */
+@media (hover: hover) {
+	.bme-hover-lift:hover {
+		translate: 0 -6px;
+	}
+
+	.bme-hover-grow:hover {
+		scale: 1.04;
+	}
+}
+
 .bme-hover-lift:focus-within {
 	translate: 0 -6px;
 }
 
-.bme-hover-grow:hover,
 .bme-hover-grow:focus-within {
 	scale: 1.04;
 }

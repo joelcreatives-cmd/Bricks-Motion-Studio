@@ -121,8 +121,12 @@
 		// Layout position, without the animation's own movement: the same value every time it is
 		// measured, so refresh() only rebuilds when the page really changed.
 		var top = 0;
-		for ( var n = trigger; n; n = n.offsetParent ) {
-			top += n.offsetTop;
+		if ( typeof trigger.offsetTop === 'number' ) {
+			for ( var n = trigger; n; n = n.offsetParent ) {
+				top += n.offsetTop;
+			}
+		} else {
+			top = trigger.getBoundingClientRect().top + ( window.scrollY || 0 ); // SVG elements have no offsetTop
 		}
 		var maxScroll = Math.max( 0, doc.scrollHeight - vh );
 		return Math.min( 1, Math.max( 0.35, ( top - maxScroll ) / vh ) );

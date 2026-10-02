@@ -344,8 +344,9 @@ async function run( mode ) {
 			else if ( worst > 1.05 ) fail.push( 'anime split-lines start ' + worst.toFixed( 1 ) + ' line heights down (want ≤ 1)' );
 			// Motion elastic overshoots past its resting place (not a plain back-out)
 			const em = q( 'elastic-motion' ); em.scrollIntoView( { block: 'center', behavior: 'instant' } ); BricksMotion.reset( em ); await wait( 60 ); BricksMotion.play( em );
-			let minY = 99, crossings = 0, last = null;
-			for ( let i = 0; i < 40; i++ ) { await wait( 50 ); const y = tx( em ).m42; minY = Math.min( minY, y ); if ( last !== null && Math.sign( y ) !== Math.sign( last ) && Math.abs( y ) > 0.3 ) crossings++; last = y; }
+			// Sampled every frame: a coarse timer can step over the small later swings.
+			let crossings = 0, last = null;
+			await new Promise( ( done ) => { const t0 = performance.now(); const tick = () => { const y = tx( em ).m42; if ( Math.abs( y ) > 0.2 ) { if ( last !== null && Math.sign( y ) !== Math.sign( last ) ) crossings++; last = y; } if ( performance.now() - t0 < 2200 ) requestAnimationFrame( tick ); else done(); }; requestAnimationFrame( tick ); } );
 			if ( crossings < 2 ) fail.push( 'motion elastic: ' + crossings + ' overshoots (want an elastic wobble)' );
 		}
 		// colour names / var() resolve correctly on an element with a CSS transition

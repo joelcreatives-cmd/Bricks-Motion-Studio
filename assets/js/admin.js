@@ -162,7 +162,7 @@
 		$$( '.bme-rule' ).forEach( function ( row, i ) {
 			$$( '[data-bme-remove-rule], [data-bme-preview-rule]', row ).forEach( function ( btn ) {
 				btn.__bmeLabel = btn.__bmeLabel || btn.getAttribute( 'aria-label' );
-				btn.setAttribute( 'aria-label', btn.__bmeLabel + ' ' + ( i + 1 ) );
+				btn.setAttribute( 'aria-label', ( i18n.ruleBtn || '%1$s (rule %2$d)' ).replace( '%1$s', btn.__bmeLabel ).replace( '%2$d', String( i + 1 ) ) );
 			} );
 		} );
 		var on = Object.keys( LIB_NAMES ).filter( function ( k ) {

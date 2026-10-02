@@ -50,10 +50,14 @@ function cssColor( v ) {
 	}
 	probe.fillStyle = '#010203';
 	probe.fillStyle = v;
-	if ( String( probe.fillStyle ) === '#010203' && ! /^#010203$/i.test( v ) ) {
+	const norm = String( probe.fillStyle );
+	if ( norm === '#010203' && ! /^#010203$/i.test( v ) ) {
 		return ''; // not a colour
 	}
-	// Painted and read back: any syntax the browser knows comes out as plain sRGB.
+	if ( /^#[0-9a-f]{6}$|^rgba?\(/i.test( norm ) ) {
+		return norm; // already sRGB: exact (no canvas read-back, which privacy modes add noise to)
+	}
+	// oklch / lab / display-p3…: painted and read back as plain sRGB.
 	probe.clearRect( 0, 0, 1, 1 );
 	probe.fillRect( 0, 0, 1, 1 );
 	const d = probe.getImageData( 0, 0, 1, 1 ).data;
@@ -589,7 +593,11 @@ export function mount( el, raw = {}, env = {} ) {
 			current.setPixelRatio( pixelRatio );
 		}
 		size();
-		start();
+		if ( visible && ! document.hidden ) {
+			start(); // a model finishing its download while paused (or off-screen) waits
+		} else {
+			renderer.render( current.scene, current.camera ); // one frame, so the poster can give way
+		}
 		// The poster gives way only now that the scene (or the loaded model) is drawn.
 		el.classList.add( 'bme-3d-ready' );
 	};
