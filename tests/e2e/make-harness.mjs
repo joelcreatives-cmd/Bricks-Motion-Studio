@@ -81,6 +81,24 @@ body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{positio
 <div class="qa-ovf-wrap"><div class="qa-ovf" data-case4="qa-tl-ovf" ${tl([{ on: 'view', p: 'x', k: [[0, '0px'], [100, '-overflow']], d: 0, o: 0 }])}><div>1</div><div>2</div></div></div>
 <div class="qa-hidden" id="qa-tl-hidden-wrap"><div data-case4="qa-tl-hidden" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0, o: 0 }])}>hidden view</div></div>
 <div data-case4="qa-tl-keep" style="width:120px" ${tl([{ on: 'scroll', p: 'x', k: [[0, '0px'], [100, '10px']], bp: 'desktop' }])}>keep other styles</div>
+<!-- QA round 2 (asserted in run.mjs via data-case5) -->
+<style>.c5-box{height:120px;overflow:auto}.c5-box>.sp{height:600px}.c5-col{display:flex;flex-direction:column;gap:10px}.c5-col>div{width:80px;height:20px;flex:none;background:#ccc}.c5-st{height:2000px;position:relative}.c5-st .pin{position:sticky;top:0;height:300px}:root{--qa-c:rgb(0, 128, 0)}</style>
+<div data-case5="tl-flag" data-bme-tl-hide ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0.2, o: 0 }])}>flag</div>
+<div data-case5="tl-premul" style="width:80px;height:20px" ${tl([{ on: 'view', p: 'backgroundColor', k: [[0, 'transparent'], [100, '#ffffff']], d: 4, e: 'linear', o: 0 }])}>premul</div>
+<div data-case5="tl-named" ${tl([{ on: 'view', p: 'color', k: [[0, 'red'], [100, 'var(--qa-c)']], d: 0, o: 0 }])}>named</div>
+<div data-case5="tl-badunit" ${tl([{ on: 'view', p: 'x', k: [[0, '0px'], [100, '10deg']], d: 0, o: 0 }, { on: 'view', p: 'scale', k: [[0, '1'], [100, '0.5']], d: 0, o: 0 }])}>bad unit</div>
+<div data-case5="tl-leave" ${tl([{ on: 'leave', s: '.lv', p: 'x', k: [[0, '0px'], [100, '30px']], d: 0.1 }])}><div class="lv" data-case5="tl-leave-t">leave only</div></div>
+<div data-case5="tl-zeroloop" ${tl([{ on: 'loop', p: 'opacity', k: [[0, '0.3'], [100, '0.6']], d: 0 }])}>zero loop</div>
+<div class="c5-box" data-case5="tl-box"><div class="sp"></div><div data-case5="tl-inbox" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0, o: 0 }])}>in a scrolling box</div></div>
+<section class="c5-st" data-case5="tl-sticky" ${tl([{ on: 'scroll', s: '.t', p: 'x', k: [[0, '0px'], [100, '1000px']], rs: 'top top', re: 'bottom bottom', rse: '.t' }])}><div class="pin"><div class="t" data-case5="tl-sticky-t">sticky target</div></div></section>
+<div data-case5="tl-auto" data-bme="fade-up" data-bme-opts='{"auto":true}' data-bme-hide ${tl([{ on: 'view', p: 'x', k: [[0, '0px'], [100, '5px']], d: 0, o: 0 }])}>timeline + auto rule</div>
+<div class="c5-col" data-bme="marquee" data-bme-engine="native" data-case5="mq-col"><div>A</div><div>B</div></div>
+<p data-bme="counter" data-bme-engine="native" data-bme-opts='{"duration":2}' data-case5="counter-dec">0.125</p>
+<div data-bme="fade-up" data-bme-engine="native" data-bme-replay="true" data-case5="replay-attr">replay true</div>
+<h2 data-bme="split-lines" data-bme-engine="gsap" data-bme-hide data-case5="lines-link">Read the <a href="#x" class="c5-link">guide here</a> before you start</h2>
+<p data-bme="scroll-highlight" data-case5="highlight">Words light up as you scroll through this paragraph of text</p>
+<div style="display:none" id="c5-print-wrap"><div data-bme="fade-up" data-bme-engine="native" data-bme-hide data-case5="print-wait">printed while hidden</div></div>
+<div id="c5-insert"></div>
 <div style="height:2500px"></div>
 <div style="height:60px"></div>
 ${['motion', 'anime', 'gsap'].map((e) => `<div data-bme="scroll-fade" data-bme-engine="${e}" data-case4="qa-endfade-${e}" style="height:40px">end fade ${e}</div>`).join('')}

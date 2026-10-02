@@ -14,7 +14,7 @@ Multi-library animation engine for Bricks Builder: GSAP, Anime.js, Motion, Three
 
 Choose one or several animation libraries. Auto-animate rules apply presets to Bricks elements by element type or CSS class, and every element gets a "Motion Studio" control group in the Bricks editor for fine-tuning. Sections, containers, blocks and divs can get animated Three.js backgrounds, and the "3D Scene" element renders procedural scenes or GLB/GLTF models.
 
-* 39 presets: reveals, text splitting, scroll-linked (parallax, scrub, pin, horizontal scroll), loops, counters, SVG drawing, hover effects.
+* 40 presets: reveals, text splitting, scroll-linked (parallax, scrub, pin, horizontal scroll), loops, counters, SVG drawing, hover effects.
 * One engine owns each element; libraries load only on pages that use them.
 * Anti-flash with fail-safe reveal, reduced-motion support, keyboard-focus reveal.
 * Works with Bricks AJAX query loops, filters, popups, accordions and tabs.
@@ -57,7 +57,7 @@ While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 = 1.0.0 =
 * Initial release.
 * Animation libraries: GSAP, Anime.js, Motion, Three.js and Lenis, any combination, one engine per element; plus a lightweight built-in engine (Web Animations API) for reveals, loops and word/character text, so most pages load no library at all.
-* 39 presets, auto-animate rules by element type or CSS class, a Motion Studio panel on every Bricks element (nested children included), 3D backgrounds and the 3D Scene element.
+* 40 presets, auto-animate rules by element type or CSS class, a Motion Studio panel on every Bricks element (nested children included), 3D backgrounds and the 3D Scene element.
 * Animation levels (Basic / Moderate / Advanced) site-wide, per page and per element; page settings; start animations from Bricks Interactions (BricksMotion.play / reset).
 * Respects each element's designed opacity and transform; accessible text splitting; reduced-motion options; fail-safes for blocked or delayed scripts; optimizer-plugin compatibility.
 * Minified runtime with the preset catalog built in; slim bundled builds of Anime.js and Motion; libraries load only on pages that use them.
@@ -66,5 +66,6 @@ While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 * Timeline: keyframe animations for an element and the elements inside it, started by scroll position, scrolling into view, hover (with an optional separate hover-out) or a loop. Animates position, rotation, scale, opacity, width, height and colours; custom scroll ranges; `auto` (the designed value) and `-overflow` (slide to the last card) values; exact GSAP-style easing curves; per-row screen sizes. Loads its own 3 KB script only on pages that use it.
 * Marquee preset: a seamless endless strip (the content is duplicated once, hidden from screen readers and keyboard), pauses on hover and keyboard focus, clips its parent.
 * Quality pass: elements with a designed transform (centred, rotated) keep it on every engine and in tilt hover; content in closed popups/tabs is measured when shown; right-to-left and joined scripts are never split into letters; words crossing inline tags don't wrap mid-word; scroll fades complete near the page end on every engine; GSAP line reveals no longer pop in; rules with an unavailable preset are kept; update checks use the new release's own requirements.
+* Second quality pass: timeline elements never flash before their script runs, and are never also given an auto animation; timelines inside AJAX popups and filtered loops load their script when they arrive; keyframes are checked against their property (whole row or nothing) and accept colour names, hsl() and var(); colour fades blend like CSS; ranges inside sticky stages, view rows in popups and scrolling boxes, the mobile address bar, hover-out-only rows and `#brxe-` targets in query loops all work; turning on reduced motion mid-visit is handled fully (fades, 3D still frame, smooth scrolling removed cleanly, "ignore" respected); marquees in column or grid containers, counters like 0.125, `data-bme-replay="true"`, replay after skipping past, scroll-highlight after reset(), content printed while hidden, and centred looping elements after a font swap or resize; the Basic level also stops marquees; broken "never animate inside" selectors drop only themselves; class rules keep names like md:hidden; settings can be saved without JavaScript; the admin preview shows saved zero values.
 
 Licensing note: bundled GSAP is under the GSAP Standard License (see Description).

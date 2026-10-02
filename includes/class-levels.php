@@ -53,6 +53,7 @@ class Levels {
 			'pulse'            => null,
 			'sway'             => null,
 			'spin'             => null,
+			'marquee'          => null,
 		),
 		'moderate' => array(),
 		'advanced' => array(

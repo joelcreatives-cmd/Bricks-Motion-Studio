@@ -276,11 +276,9 @@ class Settings {
 		$out['auto']['skip_footer']       = empty( $auto['skip_footer'] ) ? 0 : 1;
 		$out['auto']['skip_popups']       = empty( $auto['skip_popups'] ) ? 0 : 1;
 		$out['auto']['skip_interactions'] = empty( $auto['skip_interactions'] ) ? 0 : 1;
-		$out['auto']['exclude']           = self::sanitize_selector_list( $auto['exclude'] ?? '' );
-		if ( ! self::balanced_selector( $out['auto']['exclude'] ) ) {
-			$out['auto']['exclude'] = $d['auto']['exclude'];
-		}
-		$out['auto']['rules'] = self::sanitize_rules( $auto['rules'] ?? array() );
+		// A broken selector drops only itself, never the rest of the list.
+		$out['auto']['exclude'] = self::balanced_parts( self::sanitize_selector_list( $auto['exclude'] ?? '' ) );
+		$out['auto']['rules']   = self::sanitize_rules( $auto['rules'] ?? array() );
 
 		// Defaults.
 		$df                          = $in['defaults'] ?? array();
@@ -339,7 +337,7 @@ class Settings {
 			}
 			$type   = self::pick( $rule['type'] ?? '', array( 'element', 'class' ), 'element' );
 			$target = 'class' === $type
-				? sanitize_html_class( ltrim( (string) ( $rule['target'] ?? '' ), '.' ) )
+				? self::sanitize_class_name( (string) ( $rule['target'] ?? '' ) )
 				: ( '*' === trim( (string) ( $rule['target'] ?? '' ) ) ? '*' : sanitize_key( wp_strip_all_tags( (string) ( $rule['target'] ?? '' ) ) ) );
 			$preset = is_scalar( $rule['preset'] ?? '' ) ? (string) ( $rule['preset'] ?? '' ) : '';
 
@@ -390,6 +388,54 @@ class Settings {
 		$value = preg_replace( '/[{}<;\\\\]/', '', $value );
 		$value = preg_replace( '/\s+/', ' ', $value );
 		return trim( substr( $value, 0, 1000 ) );
+	}
+
+	/**
+	 * A class name as Bricks prints it: utility names such as md:hidden or w-1/2 keep every
+	 * character (the rule compares names exactly; nothing is printed into CSS or a selector).
+	 *
+	 * @param string $name Class name, with or without the leading dot.
+	 * @return string
+	 */
+	public static function sanitize_class_name( $name ) {
+		$name = ltrim( trim( wp_strip_all_tags( $name ) ), '.' );
+		return substr( (string) preg_replace( '/[^A-Za-z0-9_\-:\/@.\[\]%#!]/', '', $name ), 0, 100 );
+	}
+
+	/**
+	 * The selectors of a comma-separated list that are complete on their own (commas inside
+	 * :is(…) or [attr="a,b"] don't split); unbalanced ones are left out.
+	 *
+	 * @param string $list Selector list.
+	 * @return string
+	 */
+	public static function balanced_parts( $list ) {
+		$pieces = explode( ',', (string) preg_replace( '#/\*.*?\*/#s', '', (string) $list ) );
+		$keep   = array();
+		$i      = 0;
+		$n      = count( $pieces );
+		while ( $i < $n ) {
+			// Join pieces until the selector is complete; if it never is, its first piece is the
+			// broken one: drop just that piece and carry on after it.
+			$cur = '';
+			$end = -1;
+			for ( $j = $i; $j < $n; $j++ ) {
+				$cur = $j === $i ? $pieces[ $j ] : $cur . ',' . $pieces[ $j ];
+				if ( self::balanced_selector( $cur ) ) {
+					$end = $j;
+					break;
+				}
+			}
+			if ( $end < 0 ) {
+				$i++;
+				continue;
+			}
+			if ( '' !== trim( $cur ) ) {
+				$keep[] = trim( $cur );
+			}
+			$i = $end + 1;
+		}
+		return implode( ', ', $keep );
 	}
 
 	/**

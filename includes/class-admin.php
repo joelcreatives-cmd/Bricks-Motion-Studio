@@ -82,6 +82,7 @@ class Admin {
 						'unsaved' => __( 'Unsaved changes', 'bricks-motion-studio' ),
 						'saved'   => __( 'All changes saved', 'bricks-motion-studio' ),
 						'copied'  => __( 'Copied', 'bricks-motion-studio' ),
+						'ctrlS'   => _x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ),
 						'leave'   => __( 'You have unsaved changes.', 'bricks-motion-studio' ),
 						'libOff'  => __( '(library off)', 'bricks-motion-studio' ),
 						'sample'  => __( 'Hello there', 'bricks-motion-studio' ),
@@ -527,9 +528,9 @@ class Admin {
 					<p class="bme-bar__summary" data-bme-summary></p>
 					<div class="bme-bar__actions">
 						<span class="bme-bar__state" data-bme-state><?php esc_html_e( 'All changes saved', 'bricks-motion-studio' ); ?></span>
-						<button type="submit" form="bme-form" class="bme-btn bme-btn--primary" data-bme-save disabled>
+						<button type="submit" form="bme-form" class="bme-btn bme-btn--primary" data-bme-save>
 							<?php esc_html_e( 'Save', 'bricks-motion-studio' ); ?>
-							<kbd class="bme-kbd" aria-hidden="true" data-bme-kbd>Ctrl S</kbd>
+							<kbd class="bme-kbd" aria-hidden="true" data-bme-kbd><?php echo esc_html_x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ); ?></kbd>
 						</button>
 					</div>
 				</header>

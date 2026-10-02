@@ -108,7 +108,7 @@
 	var initial = ''; // Taken after the first sync() (end of file), so load-time adjustments never count as edits.
 
 	if ( kbd ) {
-		kbd.textContent = isMac ? '⌘S' : 'Ctrl S';
+		kbd.textContent = isMac ? '⌘S' : i18n.ctrlS || 'Ctrl S';
 	}
 
 	function checkDirty() {
@@ -319,14 +319,20 @@
 	};
 	var IDENTITY = { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0, rotateX: 0, rotateY: 0, skewY: 0, blur: 0, clip: [ 0, 0, 0, 0 ] };
 
+	// A saved 0 is a real value (no distance, no stagger): only an empty or invalid field falls back.
+	function numVal( name, fallback ) {
+		var n = parseFloat( val( name ) );
+		return isFinite( n ) ? n : fallback;
+	}
+
 	function opts() {
 		return {
-			duration: parseFloat( val( 'defaults.duration' ) ) || 0.8,
-			delay: parseFloat( val( 'defaults.delay' ) ) || 0,
+			duration: numVal( 'defaults.duration', 0.8 ),
+			delay: numVal( 'defaults.delay', 0 ),
 			ease: val( 'defaults.ease' ) || 'smooth',
-			distance: parseFloat( val( 'defaults.distance' ) ) || 40,
-			stagger: parseFloat( val( 'defaults.stagger' ) ) || 0.08,
-			speed: parseFloat( val( 'defaults.speed' ) ) || 0.3,
+			distance: numVal( 'defaults.distance', 40 ),
+			stagger: numVal( 'defaults.stagger', 0.08 ),
+			speed: numVal( 'defaults.speed', 0.3 ),
 		};
 	}
 
@@ -571,7 +577,7 @@
 		var shape = $( '.bme-preset__shape', card );
 		var slug = card.getAttribute( 'data-bme-demo' );
 		var p = presets[ slug ] || {};
-		if ( p.group === 'text' ) {
+		if ( p.group === 'text' || slug === 'counter' ) {
 			shape.textContent = slug === 'counter' ? ( 1250 ).toLocaleString() + '+' : i18n.sample || 'Hello there';
 		}
 		var run = function () {
@@ -592,10 +598,12 @@
 		copy.addEventListener( 'click', function () {
 			var ta = $( '[data-bme-export]' );
 			var done = function () {
-				var label = copy.textContent;
+				// The label to go back to is read once: a second click while "Copied" shows must not keep it.
+				copy.__bmeLabel = copy.__bmeLabel || copy.textContent;
 				copy.textContent = i18n.copied || 'Copied';
-				setTimeout( function () {
-					copy.textContent = label;
+				clearTimeout( copy.__bmeTimer );
+				copy.__bmeTimer = setTimeout( function () {
+					copy.textContent = copy.__bmeLabel;
 				}, 1400 );
 			};
 			var fallback = function () {

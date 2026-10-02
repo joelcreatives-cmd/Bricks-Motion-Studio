@@ -153,8 +153,10 @@
 	} )();
 	function easeFn( name ) {
 		var m = /^cubic-bezier\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)$/.exec( name || '' );
-		if ( m ) {
-			return bezier( +m[ 1 ], +m[ 2 ], +m[ 3 ], +m[ 4 ] );
+		if ( m && [ m[ 1 ], m[ 2 ], m[ 3 ], m[ 4 ] ].every( function ( x ) {
+			return isFinite( +x );
+		} ) ) {
+			return bezier( Math.min( 1, Math.max( 0, +m[ 1 ] ) ), +m[ 2 ], Math.min( 1, Math.max( 0, +m[ 3 ] ) ), +m[ 4 ] );
 		}
 		return EASE[ name ] || EASE.smooth;
 	}
@@ -195,7 +197,7 @@
 				} );
 				return { c: [ p[ 0 ] || 0, p[ 1 ] || 0, p[ 2 ] || 0, p.length > 3 ? Math.min( 1, Math.max( 0, p[ 3 ] ) ) : 1 ] };
 			}
-			return { raw: s };
+			return { raw: s, col: true }; // named, hsl(), var(): resolved on the element (resolveColour)
 		}
 		var n = /^(-?[\d.]+)\s*([a-z%]*)$/i.exec( String( v ).trim() );
 		if ( ! n ) {
@@ -215,10 +217,16 @@
 
 	function mix( a, b, t ) {
 		if ( a.c && b.c ) {
+			// Mixed with premultiplied alpha, like a CSS transition: transparent → white fades
+			// through translucent white, not grey.
+			var a1 = a.c[ 3 ];
+			var a2 = b.c[ 3 ];
+			var al = a1 + ( a2 - a1 ) * t;
 			var c = [];
-			for ( var i = 0; i < 4; i++ ) {
-				c.push( a.c[ i ] + ( b.c[ i ] - a.c[ i ] ) * t );
+			for ( var i = 0; i < 3; i++ ) {
+				c.push( al > 0 ? ( a.c[ i ] * a1 + ( b.c[ i ] * a2 - a.c[ i ] * a1 ) * t ) / al : a.c[ i ] + ( b.c[ i ] - a.c[ i ] ) * t );
 			}
+			c.push( al );
 			return { c: c };
 		}
 		if ( a.n !== undefined && b.n !== undefined ) {
@@ -250,6 +258,9 @@
 			if ( v.auto ) {
 				var dv = designOf( el, prop );
 				return { n: dv.n, u: dv.u, c: dv.c, raw: dv.raw, isAuto: true };
+			}
+			if ( v.col ) {
+				return resolveColour( el, v.raw ) || v;
 			}
 			return v.ovf ? { n: v.ovf * overflowOf( el, prop ), u: 'px' } : v;
 		};
@@ -317,6 +328,7 @@
 			backgroundColor: parse( cs.backgroundColor, 'backgroundColor' ),
 		};
 		st.ox = st.oy = undefined;
+		st.cols = null;
 	}
 
 	function stateOf( el ) {
@@ -348,6 +360,30 @@
 		if ( el.getAttribute( 'style' ) === '' ) {
 			el.removeAttribute( 'style' );
 		}
+	}
+
+	// A colour CSS understands but the timeline can't read (red, hsl(), var(--brand)) → rgba,
+	// computed on the element itself so custom properties resolve where they are used.
+	function resolveColour( el, raw ) {
+		var st = stateOf( el );
+		var cols = st.cols || ( st.cols = {} );
+		if ( ! ( raw in cols ) ) {
+			var prev = el.style.getPropertyValue( 'color' );
+			var prio = el.style.getPropertyPriority( 'color' );
+			el.style.setProperty( 'color', raw, 'important' );
+			var ok = el.style.getPropertyValue( 'color' ) !== '';
+			var got = ok ? parse( w.getComputedStyle( el ).color, 'color' ) : null;
+			cols[ raw ] = got && got.c ? got : null;
+			if ( prev ) {
+				el.style.setProperty( 'color', prev, prio );
+			} else {
+				el.style.removeProperty( 'color' );
+			}
+			if ( el.getAttribute( 'style' ) === '' ) {
+				el.removeAttribute( 'style' );
+			}
+		}
+		return cols[ raw ];
 	}
 
 	// How far an element sticks out of its parent; cached until the next measure().
@@ -502,6 +538,26 @@
 		return true;
 	}
 
+	// Can this value be written to this property? (translate(10deg) or width: 1turn would make the
+	// browser drop the whole declaration, taking the element's other transform parts with it.)
+	var ANGLE = { deg: 1, turn: 1 };
+	function fits( v, prop ) {
+		var colour = prop === 'color' || prop === 'backgroundColor';
+		if ( v.auto ) {
+			return true;
+		}
+		if ( v.c || v.col ) {
+			return colour;
+		}
+		if ( v.ovf ) {
+			return prop === 'x' || prop === 'y' || prop === 'width' || prop === 'height';
+		}
+		if ( v.n === undefined || ! isFinite( v.n ) || colour ) {
+			return false;
+		}
+		return prop === 'rotate' ? !! ANGLE[ v.u ] : ! ANGLE[ v.u ];
+	}
+
 	function trackFor( row ) {
 		var k = ( row.k || [] )
 			.map( function ( pair ) {
@@ -510,7 +566,10 @@
 			.sort( function ( a, b ) {
 				return a.at - b.at;
 			} );
-		return k.length ? { k: k, ease: row.on === 'scroll' ? EASE.linear : easeFn( row.e ) } : null;
+		var ok = k.every( function ( key ) {
+			return fits( key.v, row.p );
+		} );
+		return k.length && ok ? { k: k, ease: row.on === 'scroll' ? EASE.linear : easeFn( row.e ) } : null;
 	}
 
 	// One timeline per (element, trigger). Timed timelines run on seconds: each row spans
@@ -565,12 +624,13 @@
 			var start;
 			if ( g.on === 'scroll' ) {
 				p = r.range ? ( y - r.range.start ) / r.range.len : at;
-				start = r.range ? r.range.start : r.tr.k[ 0 ].at;
+				// Scroll position where the row's first keyframe is reached (one unit for every row).
+				start = r.range ? r.range.start + r.tr.k[ 0 ].at * r.range.len : g.start + r.tr.k[ 0 ].at * g.len;
 			} else {
 				start = r.dl;
 				p = r.du > 0 ? ( at - r.dl ) / r.du : ( at > r.dl || ( at === r.dl && ( at > 0 || end ) ) ? 1 : 0 );
 			}
-			var started = g.on === 'scroll' ? ( r.range ? p > 0 : at >= start ) : at > r.dl || ( end && at >= r.dl ) || ( r.du > 0 && at >= r.dl && at > 0 );
+			var started = g.on === 'scroll' ? ( r.range ? p > 0 : at >= r.tr.k[ 0 ].at ) : at > r.dl || ( end && at >= r.dl ) || ( r.du > 0 && at >= r.dl && at > 0 );
 			p = Math.min( 1, Math.max( 0, p ) );
 			r.els.forEach( function ( el ) {
 				var byProp = pick.get( el ) || ( pick.set( el, {} ), pick.get( el ) );
@@ -624,6 +684,35 @@
 		return layoutTop( el ) + offsetIn( parts[ 0 ], el.offsetHeight ) - offsetIn( parts[ 1 ] || 'bottom', vh );
 	}
 
+	// A pinned (position: sticky) ancestor reports where it is pinned right now, not where it sits
+	// in the page: measure with every sticky element on the way up un-stuck, then put them back
+	// (same task, nothing is painted in between).
+	function unstick( els ) {
+		var undo = [];
+		var seen = new Set();
+		els.forEach( function ( el ) {
+			for ( var n = el; n && n !== d.body && ! seen.has( n ); n = n.parentElement ) {
+				seen.add( n );
+				if ( w.getComputedStyle( n ).position === 'sticky' ) {
+					undo.push( [ n, n.style.getPropertyValue( 'position' ), n.style.getPropertyPriority( 'position' ) ] );
+					n.style.setProperty( 'position', 'static', 'important' );
+				}
+			}
+		} );
+		return function () {
+			undo.forEach( function ( u ) {
+				if ( u[ 1 ] ) {
+					u[ 0 ].style.setProperty( 'position', u[ 1 ], u[ 2 ] );
+				} else {
+					u[ 0 ].style.removeProperty( 'position' );
+				}
+				if ( u[ 0 ].getAttribute( 'style' ) === '' ) {
+					u[ 0 ].removeAttribute( 'style' );
+				}
+			} );
+		};
+	}
+
 	function sized( el ) {
 		return !! ( el.offsetWidth || el.offsetHeight || el.getClientRects().length );
 	}
@@ -637,6 +726,30 @@
 		viewers = viewers.filter( function ( g ) {
 			return g.root.isConnected;
 		} );
+		// Content removed by Bricks AJAX (pagination, filters, a re-opened AJAX popup): let it go.
+		redraw = redraw.filter( function ( item ) {
+			return item.g.root.isConnected;
+		} );
+		cleanups = cleanups.filter( function ( item ) {
+			if ( item.root && ! item.root.isConnected ) {
+				item.fn();
+				return false;
+			}
+			return true;
+		} );
+		var measured = [];
+		scrollers.forEach( function ( g ) {
+			measured.push( g.root );
+			g.rows.forEach( function ( r ) {
+				if ( r.range ) {
+					measured.push( r.range.se, r.range.ee );
+				}
+			} );
+		} );
+		viewers.forEach( function ( g ) {
+			measured.push( g.root );
+		} );
+		var restick = unstick( measured );
 		scrollers.forEach( function ( g ) {
 			var top = layoutTop( g.root );
 			g.start = top - vh;
@@ -658,8 +771,9 @@
 				sizeWatch.observe( g.root );
 			}
 		} );
-		redraw.forEach( function ( fn ) {
-			fn(); // timed timelines re-render at their current time with the fresh designs
+		restick();
+		redraw.forEach( function ( item ) {
+			item.fn(); // timed timelines re-render at their current time with the fresh designs
 		} );
 	}
 
@@ -730,7 +844,7 @@
 				t = 0;
 			},
 			to: function ( target, loop ) {
-				if ( ( reduced() && ! loop ) || ( g.span <= 0 && ! loop ) ) {
+				if ( ( reduced() && ! loop ) || g.span <= 0 ) {
 					// Reduced motion, or nothing to animate over: land on the end (or start) state.
 					t = target ? g.span : 0;
 					dir = target ? 1 : -1;
@@ -780,7 +894,10 @@
 			return;
 		}
 		var pl = player( g );
-		redraw.push( pl.redraw );
+		redraw.push( { g: g, fn: pl.redraw } );
+		var later = function ( fn ) {
+			cleanups.push( { root: g.root, fn: fn } );
+		};
 		if ( g.on === 'hover' ) {
 			var out = leaveGroup ? player( leaveGroup ) : null;
 			var inside = false;
@@ -792,8 +909,17 @@
 			var within = function ( e ) {
 				return e && e.relatedTarget && g.root.contains( e.relatedTarget );
 			};
+			var visible = function ( el ) {
+				try {
+					return el.matches( ':focus-visible' );
+				} catch ( err ) {
+					return false;
+				}
+			};
 			var enter = function ( e ) {
-				if ( inside || isTouch( e ) || ( e && e.type === 'focusin' && within( e ) ) ) {
+				// Focus moving between links inside the root is not entering it, unless the pointer
+				// already left and the visitor is now tabbing (keyboard focus shows the hover state).
+				if ( inside || isTouch( e ) || ( e && e.type === 'focusin' && within( e ) && ! visible( e.target ) ) ) {
 					return;
 				}
 				inside = true;
@@ -827,7 +953,7 @@
 			g.root.addEventListener( 'pointerleave', leave );
 			g.root.addEventListener( 'focusin', enter );
 			g.root.addEventListener( 'focusout', leave );
-			cleanups.push( function () {
+			later( function () {
 				pl.stop();
 				if ( out ) {
 					out.stop();
@@ -843,13 +969,34 @@
 			g.play = function () {
 				pl.to( 1 );
 			};
+			if ( inBox( g.root ) && 'IntersectionObserver' in w ) {
+				// A popup or a scrolling box moves without the page scrolling: the observer sees
+				// that scrolling too (the start line is then measured on the drawn box).
+				var vio = new w.IntersectionObserver(
+					function ( entries ) {
+						if ( entries.some( function ( e ) {
+							return e.isIntersecting;
+						} ) ) {
+							vio.disconnect();
+							g.play();
+						}
+					},
+					{ rootMargin: '0px 0px -' + Math.min( 90, g.o ) + '% 0px' }
+				);
+				vio.observe( g.root );
+				later( function () {
+					vio.disconnect();
+					pl.stop();
+				} );
+				return;
+			}
 			viewers.push( g );
-			cleanups.push( function () {
+			later( function () {
 				pl.stop();
 			} );
 			return;
 		}
-		cleanups.push( pl.stop );
+		later( pl.stop );
 		if ( ! ( 'IntersectionObserver' in w ) ) {
 			if ( ! reduced() ) {
 				pl.to( 1, true );
@@ -869,16 +1016,37 @@
 			{ rootMargin: '100px 0px' }
 		);
 		io.observe( g.root );
-		cleanups.push( function () {
+		later( function () {
 			io.disconnect();
 			pl.stop();
 		} );
 	}
 
+	// Inside a fixed layer (a popup) or a box with its own scrollbar?
+	function inBox( el ) {
+		for ( var n = el.parentElement; n && n !== d.body && n !== d.documentElement; n = n.parentElement ) {
+			var cs = w.getComputedStyle( n );
+			// overflow-x: hidden turns overflow-y into auto too: only a box that really scrolls counts.
+			if ( cs.position === 'fixed' || ( /(auto|scroll|overlay)/.test( cs.overflowY ) && n.scrollHeight > n.clientHeight + 1 ) ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	var bound = typeof WeakSet === 'function' ? new WeakSet() : null;
 
 	// Binds every timeline root not bound yet (all of them on first run; Bricks AJAX content later).
+	// The "start invisible" flag (no flash before this script runs) comes off before any design is
+	// read, and the first frame is written in the same task: nothing is painted in between.
+	function unhide() {
+		Array.prototype.forEach.call( d.querySelectorAll( '[data-bme-tl-hide]' ), function ( el ) {
+			el.removeAttribute( 'data-bme-tl-hide' );
+		} );
+	}
+
 	function init() {
+		unhide();
 		var fresh = [];
 		Array.prototype.forEach.call( d.querySelectorAll( '[data-bme-tl]' ), function ( root ) {
 			if ( bound && bound.has( root ) ) {
@@ -906,6 +1074,12 @@
 			var leave = groups.filter( function ( g ) {
 				return g.on === 'leave';
 			} )[ 0 ];
+			// "Hover out" rows alone still need something listening for the pointer.
+			if ( leave && ! groups.some( function ( g ) {
+				return g.on === 'hover';
+			} ) ) {
+				groups.push( { on: 'hover', root: leave.root, rows: [], span: 0, o: 0 } );
+			}
 			groups.forEach( function ( g ) {
 				bind( g, leave );
 			} );
@@ -917,8 +1091,8 @@
 	}
 
 	function teardown() {
-		cleanups.forEach( function ( fn ) {
-			fn();
+		cleanups.forEach( function ( item ) {
+			item.fn();
 		} );
 		cleanups = [];
 		scrollers = [];
@@ -943,6 +1117,8 @@
 		if ( allowed() ) {
 			running = true;
 			init();
+		} else {
+			unhide();
 		}
 	}
 	function rebuild() {
@@ -964,7 +1140,15 @@
 		// breakpoint rebuild, or rows for the old screen size would stay applied.
 		var resizeTimer = 0;
 		var layoutTimer = 0;
+		var lastWidth = w.innerWidth;
+		var coarse = w.matchMedia ? w.matchMedia( '(pointer: coarse)' ) : { matches: false };
 		w.addEventListener( 'resize', function () {
+			// The mobile address bar showing / hiding changes only the height: re-measuring then
+			// would make every scroll range jump mid-scroll (GSAP's ignoreMobileResize).
+			if ( coarse.matches && w.innerWidth === lastWidth ) {
+				return;
+			}
+			lastWidth = w.innerWidth;
 			clearTimeout( resizeTimer );
 			resizeTimer = setTimeout( function () {
 				// Crossing 992px changes which rows apply: rebuild from the designed styles.

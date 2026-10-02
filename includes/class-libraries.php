@@ -35,7 +35,7 @@ class Libraries {
 			'gsap'   => array(
 				'label'   => 'GSAP',
 				'role'    => __( 'Primary animation engine: reveals, text splitting (SplitText), scroll-linked scrubbing & pinning (ScrollTrigger), scramble text, SVG drawing.', 'bricks-motion-studio' ),
-				'size'    => '≈ 73 KB core + ≈ 45 KB ScrollTrigger (+ plugins only when used)',
+				'size'    => __( '≈ 73 KB core + ≈ 45 KB ScrollTrigger (+ plugins only when used)', 'bricks-motion-studio' ),
 				'license' => __( 'GSAP Standard "no charge" License (free, including commercial use; not GPL). Read the license before redistributing this plugin.', 'bricks-motion-studio' ),
 				'url'     => 'https://gsap.com/standard-license',
 			),
@@ -63,7 +63,7 @@ class Libraries {
 			'lenis'  => array(
 				'label'   => 'Lenis',
 				'role'    => __( 'Smooth scrolling, synchronized with GSAP ScrollTrigger when GSAP is active. Automatically pauses for Bricks popups and off-canvas.', 'bricks-motion-studio' ),
-				'size'    => '≈ 19 KB',
+				'size'    => __( '≈ 19 KB', 'bricks-motion-studio' ),
 				'license' => 'MIT',
 				'url'     => 'https://lenis.darkroom.engineering',
 			),

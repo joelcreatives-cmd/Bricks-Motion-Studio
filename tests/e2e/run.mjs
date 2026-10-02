@@ -238,11 +238,94 @@ async function run( mode ) {
 		document.getElementById( 'qa-tl-hidden-wrap' ).style.display = 'block'; await into( th, 400 );
 		near( +getComputedStyle( th ).opacity, 1, 0.01, 'tl view row plays once shown' );
 		// scroll-fade near the page end reaches the end on every engine
+		// Anime's scroll sync is smoothed (it eases in after scrolling stops): wait until it settles.
 		scrollTo( { top: document.documentElement.scrollHeight, behavior: 'instant' } ); await wait( 1200 );
+		for ( let i = 0; i < 28 && [ 'motion', 'anime', 'gsap' ].some( ( e ) => q( 'qa-endfade-' + e ) && +getComputedStyle( q( 'qa-endfade-' + e ) ).opacity < 0.97 ); i++ ) await wait( 100 );
 		[ 'motion', 'anime', 'gsap' ].forEach( ( e ) => { const el = q( 'qa-endfade-' + e ); if ( el && mode === 'default' ) near( +getComputedStyle( el ).opacity, 1, 0.03, 'scroll-fade at page end (' + e + ')' ); } );
 		return fail;
 	}, mode );
 	res.fail.push( ...qaFail );
+	// QA round 2 regressions (data-case5).
+	const c5Fail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const q = ( c ) => document.querySelector( '[data-case5="' + c + '"]' );
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		const tx = ( el ) => new DOMMatrix( getComputedStyle( el ).transform );
+		const into = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( ms ); };
+		const near = ( a, b, tol, what ) => { if ( ! ( Math.abs( a - b ) <= tol ) ) fail.push( what + ': ' + ( +a ).toFixed( 2 ) + ' (want ' + b + ')' ); };
+		const rgba = ( el, p ) => ( getComputedStyle( el )[ p ].match( /[\d.]+/g ) || [] ).map( Number );
+		// anti-flash flag is lifted once timelines start
+		if ( q( 'tl-flag' ).hasAttribute( 'data-bme-tl-hide' ) ) fail.push( 'timeline hide flag not lifted' );
+		// colours: premultiplied mixing, named colours and custom properties
+		const pm = q( 'tl-premul' );
+		if ( mode === 'default' ) {
+			window.BricksMotionTimeline.rebuild(); await into( pm, 2000 );
+			const c = rgba( pm, 'backgroundColor' );
+			if ( ! ( c[ 0 ] > 240 && c[ 3 ] > 0.2 && c[ 3 ] < 0.8 ) ) fail.push( 'transparent → white mid-way not translucent white: ' + getComputedStyle( pm ).backgroundColor );
+		}
+		await into( q( 'tl-named' ), 300 );
+		if ( getComputedStyle( q( 'tl-named' ) ).color !== 'rgb(0, 128, 0)' ) fail.push( 'var() colour end state: ' + getComputedStyle( q( 'tl-named' ) ).color );
+		// a value that does not suit the property drops its row only
+		const bu = q( 'tl-badunit' ); await into( bu, 300 );
+		near( tx( bu ).a, 0.5, 0.01, 'other rows survive a bad-unit row (scale)' ); near( tx( bu ).m41, 0, 0.01, 'bad-unit row ignored (x)' );
+		// "hover out" rows without hover rows still run
+		const lv = q( 'tl-leave' ); await into( lv, 50 );
+		lv.dispatchEvent( new PointerEvent( 'pointerenter', { pointerType: 'mouse' } ) ); await wait( 50 );
+		lv.dispatchEvent( new PointerEvent( 'pointerleave', { pointerType: 'mouse' } ) ); await wait( 400 );
+		near( tx( q( 'tl-leave-t' ) ).m41, 30, 0.5, 'leave-only row plays on pointer leave' );
+		// zero-length loop lands instead of spinning
+		await into( q( 'tl-zeroloop' ), 200 ); if ( mode === 'default' ) near( +getComputedStyle( q( 'tl-zeroloop' ) ).opacity, 0.6, 0.01, 'zero-length loop lands on its end' );
+		// view row inside a box with its own scrollbar plays when the box scrolls
+		const box = q( 'tl-box' ), ib = q( 'tl-inbox' ); await into( box, 200 );
+		near( +getComputedStyle( ib ).opacity, 0, 0.01, 'view row in a box waits for the box' );
+		box.scrollTop = box.scrollHeight; await wait( 400 );
+		near( +getComputedStyle( ib ).opacity, 1, 0.01, 'view row in a box plays when the box scrolls' );
+		// ranges measured inside a pinned (sticky) stage do not depend on when they were measured
+		const st = q( 'tl-sticky' ), stT = q( 'tl-sticky-t' );
+		const top = st.getBoundingClientRect().top + scrollY;
+		scrollTo( { top: top + 500, behavior: 'instant' } ); await wait( 100 );
+		window.BricksMotionTimeline.refresh(); await wait( 100 );
+		near( tx( stT ).m41, 500 / ( 2000 - innerHeight ) * 1000, 4, 'range measured while pinned' );
+		// an element with its own timeline is not also auto-animated
+		if ( q( 'tl-auto' ).hasAttribute( 'data-bme-owner' ) || q( 'tl-auto' ).dataset.bmeState === 'done' ) fail.push( 'auto rule animated an element that has a timeline' );
+		if ( +getComputedStyle( q( 'tl-auto' ) ).opacity < 0.99 ) fail.push( 'timeline element left hidden by the auto rule' );
+		// marquee inside a column flexbox runs in one row
+		if ( mode === 'default' ) {
+			const mc = q( 'mq-col' ); await into( mc, 200 );
+			const kids = [ ...mc.children ];
+			if ( kids.length !== 4 || kids.some( ( k ) => k.offsetTop !== kids[ 0 ].offsetTop ) ) fail.push( 'marquee in a column flexbox is not one row' );
+		}
+		// counter: 0.125 counts as a decimal (never shows 125)
+		if ( mode === 'default' ) {
+			const cn = q( 'counter-dec' ); cn.scrollIntoView( { block: 'center', behavior: 'instant' } ); BricksMotion.reset( cn ); await wait( 60 ); BricksMotion.play( cn );
+			let max = 0;
+			for ( let i = 0; i < 12; i++ ) { await wait( 200 ); max = Math.max( max, parseFloat( cn.textContent.replace( ',', '.' ) ) || 0 ); }
+			if ( max > 1 ) fail.push( 'counter 0.125 counted past 1: ' + max );
+			if ( cn.textContent.trim() !== '0.125' ) fail.push( 'counter end text: ' + cn.textContent );
+		}
+		// data-bme-replay="true" replays after scrolling away and back
+		if ( mode === 'default' ) {
+			const rp = q( 'replay-attr' ); await into( rp, 1500 );
+			scrollTo( { top: Math.max( 0, rp.getBoundingClientRect().top + scrollY - innerHeight * 3 ), behavior: 'instant' } ); await wait( 600 );
+			if ( rp.dataset.bmeState === 'done' ) fail.push( 'data-bme-replay="true" did not reset when scrolled back up' );
+		}
+		// GSAP line reveal around a link keeps the link element (listeners, focus)
+		const ll = q( 'lines-link' ), link = ll.querySelector( '.c5-link' ); await into( ll, 2500 );
+		if ( ! link.isConnected ) fail.push( 'line reveal replaced the link inside it' );
+		// BricksMotion.reset() leaves scroll-highlight working
+		const hl = q( 'highlight' ); await into( hl, 300 ); BricksMotion.reset( hl ); await wait( 300 );
+		if ( +getComputedStyle( hl ).opacity < 0.99 ) fail.push( 'reset() hid scroll-highlight text' );
+		// printed while hidden, then shown: stays visible
+		window.dispatchEvent( new Event( 'beforeprint' ) ); await wait( 50 );
+		document.getElementById( 'c5-print-wrap' ).style.display = 'block'; const pw = q( 'print-wait' ); await into( pw, 1500 );
+		near( +getComputedStyle( pw ).opacity, 1, 0.01, 'printed-while-hidden reveal visible once shown' );
+		// a node inserted by another script that itself has a hover effect gets it
+		const ins = document.createElement( 'div' ); ins.setAttribute( 'data-bme-hover', 'lift' ); ins.textContent = 'inserted';
+		document.getElementById( 'c5-insert' ).appendChild( ins ); await wait( 300 );
+		if ( mode === 'default' && ! ins.classList.contains( 'bme-hover-lift' ) ) fail.push( 'hover effect on an inserted node not set up' );
+		return fail;
+	}, mode );
+	res.fail.push( ...c5Fail );
 	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
 	if ( mode === 'default' ) {
 		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );

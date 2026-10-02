@@ -168,7 +168,7 @@ class Assets {
 			// Newest of every built file, so a change to any one of them busts caches.
 			$min  = self::min();
 			$time = 0;
-			foreach ( array( 'js/runtime', 'js/adapter-gsap', 'js/adapter-anime', 'js/adapter-motion', 'js/smooth-scroll', 'js/three/bme-three' ) as $f ) {
+			foreach ( array( 'js/runtime', 'js/adapter-gsap', 'js/adapter-anime', 'js/adapter-motion', 'js/smooth-scroll', 'js/timeline', 'js/three/bme-three' ) as $f ) {
 				$time = max( $time, (int) @filemtime( BME_PATH . 'assets/' . $f . ( 'js/three/bme-three' === $f ? '' : $min ) . '.js' ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 			}
 			$time    = max( $time, (int) @filemtime( BME_PATH . 'assets/css/frontend' . $min . '.css' ) ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
@@ -189,7 +189,7 @@ class Assets {
 			$min = '';
 			if ( ! ( defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) ) {
 				$min = '.min';
-				foreach ( array( 'js/runtime', 'js/adapter-gsap', 'js/adapter-anime', 'js/adapter-motion', 'js/smooth-scroll' ) as $f ) {
+				foreach ( array( 'js/runtime', 'js/adapter-gsap', 'js/adapter-anime', 'js/adapter-motion', 'js/smooth-scroll', 'js/timeline' ) as $f ) {
 					if ( ! is_readable( BME_PATH . 'assets/' . $f . '.min.js' ) ) {
 						$min = '';
 						break;
@@ -227,7 +227,9 @@ class Assets {
 		$css = 'html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-hide]' . $not . '{opacity:.01}';
 		// Late or unseen content is handled by the runtime's own safety net (no CSS animation here:
 		// it would replace animations the element already has).
-		$css .= '@media print{[data-bme-hide]{opacity:1!important}}';
+		// Timelines that fade their element in from its first keyframe (timeline.js lifts the flag).
+		$css .= 'html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-tl-hide]{opacity:.01}';
+		$css .= '@media print{[data-bme-hide],[data-bme-tl-hide]{opacity:1!important}}';
 		printf( "<style id=\"bme-boot-css\">%s</style>\n", $css ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 
 		$js = sprintf(
@@ -270,7 +272,7 @@ class Assets {
 		$always      = (bool) Settings::get( 'perf.always' );
 		$needs_anim  = $always || Usage::has( 'motion' ) || Usage::has( 'hover' );
 		$needs_three = Usage::has( 'three' ) && Settings::library_enabled( 'three' );
-		$needs_tl    = Usage::has( 'timeline' );
+		$needs_tl    = $always || Usage::has( 'timeline' );
 		$lenis       = Settings::library_enabled( 'lenis' );
 
 		/**
@@ -285,11 +287,7 @@ class Assets {
 		// Timelines run on their own small script (no runtime, no library).
 		if ( $needs_tl ) {
 			wp_enqueue_script( 'bme-timeline' );
-			$tl_config = array(
-				'reduced'  => Settings::get( 'a11y.reduced', 'respect' ),
-				'minWidth' => (int) Settings::get( 'a11y.min_width', 0 ),
-			);
-			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . wp_json_encode( $tl_config ) . ';', 'before' );
+			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . wp_json_encode( self::timeline_config() ) . ';', 'before' );
 			if ( ! $needs_anim && ! $needs_three && ! $lenis ) {
 				return;
 			}
@@ -356,7 +354,15 @@ class Assets {
 		}
 
 		wp_enqueue_script( 'bme-runtime' );
-		wp_add_inline_script( 'bme-runtime', 'window.BME_CONFIG=' . wp_json_encode( $this->config( $engines, $needs_three ) ) . ';', 'before' );
+		wp_add_inline_script( 'bme-runtime', 'window.BME_CONFIG=' . wp_json_encode( $this->config( $engines, $needs_three, $needs_tl ) ) . ';', 'before' );
+	}
+
+	/** Settings timeline.js reads (window.BME_TL). */
+	private static function timeline_config() {
+		return array(
+			'reduced'  => Settings::get( 'a11y.reduced', 'respect' ),
+			'minWidth' => (int) Settings::get( 'a11y.min_width', 0 ),
+		);
 	}
 
 	/**
@@ -364,9 +370,10 @@ class Assets {
 	 *
 	 * @param string[] $engines     Engines loaded on this page.
 	 * @param bool     $needs_three Page has 3D scenes.
+	 * @param bool     $has_tl      timeline.js is already loaded on this page.
 	 * @return array
 	 */
-	private function config( array $engines, $needs_three ) {
+	private function config( array $engines, $needs_three, $has_tl = true ) {
 		$s = Settings::all();
 
 		$config = array(
@@ -387,6 +394,11 @@ class Assets {
 			'presets'          => ( '' === self::min() || has_filter( 'bme/presets' ) ) ? Presets::all() : null,
 			'lenis'            => Settings::library_enabled( 'lenis' ) ? $s['lenis'] : null,
 			'three'            => null,
+			// Timelines that only arrive later (AJAX popups, query filters): load timeline.js then.
+			'timeline'         => $has_tl ? null : array_merge(
+				self::timeline_config(),
+				array( 'src' => BME_URL . 'assets/js/timeline' . self::min() . '.js?ver=' . rawurlencode( self::asset_version() ) )
+			),
 		);
 
 		if ( Settings::library_enabled( 'three' ) ) {

@@ -49,10 +49,6 @@
 	scale: 1.04;
 }
 
-[data-bme-hover="tilt"] {
-	transform-style: preserve-3d;
-}
-
 /* Three.js --------------------------------------------------------------- */
 :where(.bme-3d-host) {
 	position: relative;

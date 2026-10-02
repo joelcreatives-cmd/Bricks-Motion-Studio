@@ -403,7 +403,7 @@ class Bricks_Integration {
 					'label'       => esc_html__( 'Keyframes', 'bricks-motion-studio' ),
 					'type'        => 'text',
 					'placeholder' => '0: 100%, 100: 0%',
-					'description' => esc_html__( 'percent: value pairs. Values: numbers with px, %, vw, vh, em, rem or deg; colours as #hex or rgba(); auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge.', 'bricks-motion-studio' ),
+					'description' => esc_html__( 'percent: value pairs. Values must suit the property: lengths (px, %, vw, vh, em, rem) for position and size, deg or turn for rotate, plain numbers or % for scale and opacity, colours as #hex, rgb(), hsl(), a name or var(--colour). auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge. If one pair doesn\'t fit, the row is skipped.', 'bricks-motion-studio' ),
 				),
 				'duration'     => array(
 					'label'       => esc_html__( 'Duration (s)', 'bricks-motion-studio' ),
@@ -729,6 +729,8 @@ class Bricks_Integration {
 			}
 		}
 
+		$tl_rows = 'off' !== $mode && ! empty( $settings['bmeTimeline'] ) ? self::timeline_rows( $settings['bmeTimeline'] ) : array();
+
 		// Manual attributes (Bricks "Attributes" control) always win: just track usage.
 		if ( isset( $attributes['data-bme'] ) && is_scalar( $attributes['data-bme'] ) ) {
 			$preset = (string) $attributes['data-bme'];
@@ -742,7 +744,9 @@ class Bricks_Integration {
 			}
 		} elseif ( 'off' === $mode ) {
 			$attributes['data-bme-skip'] = '';
-		} else {
+		} elseif ( 'custom' === $mode || ! $tl_rows ) {
+			// An element with its own timeline is never also given a site-wide auto animation:
+			// both would write the same transform / opacity every frame.
 			$config = 'custom' === $mode ? $this->custom_config( $settings ) : $this->auto_config( $element, $name, $settings, $attributes );
 			if ( $config ) {
 				$attributes = $this->apply_config( $attributes, $config );
@@ -757,11 +761,13 @@ class Bricks_Integration {
 		}
 
 		// Timeline rows (their own lightweight script; no animation library).
-		if ( 'off' !== $mode && ! empty( $settings['bmeTimeline'] ) ) {
-			$rows = self::timeline_rows( $settings['bmeTimeline'] );
-			if ( $rows ) {
-				$attributes['data-bme-tl'] = wp_json_encode( $rows );
-				$this->track( 'feature', 'timeline' );
+		if ( $tl_rows ) {
+			$attributes['data-bme-tl'] = wp_json_encode( $tl_rows );
+			$this->track( 'feature', 'timeline' );
+			// Starts invisible (no flash of the final state before the deferred script runs) when
+			// the element itself fades in from its first keyframe. timeline.js removes the flag.
+			if ( Settings::get( 'perf.fouc' ) && self::timeline_starts_hidden( $tl_rows ) ) {
+				$attributes['data-bme-tl-hide'] = '';
 			}
 		}
 
@@ -980,7 +986,7 @@ class Bricks_Integration {
 			}
 			$on   = isset( $row['on'] ) && is_string( $row['on'] ) && in_array( $row['on'], array( 'scroll', 'view', 'hover', 'leave', 'loop' ), true ) ? $row['on'] : 'scroll';
 			$prop = isset( $row['prop'] ) && is_string( $row['prop'] ) && isset( $props[ $row['prop'] ] ) ? $row['prop'] : 'y';
-			$keys = self::timeline_keys( isset( $row['keys'] ) && is_scalar( $row['keys'] ) ? (string) $row['keys'] : '' );
+			$keys = self::timeline_keys( isset( $row['keys'] ) && is_scalar( $row['keys'] ) ? (string) $row['keys'] : '', $prop );
 			if ( ! $keys ) {
 				continue;
 			}
@@ -991,7 +997,7 @@ class Bricks_Integration {
 			);
 			$target = isset( $row['target'] ) && is_scalar( $row['target'] ) ? trim( wp_strip_all_tags( (string) $row['target'] ) ) : '';
 			if ( '' !== $target ) {
-				$item['s'] = substr( $target, 0, 300 );
+				$item['s'] = self::loop_safe_selector( substr( $target, 0, 300 ) );
 			}
 			foreach ( array( 'duration' => 'd', 'delay' => 'dl' ) as $from => $to ) {
 				if ( isset( $row[ $from ] ) && is_numeric( $row[ $from ] ) ) {
@@ -1003,7 +1009,7 @@ class Bricks_Integration {
 			}
 			if ( isset( $row['ease'] ) && is_scalar( $row['ease'] ) ) {
 				$ease = (string) $row['ease'];
-				if ( ( is_string( $row['ease'] ) && isset( $eases[ $ease ] ) ) || preg_match( '/^cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\)$/', $ease ) ) {
+				if ( ( is_string( $row['ease'] ) && isset( $eases[ $ease ] ) ) || preg_match( '/^cubic-bezier\(\s*-?(?:\d+\.?\d*|\.\d+)\s*,\s*-?(?:\d+\.?\d*|\.\d+)\s*,\s*-?(?:\d+\.?\d*|\.\d+)\s*,\s*-?(?:\d+\.?\d*|\.\d+)\s*\)$/', $ease ) ) {
 					$item['e'] = $ease;
 				}
 			}
@@ -1020,7 +1026,7 @@ class Bricks_Integration {
 				foreach ( array( 'rangeStartEl' => 'rse', 'rangeEndEl' => 'ree' ) as $from => $to ) {
 					$v = isset( $row[ $from ] ) && is_scalar( $row[ $from ] ) ? trim( wp_strip_all_tags( (string) $row[ $from ] ) ) : '';
 					if ( '' !== $v ) {
-						$item[ $to ] = substr( $v, 0, 300 );
+						$item[ $to ] = self::loop_safe_selector( substr( $v, 0, 300 ) );
 					}
 				}
 			}
@@ -1033,28 +1039,98 @@ class Bricks_Integration {
 	}
 
 	/**
+	 * Does a row fade the element itself in from below full opacity (view, hover-free rows and
+	 * scroll rows start from their first keyframe)?
+	 *
+	 * @param array $rows Validated rows.
+	 * @return bool
+	 */
+	public static function timeline_starts_hidden( array $rows ) {
+		foreach ( $rows as $row ) {
+			if ( 'opacity' !== $row['p'] || ! empty( $row['s'] ) || ! in_array( $row['on'], array( 'view', 'scroll', 'loop' ), true ) || ! empty( $row['bp'] ) ) {
+				continue;
+			}
+			$first = $row['k'][0];
+			foreach ( $row['k'] as $key ) {
+				if ( $key[0] < $first[0] ) {
+					$first = $key;
+				}
+			}
+			if ( is_numeric( rtrim( $first[1], '%' ) ) && (float) $first[1] / ( '%' === substr( $first[1], -1 ) ? 100 : 1 ) < 0.5 ) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Inside query loops and components Bricks drops the id="brxe-…" attribute and puts the
+	 * class .brxe-… there instead: "#brxe-abc123" must match both.
+	 *
+	 * @param string $selector Selector typed in the builder.
+	 * @return string
+	 */
+	public static function loop_safe_selector( $selector ) {
+		return preg_replace( '/#(brxe-[a-z0-9]+)\b(?![\w-])/i', ':is(#$1,.$1)', $selector );
+	}
+
+	/**
 	 * "0: 100%, 50: -4%, 100: rgba(0,0,0,.5)" → [[0,"100%"],[50,"-4%"],[100,"rgba(0,0,0,.5)"]].
-	 * Only numbers with CSS units and colours are accepted, so nothing else reaches the page.
+	 * Only values that suit the property are accepted (lengths for x / width, angles for rotate,
+	 * plain numbers for scale / opacity, colours for colours), so nothing else reaches the page.
+	 * One bad pair drops the whole row: a row silently missing a keyframe animates wrongly.
 	 *
 	 * @param string $text Keyframe text.
+	 * @param string $prop Property the row animates ('' = accept any valid value).
 	 * @return array
 	 */
-	public static function timeline_keys( $text ) {
-		$keys = array();
+	public static function timeline_keys( $text, $prop = '' ) {
+		$keys   = array();
+		$number = '-?(?:\d+\.?\d*|\.\d+)';
+		$length = $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)?';
+		$colour = 'transparent|currentcolor|[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\(--[a-z0-9_-]+\)'
+			. '|rgba?\((?:\d+(?:\.\d+)?%?)(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)'
+			. '|hsla?\(' . $number . '(?:deg|turn)?(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)';
+		switch ( $prop ) {
+			case 'x':
+			case 'y':
+			case 'width':
+			case 'height':
+				$allowed = 'auto|-?overflow|' . $length;
+				break;
+			case 'rotate':
+				$allowed = 'auto|' . $number . '(?:deg|turn)?';
+				break;
+			case 'opacity':
+			case 'scale':
+			case 'scaleX':
+			case 'scaleY':
+				$allowed = 'auto|' . $number . '%?';
+				break;
+			case 'color':
+			case 'backgroundColor':
+				$allowed = 'auto|' . $colour;
+				break;
+			default:
+				$allowed = 'auto|-?overflow|' . $colour . '|' . $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem|deg|turn)?';
+		}
 		// Pairs are separated by commas outside parentheses (rgba() has its own commas).
 		foreach ( array_slice( preg_split( '/,(?![^()]*\))/', (string) $text ), 0, 50 ) as $pair ) {
-			if ( ! preg_match( '/^\s*(-?\d+(?:\.\d+)?)\s*:\s*(.+?)\s*$/s', $pair, $m ) ) {
-				continue;
+			if ( '' === trim( $pair ) ) {
+				continue; // a trailing comma
+			}
+			// "50: 1" and "50%: 1" are the same keyframe.
+			if ( ! preg_match( '/^\s*(-?\d+(?:\.\d+)?)\s*%?\s*:\s*(.+?)\s*$/s', $pair, $m ) ) {
+				return array();
 			}
 			$value = strtolower( preg_replace( '/\s+/', ' ', $m[2] ) );
 			$value = preg_replace( '/\s*([,\/()])\s*/', '$1', $value );        // rgba( 0, 0 / .5 ) → rgba(0,0/.5)
 			$value = preg_replace( '/^(-?\d*\.?\d+) ([a-z%]+)$/', '$1$2', $value ); // "10 px" → "10px"
-			// The whole value must be one of these, or the pair is dropped (never half-parsed).
-			$number = '-?(?:\d+\.?\d*|\.\d+)';
-			$ok     = preg_match( '/^(?:auto|-?overflow|transparent|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\((?:\d+(?:\.\d+)?%?)(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)|' . $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem|deg|turn)?)$/', $value );
-			if ( $ok ) {
-				$keys[] = array( round( min( 100, max( 0, (float) $m[1] ) ), 3 ), $value );
+			// The whole value must match, or the row is dropped (never half-parsed).
+			if ( ! preg_match( '/^(?:' . $allowed . ')$/', $value ) || in_array( $value, array( 'none', 'inherit', 'initial', 'unset', 'revert' ), true ) ) {
+				return array();
 			}
+			$keys[] = array( round( min( 100, max( 0, (float) $m[1] ) ), 3 ), $value );
 		}
 		return $keys;
 	}

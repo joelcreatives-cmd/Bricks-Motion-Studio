@@ -725,7 +725,8 @@
 		// Individual attribute overrides: data-bme-duration="1.2" etc.
 		[ 'duration', 'delay', 'stagger', 'distance', 'offset', 'speed', 'ease', 'trigger', 'scope', 'replay' ].forEach( function ( k ) {
 			var v = el.getAttribute( 'data-bme-' + k );
-			if ( v !== null && v !== '' ) {
+			// A bare data-bme-replay (no value) switches replay on.
+			if ( v !== null && ( v !== '' || k === 'replay' ) ) {
 				o[ k ] = v;
 			}
 		} );
@@ -746,10 +747,19 @@
 			ease: o.ease || p.ease || D.ease,
 			trigger: o.trigger === 'load' || o.trigger === 'manual' ? o.trigger : 'scroll',
 			scope: o.scope || 'self',
-			replay: o.replay !== undefined ? !! num( o.replay, 0 ) : !! D.replay,
+			replay: o.replay !== undefined ? flag( o.replay ) : !! D.replay,
 			minWidth: num( o.minWidth, 0 ),
 			auto: !! o.auto,
 		};
+	}
+
+	/** "", true, "true", "yes", "on", 1 → true; "false", "no", "0" → false. */
+	function flag( v ) {
+		if ( v === '' || v === true ) {
+			return true;
+		}
+		var s = String( v ).trim().toLowerCase();
+		return s === 'true' || s === 'yes' || s === 'on' || !! num( s, 0 );
 	}
 
 	function targetsFor( el, scope ) {
@@ -918,7 +928,9 @@
 			}
 		} );
 		passed.forEach( function ( rec ) {
-			unwatch( rec );
+			if ( ! rec.cfg.replay ) {
+				unwatch( rec ); // replays keep their observer: they play again when scrolled back to
+			}
 			finish( rec );
 		} );
 		reached.forEach( function ( rec ) {
@@ -1010,8 +1022,8 @@
 			return null;
 		}
 
-		if ( claimed.has( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
-			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : '(excluded)' );
+		if ( claimed.has( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || el.hasAttribute( 'data-bme-tl' ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
+			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : el.hasAttribute( 'data-bme-tl' ) ? '(has its own timeline)' : '(excluded)' );
 			unhide( el );
 			byEl.set( el, { el: el, skipped: true } );
 			return null;
@@ -1361,7 +1373,10 @@
 		if ( ! rec.fade && ! rtlMixed ) {
 			// GSAP SplitText is used for masked line reveals (its line detection re-flows best);
 			// words/chars use the non-destructive core splitter on every engine.
-			split = type === 'lines' && eng && eng.special && eng.special.split ? eng.special.split( el, type, !! p.mask ) : null;
+			// It rewrites innerHTML on revert, so links / buttons inside (their listeners, focus) would
+			// be replaced: such text uses the core splitter, which keeps every element.
+			var interactive = el.querySelector( 'a, button, input, select, textarea, label, video, audio, iframe, [tabindex], [onclick], [data-interactions], [data-bme-hover]' );
+			split = type === 'lines' && ! interactive && eng && eng.special && eng.special.split ? eng.special.split( el, type, !! p.mask ) : null;
 			if ( ! split ) {
 				split = splitText( el, type, !! p.mask );
 			}
@@ -1476,6 +1491,7 @@
 		rec.targets.forEach( restoreInline );
 		rec.played = false;
 		rec.busy = false;
+		rec.el.setAttribute( 'data-bme-state', 'ready' ); // CSS hooks and BricksMotion users see it is armed again
 		setupAgain( rec );
 	}
 
@@ -1521,7 +1537,7 @@
 		var cs = getComputedStyle( el );
 		var parent = el.parentElement;
 		var m = {
-			style: [ 'display', 'width', 'flex-wrap', 'padding-inline-end' ].map( function ( prop ) {
+			style: [ 'display', 'width', 'flex-wrap', 'flex-direction', 'padding-inline-end' ].map( function ( prop ) {
 				return [ prop, el.style.getPropertyValue( prop ) ];
 			} ),
 			parent: parent,
@@ -1536,16 +1552,19 @@
 			copy.setAttribute( 'data-bme-clone', '' );
 			toArray( copy.querySelectorAll( '*' ) ).concat( [ copy ] ).forEach( function ( n ) {
 				// No duplicate ids, and the copy is never picked up as an animation of its own.
-				[ 'id', 'data-bme', 'data-bme-hide', 'data-bme-state', 'data-bme-opts', 'data-bme-tl', INLINE_ATTR ].forEach( function ( a ) {
+				[ 'id', 'data-bme', 'data-bme-hide', 'data-bme-state', 'data-bme-opts', 'data-bme-tl', 'data-bme-tl-hide', INLINE_ATTR ].forEach( function ( a ) {
 					n.removeAttribute( a );
 				} );
 			} );
 			el.appendChild( copy );
 			m.clones.push( copy );
 		} );
-		if ( ! /flex|grid/.test( cs.display ) ) {
-			el.style.display = 'flex';
+		// One row: Bricks containers and blocks are column flexboxes, and a grid with set columns
+		// would wrap the copies onto new rows.
+		if ( ! /flex/.test( cs.display ) ) {
+			el.style.display = /inline/.test( cs.display ) ? 'inline-flex' : 'flex';
 		}
+		el.style.flexDirection = 'row';
 		el.style.flexWrap = 'nowrap';
 		el.style.width = 'max-content';
 		var gap = parseFloat( cs.columnGap );
@@ -1646,6 +1665,12 @@
 		return null;
 	}
 
+	// Could the separator be a thousands separator? "1.250" yes; "0.125" and "1250.125" no.
+	function groupable( raw, sep ) {
+		var lead = raw.replace( /^[^\d]*/, '' ).split( sep )[ 0 ];
+		return /^[1-9]\d{0,2}$/.test( lead );
+	}
+
 	function parseNumber( str ) {
 		var raw = str.replace( /\s/g, '' );
 		var lastComma = raw.lastIndexOf( ',' );
@@ -1653,9 +1678,9 @@
 		var decimalSep = '';
 		if ( lastComma > -1 && lastDot > -1 ) {
 			decimalSep = lastComma > lastDot ? ',' : '.';
-		} else if ( lastDot > -1 && raw.length - lastDot - 1 !== 3 ) {
+		} else if ( lastDot > -1 && ( raw.length - lastDot - 1 !== 3 || ! groupable( raw, '.' ) ) ) {
 			decimalSep = '.';
-		} else if ( lastComma > -1 && raw.length - lastComma - 1 !== 3 ) {
+		} else if ( lastComma > -1 && ( raw.length - lastComma - 1 !== 3 || ! groupable( raw, ',' ) ) ) {
 			decimalSep = ',';
 		}
 		var thousandSep = decimalSep === ',' ? '.' : ',';
@@ -1999,7 +2024,8 @@
 		var opts = parseJSON( el.getAttribute( 'data-bme-3d' ) );
 		loadThree()
 			.then( function ( mod ) {
-				if ( ! el.isConnected ) {
+				// Removed, or destroyed (BricksMotion.destroy) while the module was loading.
+				if ( ! el.isConnected || el.__bme3d !== s ) {
 					return;
 				}
 				s.ctrl = mod.mount( el, opts, {
@@ -2208,10 +2234,17 @@
 		var off = motionOff();
 
 		// Three.js scenes are decorative: they still mount (static frame under reduced motion).
-		toArray( root.querySelectorAll( '[data-bme-3d]' ) ).forEach( setupThree );
+		var self = function ( sel ) {
+			var list = toArray( root.querySelectorAll( sel ) );
+			if ( root !== document && root.matches && root.matches( sel ) ) {
+				list.unshift( root );
+			}
+			return list;
+		};
+		self( '[data-bme-3d]' ).forEach( setupThree );
 
 		if ( ! off && ! fadeOnly() ) {
-			toArray( root.querySelectorAll( '[data-bme-hover]' ) ).forEach( setupHover );
+			self( '[data-bme-hover]' ).forEach( setupHover );
 		}
 
 		var candidates = toArray( root.querySelectorAll( SELECTOR ) );
@@ -2291,7 +2324,8 @@
 			}
 			setupWait.unobserve( entry.target );
 			waiting.delete( entry.target );
-			if ( ! records.has( rec ) ) {
+			// Gone, or already shown meanwhile (printed, BricksMotion.play()): never hide it again.
+			if ( ! records.has( rec ) || rec.played ) {
 				return;
 			}
 			// Measure the design now that it is rendered (no start styles have been written yet).
@@ -2379,9 +2413,27 @@
 	 * Bricks integration (AJAX query loops, filters, popups, accordions, tabs)
 	 * ---------------------------------------------------------------- */
 
+	// Timelines that only arrived with AJAX content (a popup, a filtered loop): load their script.
+	var timelineRequested = false;
+	function needTimeline() {
+		if ( timelineRequested || window.BricksMotionTimeline || ! cfg.timeline || ! cfg.timeline.src || ! document.querySelector( '[data-bme-tl]' ) ) {
+			if ( window.BricksMotionTimeline ) {
+				window.BricksMotionTimeline.scan();
+			}
+			return;
+		}
+		timelineRequested = true;
+		window.BME_TL = window.BME_TL || { reduced: cfg.timeline.reduced, minWidth: cfg.timeline.minWidth };
+		var s = document.createElement( 'script' );
+		s.src = cfg.timeline.src;
+		s.async = true;
+		document.head.appendChild( s );
+	}
+
 	function bindBricks() {
 		var rescan = debounce( function () {
 			scan( document );
+			needTimeline();
 		}, 30 );
 
 		[ 'bricks/ajax/nodes_added', 'bricks/ajax/query_result/displayed', 'bricks/ajax/load_page/completed', 'bricks/ajax/pagination/completed', 'bricks/ajax/popup/loaded' ].forEach( function ( evt ) {
@@ -2398,7 +2450,9 @@
 			while ( node && node !== document.body ) {
 				var rec = byEl.get( node );
 				if ( rec && ! rec.skipped && ! rec.played && ! rec.inert && ! rec.persistent && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
-					unwatch( rec );
+					if ( ! rec.cfg.replay ) {
+						unwatch( rec );
+					}
 					finish( rec );
 				}
 				node = node.parentElement;
@@ -2523,7 +2577,37 @@
 		document.addEventListener( 'scroll', sweepWhileScrolling, { passive: true, capture: true } );
 		window.addEventListener( 'load', sweep );
 		setTimeout( sweep, 400 );
+		// The built-in engine stores the designed transform as pixels (translate(-50%) → a matrix):
+		// after fonts load or the width changes, set its running loops up again from the new design.
+		var relayLoops = function () {
+			var redo = [];
+			records.forEach( function ( rec ) {
+				if ( rec.kind === 'loop' && rec.engine === nativeAdapter && ! rec.inert && rec.targets.some( function ( t ) {
+					return restOf( t ) && restOf( t ).t;
+				} ) ) {
+					redo.push( rec );
+				}
+			} );
+			redo.forEach( function ( rec ) {
+				var ts = rec.targets.slice();
+				destroy( rec.el, true );
+				ts.forEach( function ( t ) {
+					resting.delete( t );
+				} );
+				scan( rec.el );
+			} );
+		};
+		var loopWidth = window.innerWidth;
+		window.addEventListener( 'resize', debounce( function () {
+			if ( window.innerWidth !== loopWidth ) {
+				loopWidth = window.innerWidth;
+				relayLoops();
+			}
+		}, 250 ) );
 		if ( document.fonts && document.fonts.ready ) {
+			if ( document.fonts.status !== 'loaded' ) {
+				document.fonts.ready.then( relayLoops ); // only if a font swap could have moved them
+			}
 			document.fonts.ready.then( refreshSoon );
 		}
 
@@ -2553,21 +2637,37 @@
 
 		// Visitor turns on "reduce motion" while the page is open: show everything, stop all motion.
 		var onReducedChange = function () {
-			if ( ! mqReduced.matches ) {
+			// "Ignore reduced motion": the visitor's setting changes nothing, now or on reload.
+			if ( ! mqReduced.matches || cfg.reduced === 'ignore' ) {
 				return;
 			}
 			var stop = [];
+			var refade = [];
 			records.forEach( function ( rec ) {
-				// "No animation": stop everything. "Gentle fades": stop what keeps moving.
+				// "No animation": stop everything. "Gentle fades": stop what keeps moving, and
+				// turn reveals that have not played yet into fades.
 				if ( motionOff() || /^(loop|scrub|pin)$/.test( rec.kind ) ) {
 					stop.push( rec.el );
+				} else if ( fadeOnly() && ! rec.skipped && ! rec.played && ! rec.busy && ! rec.fade && ! rec.inert && /^(reveal|text|draw)$/.test( rec.kind ) ) {
+					refade.push( rec.el );
 				}
 			} );
 			stop.forEach( function ( el ) {
-				destroy( el, true ); // 3D backgrounds stay (they are decorative and render calmly)
+				destroy( el, true ); // 3D backgrounds are re-mounted below, as a still frame
+			} );
+			refade.forEach( function ( el ) {
+				destroy( el, true );
+				scan( el ); // set up again, now as a fade (same task: nothing is painted between)
 			} );
 			if ( motionOff() ) {
 				toArray( document.querySelectorAll( '[data-bme-hide]' ) ).forEach( unhide );
+				// Running WebGL scenes get the still frame they would have had on load.
+				toArray( threeHosts ).forEach( function ( el ) {
+					if ( el.__bme3d && el.__bme3d.state === 'mounted' ) {
+						destroyThree( el );
+						setupThree( el );
+					}
+				} );
 			}
 			emit( 'bme:reduced', {} );
 		};
@@ -2644,7 +2744,9 @@
 				if ( rec.played ) {
 					reset( rec );
 				}
-				unwatch( rec );
+				if ( ! rec.cfg.replay ) {
+					unwatch( rec );
+				}
 				safePlay( rec, 0 );
 			} );
 		},
@@ -2652,7 +2754,7 @@
 		reset: function ( target ) {
 			resolveTargets( target ).forEach( function ( el ) {
 				var rec = byEl.get( el );
-				if ( rec && ! rec.skipped && rec.played && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
+				if ( rec && ! rec.skipped && ! rec.persistent && rec.played && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
 					reset( rec );
 					if ( rec.cfg.trigger === 'manual' ) {
 						unwatch( rec );

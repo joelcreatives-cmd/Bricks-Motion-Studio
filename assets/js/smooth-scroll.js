@@ -16,11 +16,15 @@
 	if ( ! BM || ! Lenis || ! cfg ) {
 		return;
 	}
-	if ( window.matchMedia && window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) {
+	var reduceQuery = window.matchMedia ? window.matchMedia( '(prefers-reduced-motion: reduce)' ) : { matches: false };
+	// "Ignore reduced motion" (Motion Studio → Accessibility) keeps smooth scrolling too.
+	var respectsReduced = ( window.BME_CONFIG || {} ).reduced !== 'ignore';
+	if ( respectsReduced && reduceQuery.matches ) {
 		return;
 	}
 
 	var gsap = window.gsap;
+	var tick = null;
 	var ST = window.ScrollTrigger;
 	var html = document.documentElement;
 
@@ -30,6 +34,7 @@
 	}
 
 	// Native smooth scrolling (e.g. Bricks "Smooth scroll" setting) fights Lenis.
+	var scrollBehavior = html.style.scrollBehavior;
 	html.style.scrollBehavior = 'auto';
 
 	var lenis = new Lenis( {
@@ -54,9 +59,10 @@
 		if ( ST ) {
 			lenis.on( 'scroll', ST.update );
 		}
-		gsap.ticker.add( function ( time ) {
+		tick = function ( time ) {
 			lenis.raf( time * 1000 );
-		} );
+		};
+		gsap.ticker.add( tick );
 		if ( ! BM.config || BM.config.ownGsap !== false ) {
 			gsap.ticker.lagSmoothing( 0 );
 		}
@@ -65,7 +71,12 @@
 	// Pause while Bricks locks the page (popups, off-canvas, mobile menu).
 	// Only undo stops we made ourselves, so a lenis.stop() from custom code is respected.
 	var stoppedByUs = false;
+	var dead = false;
+	var lockWatch = null;
 	function syncLockAll() {
+		if ( dead ) {
+			return;
+		}
 		// Popups add body.no-scroll; off-canvas fires no events, its open state is .brx-open.
 		var locked = document.body.classList.contains( 'no-scroll' ) || !! document.querySelector( '.brxe-offcanvas.brx-open' );
 		if ( locked && ! stoppedByUs && ! lenis.isStopped ) {
@@ -77,17 +88,36 @@
 		}
 	}
 	if ( window.MutationObserver ) {
-		new MutationObserver( syncLockAll ).observe( document.body, { attributes: true, attributeFilter: [ 'class' ], subtree: true } );
+		lockWatch = new MutationObserver( syncLockAll );
+		lockWatch.observe( document.body, { attributes: true, attributeFilter: [ 'class' ], subtree: true } );
 	}
 	syncLockAll();
 
+	// Visitor turns on "reduce motion" while the page is open: back to native scrolling, with
+	// nothing left behind (ticker callback, observer, classes, scroll-behavior).
 	BM.on( 'bme:reduced', function () {
+		if ( dead || ! respectsReduced ) {
+			return;
+		}
+		dead = true;
+		if ( lockWatch ) {
+			lockWatch.disconnect();
+		}
+		if ( gsap && tick ) {
+			gsap.ticker.remove( tick );
+		}
 		lenis.destroy();
+		html.style.scrollBehavior = scrollBehavior;
+		if ( BM.lenis === lenis ) {
+			delete BM.lenis;
+		}
 	} );
 
 	// Content height changes (AJAX loops, accordions) → recalculate limits.
 	BM.on( 'bme:refresh', function () {
-		lenis.resize();
+		if ( ! dead ) {
+			lenis.resize();
+		}
 	} );
 
 	BM.lenis = lenis;
