@@ -341,9 +341,11 @@ class Settings {
 			$target = 'class' === $type
 				? sanitize_html_class( ltrim( (string) ( $rule['target'] ?? '' ), '.' ) )
 				: ( '*' === trim( (string) ( $rule['target'] ?? '' ) ) ? '*' : sanitize_key( wp_strip_all_tags( (string) ( $rule['target'] ?? '' ) ) ) );
-			$preset = (string) ( $rule['preset'] ?? '' );
+			$preset = is_scalar( $rule['preset'] ?? '' ) ? (string) ( $rule['preset'] ?? '' ) : '';
 
-			if ( '' === $target || ! Presets::exists( $preset ) ) {
+			// An unknown preset (broken presets.json, a deactivated add-on that registered it) keeps
+			// its rule: it simply doesn't animate until the preset exists again.
+			if ( '' === $target || ( ! Presets::exists( $preset ) && ! preg_match( '/^[a-z0-9-]{1,40}$/', $preset ) ) ) {
 				continue;
 			}
 

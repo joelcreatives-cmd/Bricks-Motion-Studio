@@ -285,7 +285,11 @@ class Assets {
 		// Timelines run on their own small script (no runtime, no library).
 		if ( $needs_tl ) {
 			wp_enqueue_script( 'bme-timeline' );
-			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . wp_json_encode( array( 'reduced' => Settings::get( 'a11y.reduced', 'respect' ) ) ) . ';', 'before' );
+			$tl_config = array(
+				'reduced'  => Settings::get( 'a11y.reduced', 'respect' ),
+				'minWidth' => (int) Settings::get( 'a11y.min_width', 0 ),
+			);
+			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . wp_json_encode( $tl_config ) . ';', 'before' );
 			if ( ! $needs_anim && ! $needs_three && ! $lenis ) {
 				return;
 			}

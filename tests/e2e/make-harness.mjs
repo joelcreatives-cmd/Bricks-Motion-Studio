@@ -66,7 +66,24 @@ body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{positio
 <div data-case3="tl-hover" style="width:120px;height:40px;background:#eee" ${tl([{ on: 'hover', s: '.ov', p: 'x', k: [[0, '-100%'], [100, '0%']], d: 0.2, e: 'linear' }, { on: 'leave', s: '.ov', p: 'x', k: [[0, '0%'], [100, '100%']], d: 0.2, e: 'linear' }])}><div class="ov" data-case3="tl-ov" style="width:120px;height:40px;background:#333"></div></div>
 <div data-case3="tl-loop" ${tl([{ on: 'loop', p: 'x', k: [[0, '0%'], [100, '-100%']], d: 1, e: 'linear' }])} style="width:100px">loop</div>
 <div style="transform:translateY(10px)" data-case3="tl-auto" ${tl([{ on: 'hover', p: 'y', k: [[0, 'auto'], [100, '30px']], d: 0.2 }])}>auto</div>
+<style>.qa-tx{position:relative;left:50%;width:200px;transform:translateX(-50%)}.qa-hidden{display:none}.qa-mq-wrap{width:300px}.qa-mq{display:flex;gap:20px}.qa-mq>div{width:100px;flex:none;height:20px;background:#ccc}.qa-ovf-wrap{overflow:hidden;width:400px;padding:0 20px;box-sizing:border-box}.qa-ovf{display:flex;width:max-content}.qa-ovf>div{width:300px;height:20px;flex:none}</style>
+<div class="qa-tx" data-bme="fade-up" data-bme-engine="gsap" data-bme-opts='{"duration":2}' data-bme-hide data-case4="qa-gsap-designed">gsap keeps translateX(-50%)</div>
+<div class="qa-hidden" id="qa-hidden-wrap"><div class="qa-tx" data-bme="fade-up" data-bme-engine="native" data-bme-opts='{"duration":2}' data-bme-hide data-case4="qa-hidden-designed">shown later</div></div>
+<h2 data-bme="split-chars" data-bme-engine="native" data-bme-opts='{"duration":2}' data-bme-hide data-case4="qa-rtl">Hello שלום עולם</h2>
+<h2 data-bme="split-words" data-bme-engine="native" data-bme-opts='{"duration":2}' data-bme-hide data-case4="qa-joiner">bbb<em>bbbbb</em>bbbbbbbb end</h2>
+<h2 data-bme="split-lines" data-bme-engine="gsap" data-bme-opts='{"duration":2}' data-bme-hide data-case4="qa-lines-gsap">Masked line reveal that should rise into view without popping at the end of the animation</h2>
+<div class="qa-mq-wrap"><div class="qa-mq" data-bme="marquee" data-bme-engine="native" data-bme-opts='{"duration":2}' data-case4="qa-marquee"><div>A</div><div>B</div><div>C</div><div data-bme="fade-up">D</div></div></div>
+<div class="qa-tx" data-bme-hover="tilt" data-case4="qa-tilt" style="height:40px">tilt keeps translateX(-50%)</div>
+<div data-case4="qa-tl-focus" ${tl([{ on: 'hover', s: '.ov', p: 'x', k: [[0, '0px'], [100, '50px']], d: 0.1, e: 'linear' }, { on: 'leave', s: '.ov', p: 'x', k: [[0, '50px'], [100, '0px']], d: 0.1, e: 'linear' }])}><a href="#a" class="l1">one</a> <a href="#b" class="l2">two</a><div class="ov" data-case4="qa-tl-focus-ov">ov</div></div>
+<div data-case4="qa-tl-zero" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0.2'], [100, '0.7']], d: 0, o: 0 }])}>zero</div>
+<div data-case4="qa-tl-scale" ${tl([{ on: 'view', p: 'scale', k: [[0, '50%'], [100, '80%']], d: 0.1, o: 0 }])}>scale %</div>
+<div data-case4="qa-tl-colour" ${tl([{ on: 'view', p: 'color', k: [[0, 'rgb(255 0 0 / 50%)'], [100, 'transparent']], d: 0, o: 0 }])}>colour</div>
+<div class="qa-ovf-wrap"><div class="qa-ovf" data-case4="qa-tl-ovf" ${tl([{ on: 'view', p: 'x', k: [[0, '0px'], [100, '-overflow']], d: 0, o: 0 }])}><div>1</div><div>2</div></div></div>
+<div class="qa-hidden" id="qa-tl-hidden-wrap"><div data-case4="qa-tl-hidden" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0'], [100, '1']], d: 0, o: 0 }])}>hidden view</div></div>
+<div data-case4="qa-tl-keep" style="width:120px" ${tl([{ on: 'scroll', p: 'x', k: [[0, '0px'], [100, '10px']], bp: 'desktop' }])}>keep other styles</div>
 <div style="height:2500px"></div>
+<div style="height:60px"></div>
+${['motion', 'anime', 'gsap'].map((e) => `<div data-bme="scroll-fade" data-bme-engine="${e}" data-case4="qa-endfade-${e}" style="height:40px">end fade ${e}</div>`).join('')}
 `;
 const html = `<!doctype html><html><head><meta charset="utf-8"><title>BME harness</title>
 <style>html.bme-js:not(.bme-off):not(.bme-failsafe) [data-bme-hide]{opacity:.01}</style>

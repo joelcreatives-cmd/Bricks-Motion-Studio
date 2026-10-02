@@ -337,6 +337,11 @@ class Admin {
 
 	/** Preset <option>s grouped with <optgroup>. */
 	private function preset_optgroups( $selected ) {
+		// A rule whose preset isn't available right now keeps it (saving must not swap it silently).
+		if ( '' !== $selected && ! Presets::exists( $selected ) ) {
+			/* translators: %s: preset slug. */
+			printf( '<option value="%1$s" selected>%2$s</option>', esc_attr( $selected ), esc_html( sprintf( __( '%s (unavailable)', 'bricks-motion-studio' ), $selected ) ) );
+		}
 		$groups = Presets::group_labels();
 		foreach ( $groups as $group => $group_label ) {
 			echo '<optgroup label="' . esc_attr( $group_label ) . '">';

@@ -29,7 +29,17 @@ class Plugin {
 		add_action( 'init', array( __CLASS__, 'maybe_upgrade' ), 5 );
 
 		new Bricks_Integration();
-		new Assets();
+		// Without Bricks nothing on the front end can be animated: load nothing there.
+		// (Checked once the theme is set up; the settings screen still loads.)
+		add_action(
+			'after_setup_theme',
+			static function () {
+				if ( self::bricks_active() ) {
+					new Assets();
+				}
+			},
+			20
+		);
 
 		if ( is_admin() ) {
 			new Admin();

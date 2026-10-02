@@ -64,6 +64,7 @@ While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 * Settings app with live previews, system checks, export / import / reset; end-to-end test suite.
 * Updates from GitHub releases; automated checks on every push.
 * Timeline: keyframe animations for an element and the elements inside it, started by scroll position, scrolling into view, hover (with an optional separate hover-out) or a loop. Animates position, rotation, scale, opacity, width, height and colours; custom scroll ranges; `auto` (the designed value) and `-overflow` (slide to the last card) values; exact GSAP-style easing curves; per-row screen sizes. Loads its own 3 KB script only on pages that use it.
-* Marquee preset (slides sideways forever).
+* Marquee preset: a seamless endless strip (the content is duplicated once, hidden from screen readers and keyboard), pauses on hover and keyboard focus, clips its parent.
+* Quality pass: elements with a designed transform (centred, rotated) keep it on every engine and in tilt hover; content in closed popups/tabs is measured when shown; right-to-left and joined scripts are never split into letters; words crossing inline tags don't wrap mid-word; scroll fades complete near the page end on every engine; GSAP line reveals no longer pop in; rules with an unavailable preset are kept; update checks use the new release's own requirements.
 
 Licensing note: bundled GSAP is under the GSAP Standard License (see Description).

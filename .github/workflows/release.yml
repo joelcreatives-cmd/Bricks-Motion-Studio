@@ -39,4 +39,10 @@ jobs:
       - name: Publish release with the plugin zip
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" dist/bricks-motion-studio-*.zip --title "Bricks Motion Studio ${GITHUB_REF_NAME#v}" --generate-notes
+        # The requirement lines are read by sites' update checks (includes/class-updater.php).
+        run: |
+          REQ_WP=$(grep -m1 "Requires at least:" bricks-motion-studio.php | awk '{print $NF}')
+          REQ_PHP=$(grep -m1 "Requires PHP:" bricks-motion-studio.php | awk '{print $NF}')
+          TESTED=$(grep -m1 "Tested up to:" readme.txt | awk '{print $NF}')
+          printf 'Requires at least: %s\nRequires PHP: %s\nTested up to: %s\n' "$REQ_WP" "$REQ_PHP" "$TESTED" > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/bricks-motion-studio-*.zip --title "Bricks Motion Studio ${GITHUB_REF_NAME#v}" --notes-file notes.md --generate-notes

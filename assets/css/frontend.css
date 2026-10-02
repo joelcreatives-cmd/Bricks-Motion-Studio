@@ -130,7 +130,9 @@
 		transition: none;
 	}
 	.bme-hover-lift:hover,
-	.bme-hover-grow:hover {
+	.bme-hover-grow:hover,
+	.bme-hover-lift:focus-within,
+	.bme-hover-grow:focus-within {
 		translate: none;
 		scale: none;
 	}

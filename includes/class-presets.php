@@ -38,7 +38,7 @@ class Presets {
 			self::$catalog = array_filter(
 				self::$catalog,
 				static function ( $p, $slug ) {
-					return is_string( $slug ) && preg_match( '/^[a-z0-9-]+$/', $slug ) && is_array( $p ) && isset( $p['group'], $p['label'] ) && in_array( $p['group'], array( 'reveal', 'text', 'scroll', 'loop', 'special' ), true );
+					return is_string( $slug ) && preg_match( '/^[a-z0-9-]+$/', $slug ) && is_array( $p ) && isset( $p['group'], $p['label'] ) && is_string( $p['label'] ) && in_array( $p['group'], array( 'reveal', 'text', 'scroll', 'loop', 'special' ), true );
 				},
 				ARRAY_FILTER_USE_BOTH
 			);

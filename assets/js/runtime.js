@@ -197,7 +197,7 @@
 	var IDENTITY = { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0, rotateX: 0, rotateY: 0, skewY: 0, blur: 0, clip: [ 0, 0, 0, 0 ] };
 	// Includes the individual transform properties: GSAP writes `translate/rotate/scale: none`
 	// inline, which would otherwise outlive the reveal and cancel CSS hover effects or author styles.
-	var STYLE_PROPS = [ 'transform', 'translate', 'rotate', 'scale', 'opacity', 'filter', 'clip-path', 'transform-origin', 'will-change', 'transition', 'visibility' ];
+	var STYLE_PROPS = [ 'transform', 'translate', 'rotate', 'scale', 'opacity', 'filter', 'clip-path', 'transform-origin', 'transform-box', 'will-change', 'transition', 'visibility' ];
 
 	/** Replace distance tokens: d / -d (distance), hd / -hd (half), p / -p (parallax travel). */
 	function resolveToken( v, ctx ) {
@@ -436,9 +436,21 @@
 				frag.appendChild( out );
 				created.push( out );
 			} );
-			groups.push( { text: node.nodeValue, nodes: created } );
+			groups.push( { text: node.nodeValue, nodes: created, endsMid: ! /\s$/.test( node.nodeValue ), startsMid: ! /^\s/.test( node.nodeValue ) } );
 			node.parentNode.replaceChild( frag, node );
 		} );
+
+		// A word that runs across an inline tag (bbb<em>bbb</em>bbb) became several inline-blocks,
+		// and the browser may wrap between them. A word joiner (U+2060) forbids that break.
+		for ( var gi = 1; gi < groups.length; gi++ ) {
+			var prev = groups[ gi - 1 ];
+			if ( prev.endsMid && groups[ gi ].startsMid && prev.nodes.length ) {
+				var last = prev.nodes[ prev.nodes.length - 1 ];
+				var joiner = document.createTextNode( '\u2060' );
+				last.parentNode.insertBefore( joiner, last.nextSibling );
+				prev.nodes.push( joiner );
+			}
+		}
 
 		// Screen readers read the intact sentence and skip the pieces. Not done when the element
 		// contains focusable content: aria-hidden must never hide something keyboard users reach.
@@ -878,6 +890,7 @@
 
 	var sweepNow = function () {
 		var vh = window.innerHeight || html.clientHeight;
+		var vw = window.innerWidth || html.clientWidth;
 		var doc = document.scrollingElement || html;
 		var atBottom = window.innerHeight + window.scrollY >= doc.scrollHeight - 4;
 		// Read every position first, then act: starting an animation writes styles, and reading
@@ -895,6 +908,9 @@
 			var line = vh * ( 1 - rec.cfg.offset / 100 );
 			// Measure where the element rests, not where its entrance offset pushed it.
 			var top = r.top - restOffsetY( rec );
+			if ( r.right < 0 || r.left > vw ) {
+				return; // off to the side (a slider or horizontal track): its own scroll reveals it
+			}
 			if ( r.bottom < 0 ) {
 				passed.push( rec );
 			} else if ( top < line || ( ( atBottom || inFixed( rec ) ) && top < vh ) ) {
@@ -986,6 +1002,14 @@
 			return null;
 		}
 
+		// Everything inside a marquee travels with the strip (and is copied by it): no own animation.
+		if ( el.closest( '[data-bme-clone]' ) || ( el.parentElement && el.parentElement.closest( '[data-bme="marquee"], .bme-marquee' ) ) ) {
+			log( 'Skipped', el, '(inside a marquee)' );
+			unhide( el );
+			byEl.set( el, { el: el, skipped: true } );
+			return null;
+		}
+
 		if ( claimed.has( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
 			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : '(excluded)' );
 			unhide( el );
@@ -1023,7 +1047,7 @@
 			cfg: c,
 			kind: kind,
 			engine: engineName ? adapters[ engineName ] : null,
-			targets: targetsFor( el, kind === 'text' || kind === 'counter' || kind === 'pin' ? 'self' : c.scope ),
+			targets: targetsFor( el, kind === 'text' || kind === 'counter' || kind === 'pin' || p.marquee ? 'self' : c.scope ),
 			ctrl: null,
 			played: false,
 			busy: false,
@@ -1054,6 +1078,15 @@
 				log( 'Using the built-in engine for', el, '(children with their own designed opacity)' );
 				rec.engine = nativeAdapter;
 			}
+		}
+
+		// A designed transform (centring translate(-50%), a rotation): the libraries write their own
+		// transform over it and the element jumps at the end. The built-in engine composes on top.
+		if ( rec.engine && rec.engine !== nativeAdapter && adapters.native && nativeOk( p ) && ( kind === 'reveal' || kind === 'loop' ) && rec.targets.some( function ( t ) {
+			return restOf( t ) && restOf( t ).t;
+		} ) ) {
+			log( 'Using the built-in engine for', el, '(keeps its designed transform)' );
+			rec.engine = nativeAdapter;
 		}
 
 		rec.targets.forEach( function ( t ) {
@@ -1099,6 +1132,10 @@
 		if ( rec.kind === 'scrub' ) {
 			var fromS = lcpSafe( resolveProps( p.from || {}, c ) );
 			var toS = toProps( fromS, p.to, c );
+			// Scroll fades end at the designed opacity too (a 60% overlay stays at 60%).
+			if ( rec.targets.length === 1 && typeof toS.opacity === 'number' && restOf( rec.targets[ 0 ] ) && restOf( rec.targets[ 0 ] ).o < 0.999 ) {
+				toS.opacity = restOf( rec.targets[ 0 ] ).o;
+			}
 			rec.targets.forEach( saveInline );
 			rec.ctrl = rec.engine.scrub( el, rec.targets, fromS, toS, { range: p.range || 'full', stagger: rec.targets.length > 1 ? c.stagger : 0 } );
 			unhide( el );
@@ -1122,6 +1159,9 @@
 		if ( rec.kind === 'counter' ) {
 			setupCounter( rec );
 		} else if ( rec.kind === 'reveal' || rec.kind === 'loop' ) {
+			if ( p.marquee ) {
+				prepareMarquee( rec );
+			}
 			var from = lcpSafe( rec.fade ? { opacity: 0 } : resolveProps( p.from || {}, c ) );
 			rec.from = from;
 			rec.to = toProps( from, rec.fade ? null : p.to, c );
@@ -1310,7 +1350,15 @@
 
 		var type = p.split === 'lines' ? 'lines' : p.split === 'chars' ? 'chars' : 'words';
 		var split = null;
-		if ( ! rec.fade ) {
+		var txt = el.textContent || '';
+		// Joined scripts (Arabic, Indic, Thai, Myanmar…) lose their letter shapes when split into
+		// characters: use words. Right-to-left text inside a left-to-right flow would come out in the
+		// wrong order once pieces become inline-blocks: animate the element whole instead.
+		if ( type === 'chars' && /[\u0600-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF\u0900-\u0DFF\u0E00-\u0FFF\u1000-\u109F]/.test( txt ) ) {
+			type = 'words';
+		}
+		var rtlMixed = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF]/.test( txt ) && ( getComputedStyle( el ).direction !== 'rtl' || /[A-Za-z]/.test( txt ) );
+		if ( ! rec.fade && ! rtlMixed ) {
 			// GSAP SplitText is used for masked line reveals (its line detection re-flows best);
 			// words/chars use the non-destructive core splitter on every engine.
 			split = type === 'lines' && eng && eng.special && eng.special.split ? eng.special.split( el, type, !! p.mask ) : null;
@@ -1332,11 +1380,15 @@
 			};
 		}
 
-		targets.forEach( function ( t ) {
-			if ( t !== el ) {
-				applyStyle( t, from );
-			}
-		} );
+		// GSAP SplitText pieces get their start state from GSAP's own fromTo: setting ours as well
+		// doubled the offset (lines stayed under their mask until the end, then popped in).
+		if ( ! ( split && split.native ) ) {
+			targets.forEach( function ( t ) {
+				if ( t !== el ) {
+					applyStyle( t, from );
+				}
+			} );
+		}
 		showText( rec );
 		if ( targets[ 0 ] === el ) {
 			saveInline( el );
@@ -1453,6 +1505,102 @@
 		if ( c.trigger !== 'manual' ) {
 			watch( rec );
 		}
+	}
+
+	/**
+	 * Marquee: the element becomes one horizontal strip holding its content twice (the copy is
+	 * aria-hidden and inert), so sliding it by -50% lands the copy exactly where the original
+	 * started: seamless. A trailing pad equal to the gap keeps the spacing even at the seam, the
+	 * parent clips the overflow, and the strip pauses on hover / keyboard focus (WCAG 2.2.2).
+	 */
+	function prepareMarquee( rec ) {
+		var el = rec.el;
+		if ( el.__bmeMarquee ) {
+			return;
+		}
+		var cs = getComputedStyle( el );
+		var parent = el.parentElement;
+		var m = {
+			style: [ 'display', 'width', 'flex-wrap', 'padding-inline-end' ].map( function ( prop ) {
+				return [ prop, el.style.getPropertyValue( prop ) ];
+			} ),
+			parent: parent,
+			parentOverflow: parent ? parent.style.getPropertyValue( 'overflow-x' ) : '',
+			clones: [],
+		};
+		el.__bmeMarquee = m;
+		toArray( el.children ).forEach( function ( child ) {
+			var copy = child.cloneNode( true );
+			copy.setAttribute( 'aria-hidden', 'true' );
+			copy.setAttribute( 'inert', '' );
+			copy.setAttribute( 'data-bme-clone', '' );
+			toArray( copy.querySelectorAll( '*' ) ).concat( [ copy ] ).forEach( function ( n ) {
+				// No duplicate ids, and the copy is never picked up as an animation of its own.
+				[ 'id', 'data-bme', 'data-bme-hide', 'data-bme-state', 'data-bme-opts', 'data-bme-tl', INLINE_ATTR ].forEach( function ( a ) {
+					n.removeAttribute( a );
+				} );
+			} );
+			el.appendChild( copy );
+			m.clones.push( copy );
+		} );
+		if ( ! /flex|grid/.test( cs.display ) ) {
+			el.style.display = 'flex';
+		}
+		el.style.flexWrap = 'nowrap';
+		el.style.width = 'max-content';
+		var gap = parseFloat( cs.columnGap );
+		if ( gap > 0 ) {
+			el.style.paddingInlineEnd = gap + 'px';
+		}
+		if ( parent && getComputedStyle( parent ).overflowX === 'visible' ) {
+			parent.style.overflowX = 'clip';
+		}
+		var pause = function () {
+			pauseLoop( rec );
+		};
+		var resume = function () {
+			if ( ! el.matches( ':hover' ) && ! el.contains( document.activeElement ) && inViewport( el ) ) {
+				resumeLoop( rec );
+			}
+		};
+		el.addEventListener( 'pointerenter', pause );
+		el.addEventListener( 'pointerleave', resume );
+		el.addEventListener( 'focusin', pause );
+		el.addEventListener( 'focusout', resume );
+		m.off = function () {
+			el.removeEventListener( 'pointerenter', pause );
+			el.removeEventListener( 'pointerleave', resume );
+			el.removeEventListener( 'focusin', pause );
+			el.removeEventListener( 'focusout', resume );
+		};
+	}
+
+	function undoMarquee( el ) {
+		var m = el.__bmeMarquee;
+		if ( ! m ) {
+			return;
+		}
+		m.off();
+		m.clones.forEach( function ( c ) {
+			if ( c.parentNode ) {
+				c.parentNode.removeChild( c );
+			}
+		} );
+		m.style.forEach( function ( pair ) {
+			if ( pair[ 1 ] ) {
+				el.style.setProperty( pair[ 0 ], pair[ 1 ] );
+			} else {
+				el.style.removeProperty( pair[ 0 ] );
+			}
+		} );
+		if ( m.parent ) {
+			if ( m.parentOverflow ) {
+				m.parent.style.setProperty( 'overflow-x', m.parentOverflow );
+			} else {
+				m.parent.style.removeProperty( 'overflow-x' );
+			}
+		}
+		delete el.__bmeMarquee;
 	}
 
 	function resumeLoop( rec ) {
@@ -1690,24 +1838,52 @@
 		}
 
 		var tx = 0, ty = 0, cx = 0, cy = 0, raf = 0, hovering = false;
+		// Tilt builds on the element's own transform (a centred or rotated card must not snap) and
+		// puts the author's inline transform back afterwards.
+		var tiltBase = null;
+		var tiltInline = null;
+
+		function settle() {
+			raf = 0;
+			cx = cy = tx = ty = 0;
+			if ( type === 'magnetic' ) {
+				el.style.removeProperty( 'translate' );
+			} else if ( tiltInline !== null ) {
+				if ( tiltInline ) {
+					el.style.transform = tiltInline;
+				} else {
+					el.style.removeProperty( 'transform' );
+				}
+				tiltBase = tiltInline = null;
+			}
+		}
 
 		function loop() {
+			// Reduced motion switched on mid-visit: stop and put everything back.
+			if ( motionOff() || fadeOnly() ) {
+				hovering = false;
+				settle();
+				return;
+			}
 			cx += ( tx - cx ) * 0.18;
 			cy += ( ty - cy ) * 0.18;
 			if ( type === 'magnetic' ) {
 				el.style.translate = cx.toFixed( 2 ) + 'px ' + cy.toFixed( 2 ) + 'px';
 			} else if ( ! tiltBlocked( el ) ) {
-				el.style.transform = 'perspective(900px) rotateX(' + ( -cy ).toFixed( 2 ) + 'deg) rotateY(' + cx.toFixed( 2 ) + 'deg)';
+				if ( tiltBase === null ) {
+					tiltInline = el.style.transform || '';
+					var designed = getComputedStyle( el ).transform;
+					tiltBase = designed && designed !== 'none' ? ' ' + designed : '';
+				}
+				el.style.transform = 'perspective(900px) rotateX(' + ( -cy ).toFixed( 2 ) + 'deg) rotateY(' + cx.toFixed( 2 ) + 'deg)' + tiltBase;
+			} else if ( tiltInline !== null ) {
+				settle(); // something else took the transform over mid-hover: hand it back cleanly
+				return;
 			}
 			if ( hovering || Math.abs( tx - cx ) > 0.05 || Math.abs( ty - cy ) > 0.05 ) {
 				raf = requestAnimationFrame( loop );
 			} else {
-				raf = 0;
-				if ( type === 'magnetic' ) {
-					el.style.removeProperty( 'translate' );
-				} else if ( ! tiltBlocked( el ) ) {
-					el.style.removeProperty( 'transform' );
-				}
+				settle();
 			}
 		}
 
@@ -1718,6 +1894,9 @@
 		}
 
 		el.addEventListener( 'pointermove', function ( e ) {
+			if ( motionOff() || fadeOnly() || e.pointerType === 'touch' ) {
+				return;
+			}
 			var r = el.getBoundingClientRect();
 			var dx = ( e.clientX - ( r.left + r.width / 2 ) ) / ( r.width / 2 );
 			var dy = ( e.clientY - ( r.top + r.height / 2 ) ) / ( r.height / 2 );
@@ -2067,14 +2246,14 @@
 			}
 		} );
 		created.forEach( function ( rec ) {
-			try {
-				setup( rec );
-			} catch ( e ) {
-				log( 'Setup failed', rec.el, e );
-				rec.targets.forEach( restoreInline );
-				rec.inert = true;
-				unhide( rec.el );
+			if ( setupWait && rec.kind === 'reveal' && rec.cfg.trigger !== 'load' && rec.cfg.trigger !== 'manual' && rec.targets.some( function ( t ) {
+				return restOf( t ) && ! restOf( t ).sized;
+			} ) ) {
+				waiting.set( rec.el, rec );
+				setupWait.observe( rec.el );
+				return;
 			}
+			runSetup( rec );
 		} );
 
 		// Nothing left hidden by mistake.
@@ -2091,7 +2270,57 @@
 		}
 	}
 
+	function runSetup( rec ) {
+		try {
+			setup( rec );
+		} catch ( e ) {
+			log( 'Setup failed', rec.el, e );
+			rec.targets.forEach( restoreInline );
+			rec.inert = true;
+			unhide( rec.el );
+		}
+	}
+
+	// Records waiting for their (not yet rendered) element to be shown.
+	var waiting = new Map();
+	var setupWait = window.ResizeObserver ? new ResizeObserver( function ( entries ) {
+		entries.forEach( function ( entry ) {
+			var rec = waiting.get( entry.target );
+			if ( ! rec || ! ( entry.contentRect.width || entry.contentRect.height || entry.target.getClientRects().length ) ) {
+				return;
+			}
+			setupWait.unobserve( entry.target );
+			waiting.delete( entry.target );
+			if ( ! records.has( rec ) ) {
+				return;
+			}
+			// Measure the design now that it is rendered (no start styles have been written yet).
+			rec.targets.forEach( function ( t ) {
+				var prev = [ t.style.getPropertyValue( 'transition' ), t.style.getPropertyPriority( 'transition' ) ];
+				t.style.setProperty( 'transition', 'none', 'important' );
+				var hidden = t.hasAttribute( 'data-bme-hide' );
+				unhide( t );
+				resting.set( t, readRest( t ) );
+				if ( hidden && t !== rec.el ) {
+					t.setAttribute( 'data-bme-hide', '' );
+				}
+				if ( prev[ 0 ] ) {
+					t.style.setProperty( 'transition', prev[ 0 ], prev[ 1 ] );
+				} else {
+					t.style.removeProperty( 'transition' );
+				}
+			} );
+			runSetup( rec );
+			sweep();
+		} );
+	} ) : null;
+
 	function destroy( el, keepThree ) {
+		undoMarquee( el );
+		if ( waiting.has( el ) ) {
+			waiting.delete( el );
+			setupWait.unobserve( el );
+		}
 		var rec = byEl.get( el );
 		if ( rec && ! rec.skipped ) {
 			unwatch( rec );
@@ -2290,7 +2519,8 @@
 		} );
 
 		window.addEventListener( 'load', refreshSoon );
-		window.addEventListener( 'scroll', sweepWhileScrolling, { passive: true } );
+		// Capture on the document: also catches pages that scroll a wrapper instead of the window.
+		document.addEventListener( 'scroll', sweepWhileScrolling, { passive: true, capture: true } );
 		window.addEventListener( 'load', sweep );
 		setTimeout( sweep, 400 );
 		if ( document.fonts && document.fonts.ready ) {

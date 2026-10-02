@@ -716,7 +716,6 @@ class Bricks_Integration {
 		$mode     = self::str( $settings, 'bmeMode' );
 
 		$this->tracking = spl_object_id( $element );
-		unset( $this->pending[ $this->tracking ] );
 
 		// Class shorthand (class="bme-fade-up") behaves like the data-bme attribute.
 		if ( ! isset( $attributes['data-bme'] ) && ! empty( $attributes['class'] ) ) {
@@ -901,7 +900,11 @@ class Bricks_Integration {
 	 */
 	/** Animatable timeline properties (keys match assets/js/timeline.js). */
 	public static function timeline_props() {
-		return array(
+		static $cache = null;
+		if ( null !== $cache ) {
+			return $cache;
+		}
+		return $cache = array( // phpcs:ignore Squiz.PHP.DisallowMultipleAssignments.Found
 			'y'               => esc_html__( 'Move up / down (y)', 'bricks-motion-studio' ),
 			'x'               => esc_html__( 'Move left / right (x)', 'bricks-motion-studio' ),
 			'opacity'         => esc_html__( 'Opacity', 'bricks-motion-studio' ),
@@ -917,7 +920,11 @@ class Bricks_Integration {
 	}
 
 	public static function timeline_eases() {
-		return array(
+		static $cache = null;
+		if ( null !== $cache ) {
+			return $cache;
+		}
+		return $cache = array( // phpcs:ignore Squiz.PHP.DisallowMultipleAssignments.Found
 			'smooth' => esc_html__( 'Smooth', 'bricks-motion-studio' ),
 			'linear' => esc_html__( 'Linear', 'bricks-motion-studio' ),
 			'ease'   => esc_html__( 'Ease', 'bricks-motion-studio' ),
@@ -971,8 +978,8 @@ class Bricks_Integration {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			$on   = isset( $row['on'] ) && in_array( $row['on'], array( 'scroll', 'view', 'hover', 'leave', 'loop' ), true ) ? $row['on'] : 'scroll';
-			$prop = isset( $row['prop'] ) && isset( $props[ $row['prop'] ] ) ? $row['prop'] : 'y';
+			$on   = isset( $row['on'] ) && is_string( $row['on'] ) && in_array( $row['on'], array( 'scroll', 'view', 'hover', 'leave', 'loop' ), true ) ? $row['on'] : 'scroll';
+			$prop = isset( $row['prop'] ) && is_string( $row['prop'] ) && isset( $props[ $row['prop'] ] ) ? $row['prop'] : 'y';
 			$keys = self::timeline_keys( isset( $row['keys'] ) && is_scalar( $row['keys'] ) ? (string) $row['keys'] : '' );
 			if ( ! $keys ) {
 				continue;
@@ -996,7 +1003,7 @@ class Bricks_Integration {
 			}
 			if ( isset( $row['ease'] ) && is_scalar( $row['ease'] ) ) {
 				$ease = (string) $row['ease'];
-				if ( isset( $eases[ $ease ] ) || preg_match( '/^cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\)$/', $ease ) ) {
+				if ( ( is_string( $row['ease'] ) && isset( $eases[ $ease ] ) ) || preg_match( '/^cubic-bezier\(\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*,\s*-?[\d.]+\s*\)$/', $ease ) ) {
 					$item['e'] = $ease;
 				}
 			}
@@ -1017,7 +1024,7 @@ class Bricks_Integration {
 					}
 				}
 			}
-			if ( isset( $row['bp'] ) && in_array( $row['bp'], array( 'desktop', 'tablet' ), true ) ) {
+			if ( isset( $row['bp'] ) && is_string( $row['bp'] ) && in_array( $row['bp'], array( 'desktop', 'tablet' ), true ) ) {
 				$item['bp'] = $row['bp'];
 			}
 			$out[] = $item;
@@ -1034,9 +1041,19 @@ class Bricks_Integration {
 	 */
 	public static function timeline_keys( $text ) {
 		$keys = array();
-		if ( preg_match_all( '/(-?\d+(?:\.\d+)?)\s*:\s*(auto\b|-?overflow\b|rgba?\([\d\s.,%\/]*\)|#[0-9a-f]{3,8}\b|-?\d*\.?\d+\s*(?:px|%|vw|vh|em|rem|deg)?)/i', $text, $m, PREG_SET_ORDER ) ) {
-			foreach ( array_slice( $m, 0, 50 ) as $pair ) {
-				$keys[] = array( round( min( 100, max( 0, (float) $pair[1] ) ), 3 ), preg_replace( '/\s+/', '', $pair[2] ) );
+		// Pairs are separated by commas outside parentheses (rgba() has its own commas).
+		foreach ( array_slice( preg_split( '/,(?![^()]*\))/', (string) $text ), 0, 50 ) as $pair ) {
+			if ( ! preg_match( '/^\s*(-?\d+(?:\.\d+)?)\s*:\s*(.+?)\s*$/s', $pair, $m ) ) {
+				continue;
+			}
+			$value = strtolower( preg_replace( '/\s+/', ' ', $m[2] ) );
+			$value = preg_replace( '/\s*([,\/()])\s*/', '$1', $value );        // rgba( 0, 0 / .5 ) → rgba(0,0/.5)
+			$value = preg_replace( '/^(-?\d*\.?\d+) ([a-z%]+)$/', '$1$2', $value ); // "10 px" → "10px"
+			// The whole value must be one of these, or the pair is dropped (never half-parsed).
+			$number = '-?(?:\d+\.?\d*|\.\d+)';
+			$ok     = preg_match( '/^(?:auto|-?overflow|transparent|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|rgba?\((?:\d+(?:\.\d+)?%?)(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)|' . $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem|deg|turn)?)$/', $value );
+			if ( $ok ) {
+				$keys[] = array( round( min( 100, max( 0, (float) $m[1] ) ), 3 ), $value );
 			}
 		}
 		return $keys;
@@ -1209,7 +1226,7 @@ class Bricks_Integration {
 				'wildcard' => null,
 			);
 			foreach ( (array) Settings::get( 'auto.rules', array() ) as $rule ) {
-				if ( ! is_array( $rule ) || empty( $rule['enabled'] ) || ! isset( $rule['target'], $rule['preset'] ) ) {
+				if ( ! is_array( $rule ) || empty( $rule['enabled'] ) || ! isset( $rule['target'], $rule['preset'] ) || ! is_string( $rule['target'] ) || ! is_string( $rule['preset'] ) ) {
 					continue;
 				}
 				$type = $rule['type'] ?? 'element';
@@ -1269,12 +1286,16 @@ class Bricks_Integration {
 		if ( false === strpos( $raw, 'startAnimation' ) ) {
 			return false;
 		}
-		$list = json_decode( $raw, true );
+		// Bricks stores the attribute HTML-escaped (&quot;…): decode before reading it.
+		$list = json_decode( htmlspecialchars_decode( $raw, ENT_QUOTES ), true );
+		if ( ! is_array( $list ) ) {
+			$list = json_decode( $raw, true );
+		}
 		if ( ! is_array( $list ) ) {
 			return true; // Unreadable: stay on the safe side.
 		}
 		foreach ( $list as $item ) {
-			if ( is_array( $item ) && 'startAnimation' === ( $item['action'] ?? '' ) && in_array( $item['target'] ?? 'self', array( '', 'self' ), true ) ) {
+			if ( is_array( $item ) && 'startAnimation' === ( $item['action'] ?? '' ) && in_array( $item['target'] ?? 'self', array( '', 'self' ), true ) && empty( $item['targetSelector'] ) ) {
 				return true;
 			}
 		}
@@ -1343,13 +1364,13 @@ class Bricks_Integration {
 			if ( null === $this->class_names ) {
 				$this->class_names = array();
 				foreach ( (array) get_option( 'bricks_global_classes', array() ) as $global_class ) {
-					if ( isset( $global_class['id'], $global_class['name'] ) ) {
+					if ( is_array( $global_class ) && isset( $global_class['id'], $global_class['name'] ) && is_scalar( $global_class['id'] ) && is_string( $global_class['name'] ) ) {
 						$this->class_names[ $global_class['id'] ] = $global_class['name'];
 					}
 				}
 			}
 			foreach ( $settings['_cssGlobalClasses'] as $id ) {
-				if ( isset( $this->class_names[ $id ] ) ) {
+				if ( is_scalar( $id ) && isset( $this->class_names[ $id ] ) ) {
 					$classes[] = $this->class_names[ $id ];
 				}
 			}

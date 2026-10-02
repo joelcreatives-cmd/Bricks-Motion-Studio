@@ -106,6 +106,18 @@
 		};
 	}
 
+
+	// "Enter" scroll ranges end when the element's top reaches 35% of the screen. Near the page
+	// end that line may never be reached: end where the page can actually scroll to instead
+	// (the GSAP adapter does the same with clamp()).
+	function enterEnd( trigger ) {
+		var doc = document.scrollingElement || document.documentElement;
+		var vh = window.innerHeight || doc.clientHeight;
+		var top = trigger.getBoundingClientRect().top + ( window.scrollY || 0 );
+		var maxScroll = Math.max( 0, doc.scrollHeight - vh );
+		return Math.min( 1, Math.max( 0.35, ( top - maxScroll ) / vh ) );
+	}
+
 	BM.registerAdapter( 'motion', {
 		tween: function ( targets, from, to, o ) {
 			var opts = {
@@ -131,7 +143,7 @@
 			var anim = M.animate( targets, keyframes( from, to ), opts );
 			var cancel = M.scroll( anim, {
 				target: trigger,
-				offset: o.range === 'enter' ? [ 'start end', 'start 0.35' ] : [ 'start end', 'end start' ],
+				offset: o.range === 'enter' ? [ 'start end', 'start ' + +enterEnd( trigger ).toFixed( 3 ) ] : [ 'start end', 'end start' ],
 			} );
 			return control( anim, cancel );
 		},

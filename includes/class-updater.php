@@ -39,20 +39,28 @@ class Updater {
 			return $update;
 		}
 		$release = self::release();
-		if ( ! $release ) {
+		// "1.1" and "1.1.0" are the same version: never offer what is already installed.
+		if ( ! $release || version_compare( self::normalize( $release['version'] ), self::normalize( BME_VERSION ), '<=' ) ) {
 			return $update;
 		}
-		return array(
-			'id'           => 'https://github.com/' . self::REPO,
-			'slug'         => self::SLUG,
-			'plugin'       => $plugin_file,
-			'version'      => $release['version'],
-			'url'          => $release['url'],
-			'package'      => $release['package'],
-			'requires'     => $release['requires'],
-			'requires_php' => $release['requires_php'],
-			'tested'       => $release['tested'],
+		return array_filter(
+			array(
+				'id'           => 'https://github.com/' . self::REPO,
+				'slug'         => self::SLUG,
+				'plugin'       => $plugin_file,
+				'version'      => $release['version'],
+				'url'          => $release['url'],
+				'package'      => $release['package'],
+				'requires'     => $release['requires'],
+				'requires_php' => $release['requires_php'],
+				'tested'       => $release['tested'],
+			)
 		);
+	}
+
+	/** "1.2.0.0" → "1.2", so equal versions compare equal. */
+	private static function normalize( $version ) {
+		return preg_replace( '/(\.0+)+$/', '', (string) $version );
 	}
 
 	/** The "View details" popup on the Plugins screen. */
@@ -110,7 +118,7 @@ class Updater {
 				'timeout' => 5,
 				'headers' => array(
 					'Accept'     => 'application/vnd.github+json',
-					'User-Agent' => 'Bricks-Motion-Studio/' . BME_VERSION . '; ' . home_url(),
+					'User-Agent' => 'Bricks-Motion-Studio/' . BME_VERSION,
 				),
 			)
 		);
@@ -146,17 +154,22 @@ class Updater {
 		if ( ! $package ) {
 			return null;
 		}
-		$headers = get_file_data( BME_FILE, array( 'requires' => 'Requires at least', 'requires_php' => 'Requires PHP' ) );
-		$tested  = get_file_data( BME_PATH . 'readme.txt', array( 'tested' => 'Tested up to' ) );
+		// Requirements of the NEW version come from its release notes ("Requires PHP: 7.4" lines the
+		// release workflow writes), never from the installed copy. Unknown → not sent.
+		$notes = (string) ( $data['body'] ?? '' );
+		$req   = array();
+		foreach ( array( 'requires' => 'Requires at least', 'requires_php' => 'Requires PHP', 'tested' => 'Tested up to' ) as $key => $label ) {
+			$req[ $key ] = preg_match( '/^\s*' . preg_quote( $label, '/' ) . ':\s*(\d+(?:\.\d+){0,2})\s*$/mi', $notes, $m ) ? $m[1] : '';
+		}
 		return array(
 			'version'      => $version,
 			'package'      => $package,
 			'url'          => esc_url_raw( (string) ( $data['html_url'] ?? 'https://github.com/' . self::REPO . '/releases' ) ),
 			'notes'        => (string) ( $data['body'] ?? '' ),
 			'date'         => (string) ( $data['published_at'] ?? '' ),
-			'requires'     => $headers['requires'],
-			'requires_php' => $headers['requires_php'],
-			'tested'       => $tested['tested'],
+			'requires'     => $req['requires'],
+			'requires_php' => $req['requires_php'],
+			'tested'       => $req['tested'],
 		);
 	}
 }

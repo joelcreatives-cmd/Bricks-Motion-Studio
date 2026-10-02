@@ -35,12 +35,12 @@ Every element's **Motion Studio** group has a **Timeline** list. Each row animat
 |---|---|
 | Trigger | **Scroll position** (keyframes are % of the element's trip through the screen, so a tall section can choreograph a sticky stage), **Scrolled into view** (once), **Hover** (reverses on leave), **Hover out** (plays on leave instead of reversing), **Loop** |
 | Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour |
-| Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%`. Numbers with px % vw vh em rem deg, `#hex` / `rgba()`, `auto` (the element's designed value), `-overflow` (slide until the far edge reaches the parent's edge) |
+| Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%`. Numbers with px % vw vh vmin vmax svh dvh lvh em rem deg turn (scale / opacity: plain numbers or %, so `80%` = 0.8), `#hex` / `rgb()` / `rgba()` (comma or space syntax) / `transparent`, `auto` (the element's designed value; resting on it hands the property back to the stylesheet), `-overflow` (slide until the far edge reaches the parent's content edge). A value that doesn't fully match is dropped, never half-read |
 | Duration / delay / easing | timed triggers; easing includes exact quad/cubic/quart/quint/expo/sine/circ/back curves (GSAP power1-4 …) |
 | Scroll range | optional ScrollTrigger-style `"<element edge> <screen line>"`, e.g. `top 15%` → `bottom bottom`, measured on this element or another |
 | Screen sizes | all, desktop (992px+), or tablet and phone (991px and below) |
 
-Rows replace the part of the designed transform they animate (like GSAP's x / y / rotate / scale) and keep the rest. Timelines run on `assets/js/timeline.js` (3 KB gzipped, no library), enqueued only on pages that use them. Under reduced motion, scroll rows still follow the scrollbar (the visitor drives them, and stacked sections need them for layout); view and hover rows jump to their end state and loops stay parked.
+Rows replace the part of the designed transform they animate (like GSAP's x / y / rotate / scale) and keep the rest; when several rows drive the same property, the most recently started one applies. Only styles the timeline wrote are ever restored (other scripts' inline styles are left alone). View rows inside hidden content (closed popups, tabs, accordions) wait until it is shown; timelines in content Bricks loads by AJAX are picked up; hover rows ignore touch taps and focus moving between links inside the element. Timelines run on `assets/js/timeline.js` (3 KB gzipped, no library), enqueued only on pages that use them. Under reduced motion, scroll rows still follow the scrollbar (the visitor drives them, and stacked sections need them for layout); view and hover rows jump to their end state and loops stay parked.
 
 ## Settings (dashboard → Motion Studio)
 

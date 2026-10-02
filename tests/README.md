@@ -24,7 +24,13 @@ non-zero on any failure:
 - timelines: scroll keyframes (position, width, colour, a designed `translateX(-50%)` kept), custom scroll ranges,
   `-overflow`, holding before/after the range, view, hover with a separate hover-out, `auto`, loops (parked under
   reduced motion), exact easing curves, and rebuilding when the window crosses 992px (tablet-only rows switch on
-  and leave nothing behind on the way back).
+  and leave nothing behind on the way back);
+- QA regressions: a designed transform kept mid-animation on GSAP and for content shown after load, mixed RTL text not
+  split into letters, a word joiner across inline tags (and nothing left after), GSAP line reveals rising halfway, the
+  marquee (copies, inert, clipped parent, seamless half-way copy), tilt on a centred element, timeline focus /
+  zero-duration / scale % / colour syntax / padded `-overflow` / hidden view rows / not wiping other scripts' styles,
+  and scroll fades completing at the page end on Motion, Anime.js and GSAP. Each was checked against the code from
+  before the fix and fails there.
 
 The audit assertions were mutation-tested: with its bug re-introduced, each of these fails — clone repair, authored
 transform kept by the built-in engine, `play()` on loops, per-child designed opacity, the library → built-in switch,

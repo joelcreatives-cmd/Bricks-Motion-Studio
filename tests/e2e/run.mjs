@@ -162,6 +162,95 @@ async function run( mode ) {
 		return fail;
 	}, mode );
 	res.fail.push( ...tlFail );
+	// QA regressions (data-case4).
+	const qaFail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const q = ( c ) => document.querySelector( '[data-case4="' + c + '"]' );
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		const tx = ( el ) => new DOMMatrix( getComputedStyle( el ).transform );
+		const into = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( ms ); };
+		const near = ( a, b, tol, what ) => { if ( Math.abs( a - b ) > tol ) fail.push( what + ': ' + ( +a ).toFixed( 2 ) + ' (want ' + b + ')' ); };
+		// The main loop already scrolled everything into view: replay to look mid-animation.
+		const replay = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); BricksMotion.reset( el ); await wait( 60 ); BricksMotion.play( el ); await wait( ms ); };
+		// designed transform kept on a library engine (switches to the built-in engine)
+		const gd = q( 'qa-gsap-designed' ); if ( mode === 'default' ) await replay( gd, 900 ); else await into( gd, 900 ); near( tx( gd ).m41, -100, 1, 'gsap reveal keeps translateX(-50%) mid-animation' );
+		await wait( 1800 ); near( tx( gd ).m41, -100, 1, 'gsap reveal keeps translateX(-50%) at the end' );
+		// set up only once shown: designed transform measured for real
+		const hd = q( 'qa-hidden-designed' ); document.getElementById( 'qa-hidden-wrap' ).style.display = 'block';
+		await wait( 100 ); await into( hd, 900 );
+		if ( mode === 'default' ) near( tx( hd ).m41, -100, 1, 'hidden-at-load reveal keeps translateX(-50%) mid-animation' );
+		await wait( 1800 );
+		if ( mode === 'default' && hd.dataset.bmeState !== 'done' ) fail.push( 'hidden-at-load reveal never played (' + hd.dataset.bmeState + ')' );
+		near( tx( hd ).m41, -100, 1, 'hidden-at-load reveal keeps translateX(-50%)' ); near( +getComputedStyle( hd ).opacity, 1, 0.01, 'hidden-at-load reveal visible' );
+		// RTL mixed text is not split into characters
+		const rtl = q( 'qa-rtl' ); if ( mode === 'default' ) await replay( rtl, 400 ); else await into( rtl, 400 );
+		if ( rtl.querySelector( '.bme-char' ) ) fail.push( 'mixed RTL text was split into characters' );
+		await wait( 2500 ); if ( rtl.textContent !== 'Hello שלום עולם' ) fail.push( 'RTL text changed: ' + rtl.textContent );
+		// word joiner across an inline tag, removed again afterwards
+		const jn = q( 'qa-joiner' ); if ( mode === 'default' ) await replay( jn, 400 ); else await into( jn, 400 );
+		if ( mode === 'default' && ! /\u2060/.test( jn.textContent ) ) fail.push( 'no word joiner across the inline tag' + ( jn.querySelector( '.bme-word' ) ? '' : ' (not split)' ) );
+		await wait( 2600 ); if ( /\u2060/.test( jn.textContent ) || jn.querySelector( '.bme-word' ) ) fail.push( 'split markup or joiner left behind' );
+		// GSAP split-lines: halfway through, lines are partly risen (not still fully under the mask)
+		const ln = q( 'qa-lines-gsap' ); if ( mode === 'default' ) await replay( ln, 1000 ); else await into( ln, 1000 );
+		if ( mode === 'default' ) {
+			const lines = [ ...ln.querySelectorAll( '.bme-line' ) ].filter( ( l ) => l.offsetHeight && ! /mask/.test( l.className ) );
+			if ( ! lines.length ) fail.push( 'gsap split-lines: no lines found halfway' );
+			const lowered = lines.filter( ( l ) => tx( l ).m42 > l.offsetHeight * 0.95 );
+			if ( lines.length && lowered.length === lines.length ) fail.push( 'gsap split-lines still fully masked halfway (double offset)' );
+		}
+		// marquee: content duplicated (inert copies), strip is one row, parent clips, seamless travel
+		const mq = q( 'qa-marquee' ); await into( mq, 200 );
+		const copies = mode === 'default' ? mq.querySelectorAll( '[data-bme-clone]' ) : [];
+		if ( mode === 'reduced' && mq.querySelector( '[data-bme-clone]' ) ) fail.push( 'marquee set up under reduced motion' );
+		if ( mode === 'default' ) {
+		if ( copies.length !== 4 ) fail.push( 'marquee copies: ' + copies.length + ' (want 4)' );
+		if ( [ ...copies ].some( ( c ) => c.getAttribute( 'aria-hidden' ) !== 'true' || ! c.hasAttribute( 'inert' ) || c.hasAttribute( 'data-bme' ) ) ) fail.push( 'marquee copies not hidden / inert / clean' );
+		if ( getComputedStyle( mq.parentElement ).overflowX !== 'clip' ) fail.push( 'marquee parent does not clip' );
+		const D = mq.querySelector( ':scope > div:nth-child(4)' ); if ( +getComputedStyle( D ).opacity < 0.99 ) fail.push( 'child inside the marquee hidden' );
+		const half = ( mq.scrollWidth ) / 2, firstCopy = copies[ 0 ];
+		if ( firstCopy ) near( firstCopy.offsetLeft, half, 1, 'marquee copy starts exactly half way (seamless)' );
+		}
+		// tilt keeps the designed translateX(-50%), and leaves nothing behind
+		const tl = q( 'qa-tilt' ); await into( tl, 50 );
+		if ( mode === 'default' ) {
+			const r = tl.getBoundingClientRect();
+			tl.dispatchEvent( new PointerEvent( 'pointermove', { clientX: r.left + r.width * 0.9, clientY: r.top + r.height * 0.9, bubbles: true, pointerType: 'mouse' } ) );
+			await wait( 300 ); near( tx( tl ).m41, -100, 12, 'tilt keeps translateX(-50%)' );
+			tl.dispatchEvent( new PointerEvent( 'pointerleave', { pointerType: 'mouse' } ) ); await wait( 1500 );
+			if ( tl.getAttribute( 'style' ) && /transform/.test( tl.getAttribute( 'style' ) ) ) fail.push( 'tilt left an inline transform: ' + tl.getAttribute( 'style' ) );
+		}
+		// timeline: focus moving between links inside the root does not replay the hover
+		const fr = q( 'qa-tl-focus' ), fov = q( 'qa-tl-focus-ov' ); await into( fr, 50 );
+		fr.querySelector( '.l1' ).focus(); await wait( 300 ); near( tx( fov ).m41, 50, 1, 'tl hover on focus' );
+		fr.querySelector( '.l2' ).focus(); await wait( 20 ); near( tx( fov ).m41, 50, 1, 'tl hover not restarted by focus moving inside' );
+		fr.querySelector( '.l2' ).blur(); await wait( 300 ); near( tx( fov ).m41, 0, 1, 'tl hover leaves when focus leaves' );
+		// timeline: zero-duration rows land on their end state; scale %, colour syntax
+		await into( q( 'qa-tl-zero' ), 300 ); near( +getComputedStyle( q( 'qa-tl-zero' ) ).opacity, 0.7, 0.01, 'tl zero-duration view lands' );
+		await into( q( 'qa-tl-scale' ), 400 ); near( tx( q( 'qa-tl-scale' ) ).a, 0.8, 0.01, 'tl scale 80%' );
+		await into( q( 'qa-tl-colour' ), 300 ); if ( ! /rgba\(0, 0, 0, 0\)/.test( getComputedStyle( q( 'qa-tl-colour' ) ).color ) ) fail.push( 'tl transparent colour: ' + getComputedStyle( q( 'qa-tl-colour' ) ).color );
+		// timeline: -overflow respects the parent's padding
+		const ov = q( 'qa-tl-ovf' ); await into( ov, 300 );
+		const wrap = ov.parentElement.getBoundingClientRect(), last = ov.lastElementChild.getBoundingClientRect();
+		near( last.right, wrap.right - 20, 1.5, 'tl -overflow ends at the padded edge' );
+		// timeline: view rows inside hidden content wait until shown
+		const th = q( 'qa-tl-hidden' ); await wait( 100 );
+		near( +getComputedStyle( th ).opacity, 0, 0.01, 'tl hidden view row waits (rests at keyframe 0)' );
+		document.getElementById( 'qa-tl-hidden-wrap' ).style.display = 'block'; await into( th, 400 );
+		near( +getComputedStyle( th ).opacity, 1, 0.01, 'tl view row plays once shown' );
+		// scroll-fade near the page end reaches the end on every engine
+		scrollTo( { top: document.documentElement.scrollHeight, behavior: 'instant' } ); await wait( 1200 );
+		[ 'motion', 'anime', 'gsap' ].forEach( ( e ) => { const el = q( 'qa-endfade-' + e ); if ( el && mode === 'default' ) near( +getComputedStyle( el ).opacity, 1, 0.03, 'scroll-fade at page end (' + e + ')' ); } );
+		return fail;
+	}, mode );
+	res.fail.push( ...qaFail );
+	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
+	if ( mode === 'default' ) {
+		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );
+		await page.setViewport( { width: 900, height: 800 } ); await new Promise( ( r ) => setTimeout( r, 700 ) );
+		const keep = await page.evaluate( () => document.querySelector( '[data-case4="qa-tl-keep"]' ).style.outline );
+		await page.setViewport( { width: 1280, height: 800 } ); await new Promise( ( r ) => setTimeout( r, 700 ) );
+		if ( ! /red/.test( keep ) ) res.fail.push( 'tl rebuild wiped another script\'s inline style' );
+	}
 	// Crossing the 992px breakpoint rebuilds timelines: tablet-only rows switch on, and switch off
 	// again (inline styles restored) on the way back. A layout change must not cancel the rebuild.
 	if ( mode === 'default' ) {

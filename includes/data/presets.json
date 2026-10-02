@@ -39,7 +39,7 @@
   "pulse":           { "label": "Pulse",              "group": "loop", "loop": true, "from": { "scale": 1 }, "to": { "scale": 1.06 }, "duration": 1.6, "ease": "sine", "yoyo": true },
   "sway":            { "label": "Sway",               "group": "loop", "loop": true, "from": { "rotate": -3 }, "to": { "rotate": 3 }, "duration": 2.4, "ease": "sine", "yoyo": true },
   "spin":            { "label": "Spin",               "group": "loop", "loop": true, "from": { "rotate": 0 }, "to": { "rotate": 360 }, "duration": 14, "ease": "linear", "yoyo": false },
-  "marquee": { "label": "Marquee (slides sideways forever)", "group": "loop", "loop": true, "from": { "x": "0%" }, "to": { "x": "-100%" }, "duration": 20, "ease": "linear", "yoyo": false },
+  "marquee": { "label": "Marquee (slides sideways forever)", "group": "loop", "loop": true, "marquee": true, "from": { "x": "0%" }, "to": { "x": "-50%" }, "duration": 20, "ease": "linear", "yoyo": false },
 
   "counter":         { "label": "Count up numbers",         "group": "special", "core": true, "duration": 2 },
   "draw-svg":        { "label": "Draw SVG strokes",         "group": "special", "draw": true, "duration": 1.6, "ease": "in-out" }

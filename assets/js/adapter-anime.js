@@ -97,6 +97,18 @@
 		};
 	}
 
+
+	// "Enter" scroll ranges end when the element's top reaches 35% of the screen. Near the page
+	// end that line may never be reached: end where the page can actually scroll to instead
+	// (the GSAP adapter does the same with clamp()).
+	function enterEnd( trigger ) {
+		var doc = document.scrollingElement || document.documentElement;
+		var vh = window.innerHeight || doc.clientHeight;
+		var top = trigger.getBoundingClientRect().top + ( window.scrollY || 0 );
+		var maxScroll = Math.max( 0, doc.scrollHeight - vh );
+		return Math.min( 1, Math.max( 0.35, ( top - maxScroll ) / vh ) );
+	}
+
 	BM.registerAdapter( 'anime', {
 		tween: function ( targets, from, to, o ) {
 			var p = params( from, to );
@@ -125,7 +137,7 @@
 				target: trigger,
 				// Anime.js thresholds are "containerEdge targetEdge".
 				enter: 'end start',
-				leave: o.range === 'enter' ? '35% start' : 'start end',
+				leave: o.range === 'enter' ? Math.round( enterEnd( trigger ) * 100 ) + '% start' : 'start end',
 				sync: 0.4,
 			} );
 			return control( anime.animate( targets, p ) );
