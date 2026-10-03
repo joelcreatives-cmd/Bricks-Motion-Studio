@@ -7,7 +7,9 @@ const MIN = process.env.BUILD === 'min';
 const m = MIN ? '.min' : '';
 const cfg = { version: 'test', debug: true, engine: 'gsap', engines, defaults: { duration: 0.6, delay: 0, ease: 'smooth', distance: 40, stagger: 0.05, offset: 12, batch: 0.05, speed: 0.3, replay: 0 },
   exclude: '.splide, [data-bme-skip]', popups: true, reduced: 'respect', minWidth: 0, presets: MIN ? undefined : presets, lenis: { lerp: 0.1, wheel: 1, touch: 0, anchors: 1 },
-  three: { url: '/plugin/assets/js/three/bme-three.js', dpr: 1, mobile: true, eager: true } };
+  three: { url: '/plugin/assets/js/three/bme-three.js', dpr: 1, mobile: true, eager: true },
+  customPresets: { 'my-slow': { label: '★ Slow fade', group: 'reveal', base: 'fade-up', mine: true, from: { opacity: 0, y: 'd' }, duration: 2.5, distance: 120, delay: 0.2 } } };
+if (!MIN) cfg.presets = Object.assign({}, presets, cfg.customPresets);
 const text = 'The quick <strong>brown fox</strong> jumps over the lazy dog and keeps running far away';
 let body = '';
 // Built-in Web Animations engine: every preset it claims (mirrors nativeOk() in runtime.js).
@@ -108,6 +110,13 @@ body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{positio
 <div data-bme="fade-up" data-bme-engine="native" data-bme-opts='{"auto":true}' data-bme-hide data-case6="auto-child-tl" ${tl([{ on: 'hover', s: '.k', p: 'x', k: [[0, '0px'], [100, '5px']], d: 0.1 }])}><span class="k">child-only timeline keeps the auto reveal</span></div>
 <div class="c6-rowgap" data-bme="marquee" data-bme-engine="native" data-case6="mq-rowgap"><div>A</div><div>B</div></div>
 <div id="c6-insert"></div>
+<!-- New features (asserted in run.mjs via data-case8) -->
+<button type="button" class="bme-pause" data-bme-pause-toggle aria-pressed="false" data-case8="pause-el"><svg data-bme-icon="pause" width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h3.5v14H7z"/></svg><svg data-bme-icon="play" hidden width="1em" height="1em" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span class="bme-pause__label">Pause animations</span></button>
+<div data-bme="my-slow" data-bme-hide data-case8="my-preset">my preset</div>
+<div data-bme="fade-up" data-bme-engine="native" data-bme-off-on="desktop" data-bme-hide data-case8="off-desktop">off on desktop</div>
+<div data-bme="fade-up" data-bme-engine="native" data-bme-off-on="phone" data-bme-hide data-case8="off-phone">off on phone</div>
+<div data-bme-hover="lift" data-bme-off-on="desktop" data-case8="hover-off">hover off on desktop</div>
+<div data-case8="tl-off" data-bme-off-on="desktop" ${tl([{ on: 'view', p: 'opacity', k: [[0, '0.3'], [100, '0.6']], d: 0, o: 0 }])}>timeline off on desktop</div>
 <!-- QA round 4 (asserted in run.mjs via data-case7) -->
 <style>.c7-mq-wrap{width:200px}.c7-mq{display:flex;gap:10px}.c7-mq>a{display:block;width:150px;flex:none}.c7-grid{display:grid;grid-template-columns:1fr;row-gap:25px}.c7-grid>div{width:60px;height:20px;background:#ccc}</style>
 <div class="c7-mq-wrap"><div class="c7-mq" data-bme="marquee" data-bme-engine="native" data-case7="mq-focus"><a href="#1">one</a><a href="#2">two</a><a href="#3" class="far">three</a><a href="#4">four</a></div></div>

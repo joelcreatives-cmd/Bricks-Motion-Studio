@@ -430,6 +430,54 @@ async function run( mode ) {
 		return fail;
 	}, mode );
 	res.fail.push( ...c7Fail );
+	// New features (data-case8).
+	const c8Fail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const q = ( c ) => document.querySelector( '[data-case8="' + c + '"]' );
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		const into = async ( el, ms ) => { el.scrollIntoView( { block: 'center', behavior: 'instant' } ); await wait( ms ); };
+		// Pause element: toggles aria-pressed and swaps the pause / play icon
+		const pb = q( 'pause-el' );
+		pb.click(); await wait( 50 );
+		const icon = ( n ) => pb.querySelector( '[data-bme-icon="' + n + '"]' ).hasAttribute( 'hidden' );
+		if ( pb.getAttribute( 'aria-pressed' ) !== 'true' || ! icon( 'pause' ) || icon( 'play' ) ) fail.push( 'pause element: pressed state / play icon not shown' );
+		pb.click(); await wait( 50 );
+		if ( pb.getAttribute( 'aria-pressed' ) !== 'false' || icon( 'pause' ) || ! icon( 'play' ) ) fail.push( 'pause element: not back to pause icon' );
+		// My preset: its own duration, delay and distance
+		if ( mode === 'default' ) {
+			const mp = q( 'my-preset' ); mp.scrollIntoView( { block: 'center', behavior: 'instant' } ); BricksMotion.reset( mp ); await wait( 60 ); BricksMotion.play( mp ); await wait( 150 );
+			const y0 = new DOMMatrix( getComputedStyle( mp ).transform ).m42;
+			await wait( 900 );
+			const op = +getComputedStyle( mp ).opacity;
+			if ( ! ( y0 > 90 ) ) fail.push( 'my preset: travel distance not 120px (start y ' + y0 + ')' );
+			if ( ! ( op > 0.05 && op < 0.95 ) ) fail.push( 'my preset: 2.5s duration not used (opacity ' + op + ' after ~1s)' );
+		} else if ( ! window.BricksMotion || ! BricksMotion.presets[ 'my-slow' ] ) fail.push( 'my preset missing from the catalog' );
+		// Per-device: switched off on desktop (the test runs at 1280px), on elsewhere
+		const od = q( 'off-desktop' ), op2 = q( 'off-phone' ); await into( od, 300 );
+		if ( od.dataset.bmeState === 'done' || +getComputedStyle( od ).opacity < 0.99 || od.getAttribute( 'style' ) ) fail.push( 'element turned off on desktop still animated' );
+		await into( op2, 1200 );
+		if ( mode === 'default' && op2.dataset.bmeState !== 'done' ) fail.push( 'element turned off only on phone did not animate on desktop' );
+		if ( q( 'hover-off' ).classList.contains( 'bme-hover-lift' ) ) fail.push( 'hover effect turned off on desktop still set up' );
+		await into( q( 'tl-off' ), 300 );
+		if ( Math.abs( +getComputedStyle( q( 'tl-off' ) ).opacity - 1 ) > 0.01 ) fail.push( 'timeline turned off on desktop still ran: ' + getComputedStyle( q( 'tl-off' ) ).opacity );
+		return fail;
+	}, mode );
+	res.fail.push( ...c8Fail );
+	// Per-device: crossing to a phone width switches those elements over (desktop-off ones animate,
+	// phone-off ones are shown as designed).
+	if ( mode === 'default' ) {
+		await page.setViewport( { width: 600, height: 800 } ); await new Promise( ( r ) => setTimeout( r, 900 ) );
+		const ph = await page.evaluate( async () => {
+			const q = ( c ) => document.querySelector( '[data-case8="' + c + '"]' );
+			const od = q( 'off-desktop' ); od.scrollIntoView( { block: 'center', behavior: 'instant' } ); await new Promise( ( r ) => setTimeout( r, 1500 ) );
+			return { desktopOff: od.dataset.bmeState || '', phoneOffStyle: q( 'off-phone' ).getAttribute( 'style' ) || '', phoneOffOpacity: +getComputedStyle( q( 'off-phone' ) ).opacity, hover: q( 'hover-off' ).classList.contains( 'bme-hover-lift' ), tl: +getComputedStyle( q( 'tl-off' ) ).opacity };
+		} );
+		await page.setViewport( { width: 1280, height: 800 } ); await new Promise( ( r ) => setTimeout( r, 700 ) );
+		if ( ph.desktopOff !== 'done' ) res.fail.push( 'per-device: element off on desktop did not animate on a phone (' + ph.desktopOff + ')' );
+		if ( ph.phoneOffOpacity < 0.99 || /transform|opacity/.test( ph.phoneOffStyle ) ) res.fail.push( 'per-device: element off on phone not shown as designed on a phone' );
+		if ( ! ph.hover ) res.fail.push( 'per-device: hover effect not set up after leaving desktop' );
+		if ( Math.abs( ph.tl - 0.6 ) > 0.01 ) res.fail.push( 'per-device: timeline did not run after leaving desktop (' + ph.tl + ')' );
+	}
 	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
 	if ( mode === 'default' ) {
 		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );

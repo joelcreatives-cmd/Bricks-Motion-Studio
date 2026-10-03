@@ -27,6 +27,10 @@
 	// Built-in catalog ships inside runtime.min.js; the page config only carries it when a site
 	// customizes presets (bme/presets filter) or loads the unminified script (SCRIPT_DEBUG).
 	var presets = cfg.presets || window.BME_PRESETS || {};
+	// "My presets" (Motion Studio → Timing & feel) come with the page config.
+	if ( cfg.customPresets && ! cfg.presets ) {
+		presets = Object.assign( {}, presets, cfg.customPresets );
+	}
 	var D = assign(
 		{ duration: 0.8, delay: 0, ease: 'smooth', distance: 40, stagger: 0.08, offset: 12, batch: 0.08, speed: 0.3, replay: 0 },
 		cfg.defaults || {}
@@ -122,6 +126,16 @@
 	/** Reduced motion "fade" mode: every animation becomes a gentle opacity fade. */
 	function fadeOnly() {
 		return cfg.reduced === 'fade' && mqReduced.matches;
+	}
+
+	// "Turn off on" (Motion Studio panel): phone < 768px ≤ tablet < 992px ≤ desktop.
+	function screenBand() {
+		var w = window.innerWidth;
+		return w < 768 ? 'phone' : w < 992 ? 'tablet' : 'desktop';
+	}
+	function offHere( el ) {
+		var list = el.getAttribute && el.getAttribute( 'data-bme-off-on' );
+		return !! list && ( ' ' + list + ' ' ).indexOf( ' ' + screenBand() + ' ' ) !== -1;
 	}
 
 	function inViewport( el ) {
@@ -740,9 +754,9 @@
 			preset: p,
 			engine: el.getAttribute( 'data-bme-engine' ) || o.engine || '',
 			duration: num( o.duration, num( p.duration, D.duration ) * lv[ 1 ] ),
-			delay: num( o.delay, D.delay ),
+			delay: num( o.delay, num( p.delay, D.delay ) ),
 			stagger: num( o.stagger, num( p.stagger, D.stagger ) * lv[ 2 ] ),
-			distance: Math.max( -1000, Math.min( 1000, num( o.distance, D.distance * lv[ 0 ] ) ) ),
+			distance: Math.max( -1000, Math.min( 1000, num( o.distance, num( p.distance, D.distance ) * lv[ 0 ] ) ) ),
 			offset: num( o.offset, D.offset ),
 			speed: num( o.speed, D.speed ),
 			ease: o.ease || p.ease || D.ease,
@@ -1083,8 +1097,8 @@
 			return null;
 		}
 
-		if ( claimed.has( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || ownTimeline( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
-			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : ownTimeline( el ) ? '(has its own timeline)' : '(excluded)' );
+		if ( claimed.has( el ) || offHere( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || ownTimeline( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
+			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : offHere( el ) ? '(turned off on this screen size)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : ownTimeline( el ) ? '(has its own timeline)' : '(excluded)' );
 			unhide( el );
 			byEl.set( el, { el: el, skipped: true } );
 			return null;
@@ -1768,6 +1782,14 @@
 	 * data-bme-pause-toggle (a button in the footer, say) — remembered for the visit.
 	 */
 	var allPaused = false;
+	// aria-pressed, and the pause / play icon of the "Pause animations button" element.
+	function markPauseButton( b, paused ) {
+		b.setAttribute( 'aria-pressed', paused ? 'true' : 'false' );
+		toArray( b.querySelectorAll( '[data-bme-icon]' ) ).forEach( function ( icon ) {
+			icon.toggleAttribute( 'hidden', icon.getAttribute( 'data-bme-icon' ) !== ( paused ? 'play' : 'pause' ) );
+		} );
+	}
+
 	function setAllPaused( on ) {
 		allPaused = !! on;
 		records.forEach( function ( rec ) {
@@ -1800,7 +1822,7 @@
 			window.BricksMotionTimeline.pauseLoops( allPaused );
 		}
 		toArray( document.querySelectorAll( '[data-bme-pause-toggle]' ) ).forEach( function ( b ) {
-			b.setAttribute( 'aria-pressed', allPaused ? 'true' : 'false' );
+			markPauseButton( b, allPaused );
 		} );
 		try {
 			window.sessionStorage.setItem( 'bme-paused', allPaused ? '1' : '' );
@@ -2008,6 +2030,9 @@
 			return;
 		}
 		var type = el.getAttribute( 'data-bme-hover' );
+		if ( offHere( el ) && ( type === 'lift' || type === 'grow' ) ) {
+			return; // "Turn off on" this screen size: added when the size changes
+		}
 		el.__bmeHover = true;
 
 		// Bricks 2.3+ "Real parallax" drives the same individual `translate` property.
@@ -2081,7 +2106,7 @@
 		}
 
 		el.addEventListener( 'pointermove', function ( e ) {
-			if ( motionOff() || fadeOnly() || e.pointerType === 'touch' ) {
+			if ( motionOff() || fadeOnly() || e.pointerType === 'touch' || offHere( el ) ) {
 				return;
 			}
 			var r = el.getBoundingClientRect();
@@ -2648,7 +2673,7 @@
 			}
 		} );
 		toArray( document.querySelectorAll( '[data-bme-pause-toggle]' ) ).forEach( function ( b ) {
-			b.setAttribute( 'aria-pressed', 'false' );
+			markPauseButton( b, false );
 		} );
 		var saved = '';
 		try {
@@ -2667,7 +2692,7 @@
 			scan( document );
 			needTimeline();
 			toArray( document.querySelectorAll( '[data-bme-pause-toggle]' ) ).forEach( function ( b ) {
-				b.setAttribute( 'aria-pressed', allPaused ? 'true' : 'false' );
+				markPauseButton( b, allPaused );
 			} );
 		}, 30 );
 
@@ -2840,6 +2865,29 @@
 				scan( rec.el );
 			} );
 		};
+		var band = screenBand();
+		window.addEventListener( 'resize', debounce( function () {
+			if ( screenBand() === band ) {
+				return;
+			}
+			band = screenBand();
+			toArray( document.querySelectorAll( '[data-bme-off-on]' ) ).forEach( function ( el ) {
+				var rec = byEl.get( el );
+				if ( offHere( el ) ) {
+					if ( rec && ! rec.skipped ) {
+						destroy( el ); // shown as designed
+					}
+					el.classList.remove( 'bme-hover-lift', 'bme-hover-grow' ); // magnetic / tilt check offHere() themselves
+				} else if ( ! rec || rec.skipped ) {
+					byEl.delete( el );
+					scan( el );
+					var hv = el.getAttribute( 'data-bme-hover' );
+					if ( hv === 'lift' || hv === 'grow' ) {
+						el.classList.add( 'bme-hover-' + hv );
+					}
+				}
+			} );
+		}, 200 ) );
 		var loopWidth = window.innerWidth;
 		window.addEventListener( 'resize', debounce( function () {
 			if ( window.innerWidth !== loopWidth ) {

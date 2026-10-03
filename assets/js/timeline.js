@@ -1118,6 +1118,10 @@
 			} catch ( e ) {
 				return;
 			}
+			var off = root.getAttribute( 'data-bme-off-on' );
+			if ( off && ( ' ' + off + ' ' ).indexOf( ' ' + sizeName() + ' ' ) !== -1 ) {
+				return; // "Turn off on" this screen size (rebuilt when the size changes)
+			}
 			var groups;
 			try {
 				groups = build( root, Array.isArray( rows ) ? rows : [] );
@@ -1173,8 +1177,12 @@
 	function allowed() {
 		return ! ( +cfg.minWidth > 0 && w.innerWidth < +cfg.minWidth );
 	}
+	// phone < 768px ≤ tablet < 992px ≤ desktop ("Turn off on"; rows' own bp split at 992px).
+	function sizeName() {
+		return w.innerWidth < 768 ? 'phone' : w.innerWidth < 992 ? 'tablet' : 'desktop';
+	}
 	function bandNow() {
-		return ( w.innerWidth >= 992 ? 'desktop' : 'tablet' ) + ( allowed() ? '' : '-off' ) + ( reduced() ? '-reduced' : '' );
+		return sizeName() + ( allowed() ? '' : '-off' ) + ( reduced() ? '-reduced' : '' );
 	}
 	function start() {
 		if ( allowed() ) {
@@ -1202,6 +1210,9 @@
 			if ( ! w.BricksMotion ) {
 				Array.prototype.forEach.call( d.querySelectorAll( '[data-bme-pause-toggle]' ), function ( btn ) {
 					btn.setAttribute( 'aria-pressed', loopsPaused ? 'true' : 'false' );
+					Array.prototype.forEach.call( btn.querySelectorAll( '[data-bme-icon]' ), function ( icon ) {
+						icon.toggleAttribute( 'hidden', icon.getAttribute( 'data-bme-icon' ) !== ( loopsPaused ? 'play' : 'pause' ) );
+					} );
 				} );
 			}
 		};

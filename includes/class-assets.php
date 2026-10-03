@@ -270,15 +270,17 @@ class Assets {
 	 * Enqueue only what the rendered page needs.
 	 */
 	public function enqueue() {
-		if ( Bricks_Integration::is_passive_context() ) {
+		// The builder canvas loads everything (live preview: Builder / builder-canvas.js).
+		$canvas = Builder::canvas();
+		if ( ! $canvas && Bricks_Integration::is_passive_context() ) {
 			return;
 		}
 
-		$always      = (bool) Settings::get( 'perf.always' );
+		$always      = $canvas || (bool) Settings::get( 'perf.always' );
 		$needs_anim  = $always || Usage::has( 'motion' ) || Usage::has( 'hover' );
 		$needs_three = Usage::has( 'three' ) && Settings::library_enabled( 'three' );
 		$needs_tl    = $always || Usage::has( 'timeline' );
-		$lenis       = Settings::library_enabled( 'lenis' );
+		$lenis       = ! $canvas && Settings::library_enabled( 'lenis' ); // never hijack the builder's own scrolling
 
 		/**
 		 * Filter whether this page loads the Motion Studio at all.
@@ -306,6 +308,9 @@ class Assets {
 		// engine, so a page using only those downloads no animation library at all.
 
 		$gsap_plugins = $always ? array_merge( array( 'ScrollTrigger', 'SplitText' ), Usage::gsap_plugins() ) : Usage::gsap_plugins();
+		if ( $canvas ) {
+			$gsap_plugins = Libraries::GSAP_PLUGINS; // any preset can be previewed
+		}
 
 		foreach ( $engines as $engine ) {
 			if ( 'gsap' === $engine ) {
@@ -360,6 +365,10 @@ class Assets {
 
 		wp_enqueue_script( 'bme-runtime' );
 		wp_add_inline_script( 'bme-runtime', 'window.BME_CONFIG=' . wp_json_encode( $this->config( $engines, $needs_three, $needs_tl ) ) . ';', 'before' );
+
+		if ( $canvas ) {
+			wp_enqueue_script( 'bme-builder-canvas', BME_URL . 'assets/js/builder-canvas.js', array( 'bme-runtime', 'bme-timeline' ), self::asset_version(), true );
+		}
 	}
 
 	/** Settings timeline.js reads (window.BME_TL). */
@@ -397,6 +406,8 @@ class Assets {
 			'minWidth'         => (int) $s['a11y']['min_width'],
 			// The built-in catalog is baked into runtime.min.js (cached across pages).
 			'presets'          => ( '' === self::min() || has_filter( 'bme/presets' ) ) ? Presets::all() : null,
+			// "My presets": the built-in catalog is baked into runtime.min.js, these are added to it.
+			'customPresets'    => ( '' === self::min() || has_filter( 'bme/presets' ) ) ? null : ( Presets::custom() ? Presets::custom() : null ),
 			'lenis'            => Settings::library_enabled( 'lenis' ) ? $s['lenis'] : null,
 			'three'            => null,
 			// Timelines that only arrive later (AJAX popups, query filters): load timeline.js then.

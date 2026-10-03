@@ -339,7 +339,7 @@ class Admin {
 	}
 
 	/** Preset <option>s grouped with <optgroup>. */
-	private function preset_optgroups( $selected ) {
+	private function preset_optgroups( $selected, $builtin_only = false ) {
 		// A rule whose preset isn't available right now keeps it (saving must not swap it silently).
 		if ( '' !== $selected && ! Presets::exists( $selected ) ) {
 			/* translators: %s: preset slug. */
@@ -348,7 +348,7 @@ class Admin {
 		$groups = Presets::group_labels();
 		foreach ( $groups as $group => $group_label ) {
 			echo '<optgroup label="' . esc_attr( $group_label ) . '">';
-			foreach ( Presets::all() as $slug => $p ) {
+			foreach ( ( $builtin_only ? Presets::builtin() : Presets::all() ) as $slug => $p ) {
 				if ( ( $p['group'] ?? '' ) !== $group ) {
 					continue;
 				}
@@ -356,6 +356,57 @@ class Admin {
 			}
 			echo '</optgroup>';
 		}
+	}
+
+	/**
+	 * One "My presets" row.
+	 *
+	 * @param string $index Row index ('__INDEX__' in the template).
+	 * @param array  $row   Saved preset.
+	 */
+	private function my_preset_row( $index, array $row ) {
+		$base  = BME_OPTION . '[custom_presets][' . $index . ']';
+		$eases = array( '' => __( 'As the preset', 'bricks-motion-studio' ) ) + Settings::eases();
+		$num   = function ( $key, $label, $max, $step, $unit ) use ( $base, $row ) {
+			printf(
+				'<label class="bme-mine__num"><span>%1$s</span><input type="number" class="bme-text" name="%2$s" value="%3$s" min="0" max="%4$s" step="%5$s" placeholder="%6$s" inputmode="decimal"><em>%7$s</em></label>',
+				esc_html( $label ),
+				esc_attr( $base . '[' . $key . ']' ),
+				esc_attr( isset( $row[ $key ] ) ? (string) $row[ $key ] : '' ),
+				esc_attr( (string) $max ),
+				esc_attr( (string) $step ),
+				esc_attr__( 'auto', 'bricks-motion-studio' ),
+				esc_html( $unit )
+			);
+		};
+		?>
+		<div class="bme-mine" data-bme-mine>
+			<input type="hidden" name="<?php echo esc_attr( $base . '[slug]' ); ?>" value="<?php echo esc_attr( (string) ( $row['slug'] ?? '__SLUG__' ) ); ?>">
+			<div class="bme-mine__top">
+				<input type="text" class="bme-text" name="<?php echo esc_attr( $base . '[label]' ); ?>" value="<?php echo esc_attr( (string) ( $row['label'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Name, e.g. Brand fade', 'bricks-motion-studio' ); ?>" aria-label="<?php esc_attr_e( 'Preset name', 'bricks-motion-studio' ); ?>" maxlength="60">
+				<select class="bme-select" name="<?php echo esc_attr( $base . '[base]' ); ?>" aria-label="<?php esc_attr_e( 'Based on', 'bricks-motion-studio' ); ?>" data-bme-mine-base>
+					<?php $this->preset_optgroups( (string) ( $row['base'] ?? 'fade-up' ), true ); ?>
+				</select>
+				<button type="button" class="bme-icon-btn" data-bme-preview-mine aria-label="<?php esc_attr_e( 'Preview this preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Preview', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+				<button type="button" class="bme-icon-btn bme-icon-btn--danger" data-bme-remove-mine aria-label="<?php esc_attr_e( 'Remove preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Remove', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+			</div>
+			<div class="bme-mine__nums">
+				<?php
+				$num( 'duration', __( 'Duration', 'bricks-motion-studio' ), 10, 0.05, 's' );
+				$num( 'delay', __( 'Delay', 'bricks-motion-studio' ), 10, 0.05, 's' );
+				$num( 'distance', __( 'Distance', 'bricks-motion-studio' ), 400, 1, 'px' );
+				$num( 'stagger', __( 'Stagger', 'bricks-motion-studio' ), 2, 0.01, 's' );
+				?>
+				<label class="bme-mine__num bme-mine__ease"><span><?php esc_html_e( 'Easing', 'bricks-motion-studio' ); ?></span>
+					<select class="bme-select" name="<?php echo esc_attr( $base . '[ease]' ); ?>">
+						<?php foreach ( $eases as $value => $label ) : ?>
+							<option value="<?php echo esc_attr( $value ); ?>" <?php selected( (string) ( $row['ease'] ?? '' ), $value ); ?>><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</label>
+			</div>
+		</div>
+		<?php
 	}
 
 	private function rule_row( $index, array $rule ) {
@@ -741,6 +792,21 @@ class Admin {
 											$this->switch_row( 'defaults.replay', __( 'Replay when scrolling back up', 'bricks-motion-studio' ) );
 											?>
 										</div>
+
+										<h3 class="bme-subhead" id="bme-h-mine"><?php esc_html_e( 'My presets', 'bricks-motion-studio' ); ?></h3>
+										<p class="bme-row__help"><?php esc_html_e( 'A preset with your own timing, saved under your name. It appears in every preset list: rules here and the Motion Studio panel in Bricks. Empty fields follow the preset and the defaults above.', 'bricks-motion-studio' ); ?></p>
+										<?php // Marks the list as submitted, so removing every preset really clears it. ?>
+										<input type="hidden" name="<?php echo esc_attr( BME_OPTION . '[custom_presets]' ); ?>" value="">
+										<div id="bme-mine-body" aria-labelledby="bme-h-mine">
+											<?php
+											foreach ( array_values( (array) $s['custom_presets'] ) as $i => $row ) {
+												$this->my_preset_row( (string) $i, (array) $row );
+											}
+											?>
+										</div>
+										<p class="bme-empty" data-bme-mine-empty <?php echo $s['custom_presets'] ? 'hidden' : ''; ?>><?php esc_html_e( 'No presets of your own yet.', 'bricks-motion-studio' ); ?></p>
+										<button type="button" class="bme-btn" data-bme-add-mine><?php echo self::icon( 'plus' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Add preset', 'bricks-motion-studio' ); ?></button>
+										<template id="bme-mine-template"><?php $this->my_preset_row( '__INDEX__', array() ); ?></template>
 									</div>
 
 									<aside class="bme-preview" aria-label="<?php esc_attr_e( 'Live preview', 'bricks-motion-studio' ); ?>">

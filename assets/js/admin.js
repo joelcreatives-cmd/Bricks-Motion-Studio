@@ -271,6 +271,69 @@
 		} );
 	}
 
+	/* My presets ------------------------------------------------------------ */
+
+	var mineBody = $( '#bme-mine-body' );
+	var mineTpl = $( '#bme-mine-template' );
+	var mineAdd = $( '[data-bme-add-mine]' );
+	var mineEmpty = $( '[data-bme-mine-empty]' );
+	function mineCount() {
+		if ( mineEmpty ) {
+			mineEmpty.hidden = !! ( mineBody && mineBody.children.length );
+		}
+	}
+	if ( mineAdd && mineBody && mineTpl ) {
+		mineAdd.addEventListener( 'click', function () {
+			var id = Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2, 6 );
+			var holder = document.createElement( 'div' );
+			// The slug is fixed at creation: renaming a preset never breaks elements that use it.
+			holder.innerHTML = mineTpl.innerHTML.replace( /__INDEX__/g, 'n' + id ).replace( /__SLUG__/g, 'my-' + id ).trim();
+			var row = holder.firstElementChild;
+			mineBody.appendChild( row );
+			var name = $( 'input[type=text]', row );
+			if ( name ) {
+				name.focus();
+			}
+			mineCount();
+			checkDirty();
+		} );
+	}
+	// The preset as currently typed (unsaved values included).
+	function mineFromRow( row ) {
+		var base = $( '[data-bme-mine-base]', row ).value;
+		var p = Object.assign( {}, presets[ base ] || {} );
+		[ 'duration', 'delay', 'distance', 'stagger' ].forEach( function ( k ) {
+			var field = $( 'input[name$="[' + k + ']"]', row );
+			var v = field ? parseFloat( field.value ) : NaN;
+			if ( isFinite( v ) ) {
+				p[ k ] = v;
+			}
+		} );
+		var ease = $( 'select[name$="[ease]"]', row );
+		if ( ease && ease.value ) {
+			p.ease = ease.value;
+		}
+		return p;
+	}
+	document.addEventListener( 'click', function ( e ) {
+		var rm = e.target.closest && e.target.closest( '[data-bme-remove-mine]' );
+		if ( rm ) {
+			var row = rm.closest( '[data-bme-mine]' );
+			var next = row.nextElementSibling || row.previousElementSibling;
+			row.remove();
+			var target = next && next.querySelector( '[data-bme-remove-mine]' );
+			( target || mineAdd || document.body ).focus();
+			mineCount();
+			checkDirty();
+			return;
+		}
+		var pv = e.target.closest && e.target.closest( '[data-bme-preview-mine]' );
+		if ( pv ) {
+			presets.__mine = mineFromRow( pv.closest( '[data-bme-mine]' ) );
+			swatch( pv, '__mine', false );
+		}
+	} );
+
 	var ruleSeq = 0;
 	var addBtn = $( '[data-bme-add-rule]' );
 	if ( addBtn && body && tpl ) {
@@ -431,6 +494,10 @@
 			return;
 		}
 		o = o || opts();
+		// "My presets" can carry their own travel distance.
+		if ( typeof p.distance === 'number' ) {
+			o = Object.assign( {}, o, { distance: p.distance } );
+		}
 		// Reduced motion: preview what those visitors get with "Gentle fades" (opacity only).
 		if ( reduce ) {
 			targets.forEach( function ( t ) {

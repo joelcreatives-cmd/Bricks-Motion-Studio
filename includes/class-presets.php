@@ -22,11 +22,58 @@ class Presets {
 	 *
 	 * @return array
 	 */
-	public static function all() {
-		if ( null === self::$catalog ) {
+	/** @var array|null */
+	private static $builtin = null;
+
+	/**
+	 * The shipped catalog only (includes/data/presets.json), without "My presets" or filters.
+	 *
+	 * @return array
+	 */
+	public static function builtin() {
+		if ( null === self::$builtin ) {
 			$json          = file_get_contents( BME_PATH . 'includes/data/presets.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 			$data          = json_decode( (string) $json, true );
-			self::$catalog = is_array( $data ) ? $data : array();
+			self::$builtin = is_array( $data ) ? $data : array();
+		}
+		return self::$builtin;
+	}
+
+	/**
+	 * "My presets" (Motion Studio → Timing & feel) as catalog entries: the base preset with the
+	 * saved name and timing. Keyed by slug.
+	 *
+	 * @return array
+	 */
+	public static function custom() {
+		$out  = array();
+		$base = self::builtin();
+		foreach ( (array) Settings::get( 'custom_presets', array() ) as $row ) {
+			if ( ! is_array( $row ) || empty( $row['slug'] ) || empty( $row['base'] ) || ! isset( $base[ $row['base'] ] ) ) {
+				continue;
+			}
+			$p          = $base[ $row['base'] ];
+			$p['label'] = '★ ' . (string) ( $row['label'] ?? $row['slug'] ); // easy to spot in every preset list
+			$p['base']  = $row['base'];
+			$p['mine']  = true;
+			foreach ( array( 'duration', 'delay', 'distance', 'stagger', 'ease' ) as $key ) {
+				if ( isset( $row[ $key ] ) && '' !== $row[ $key ] ) {
+					$p[ $key ] = $row[ $key ];
+				}
+			}
+			$out[ (string) $row['slug'] ] = $p;
+		}
+		return $out;
+	}
+
+	/** Forget the cached catalog (after "My presets" were saved). */
+	public static function flush() {
+		self::$catalog = null;
+	}
+
+	public static function all() {
+		if ( null === self::$catalog ) {
+			self::$catalog = self::builtin() + self::custom();
 
 			/**
 			 * Filter the preset catalog. Custom presets must follow the presets.json schema.

@@ -70,6 +70,7 @@ class Bricks_Integration {
 	public function register_element() {
 		if ( class_exists( '\Bricks\Elements' ) ) {
 			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-3d-scene.php', 'bme-3d-scene', 'BME_Element_3D_Scene' );
+			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-pause-toggle.php', 'bme-pause-toggle', 'BME_Element_Pause_Toggle' );
 		}
 	}
 
@@ -192,8 +193,15 @@ class Bricks_Integration {
 
 		$c['bmeInfoAuto'] = $g + array(
 			'type'     => 'info',
-			'content'  => esc_html__( 'Auto: this element follows the site-wide rules in the Motion Studio dashboard menu. The canvas stays still while you edit: use Preview (eye icon) or the frontend to see animations.', 'bricks-motion-studio' ),
+			'content'  => esc_html__( 'Auto: this element follows the site-wide rules in the Motion Studio dashboard menu.', 'bricks-motion-studio' ),
 			'required' => array( 'bmeMode', '!=', array( 'custom', 'off' ) ),
+		);
+
+		// Live preview (builder-panel.js): plays on the canvas whenever these settings change, or here.
+		$c['bmePreview'] = $g + array(
+			'type'     => 'info',
+			'content'  => '<button type="button" class="bme-preview-trigger" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">&#9654; ' . esc_html__( 'Preview animation', 'bricks-motion-studio' ) . '</button>',
+			'required' => array( 'bmeMode', '!=', 'off' ),
 		);
 
 		$level_options = array();
@@ -356,10 +364,18 @@ class Bricks_Integration {
 			'required' => array( $custom, array( 'bmePreset', '=', $reveal_like ) ),
 		);
 
-		$c['bmeNoMobile'] = $g + array(
-			'label'    => esc_html__( 'Disable below 768px', 'bricks-motion-studio' ),
-			'type'     => 'checkbox',
-			'required' => $custom,
+		$c['bmeOffOn'] = $g + array(
+			'label'       => esc_html__( 'Turn off on', 'bricks-motion-studio' ),
+			'type'        => 'select',
+			'multiple'    => true,
+			'options'     => array(
+				'phone'   => esc_html__( 'Phone (below 768px)', 'bricks-motion-studio' ),
+				'tablet'  => esc_html__( 'Tablet (768–991px)', 'bricks-motion-studio' ),
+				'desktop' => esc_html__( 'Desktop (992px and up)', 'bricks-motion-studio' ),
+			),
+			'placeholder' => esc_html__( 'Every screen size', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'This element shows as designed there: no animation, hover effect or timeline.', 'bricks-motion-studio' ),
+			'required'    => array( 'bmeMode', '!=', 'off' ),
 		);
 
 		$c['bmeHover'] = $g + array(
@@ -670,7 +686,13 @@ class Bricks_Integration {
 		return function_exists( 'bricks_is_builder' ) && ( bricks_is_builder() || bricks_is_builder_iframe() || ( $builder_request && bricks_is_builder_call() ) );
 	}
 
+	/** @var bool Builder live preview: attributes are computed on request (Builder::ajax_preview). */
+	public static $previewing = false;
+
 	public static function is_passive_context() {
+		if ( self::$previewing ) {
+			return false;
+		}
 		// Page setting "Disabled": no Motion Studio output at all on this page.
 		if ( 'off' === self::page_setting( 'bmePageMode' ) ) {
 			return true;
@@ -769,6 +791,12 @@ class Bricks_Integration {
 			if ( $config ) {
 				$attributes = $this->apply_config( $attributes, $config );
 			}
+		}
+
+		// Screen sizes this element doesn't animate on (main animation, hover, timeline).
+		$off_on = 'off' !== $mode ? self::off_on( $settings ) : array();
+		if ( $off_on ) {
+			$attributes['data-bme-off-on'] = implode( ' ', $off_on );
 		}
 
 		// Hover effect (independent of the main animation; engine-free CSS/JS).
@@ -1054,6 +1082,20 @@ class Bricks_Integration {
 			$out[] = $item;
 		}
 		return $out;
+	}
+
+	/**
+	 * "Turn off on" screen sizes; the earlier "Disable below 768px" checkbox counts as phone.
+	 *
+	 * @param array $settings Element settings.
+	 * @return string[]
+	 */
+	public static function off_on( array $settings ) {
+		$list = isset( $settings['bmeOffOn'] ) ? (array) $settings['bmeOffOn'] : array();
+		if ( ! empty( $settings['bmeNoMobile'] ) ) {
+			$list[] = 'phone';
+		}
+		return array_values( array_unique( array_intersect( array( 'phone', 'tablet', 'desktop' ), array_filter( $list, 'is_string' ) ) ) );
 	}
 
 	/**

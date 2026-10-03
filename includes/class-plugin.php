@@ -36,6 +36,7 @@ class Plugin {
 			static function () {
 				if ( self::bricks_active() ) {
 					new Assets();
+					new Builder();
 				}
 			},
 			20

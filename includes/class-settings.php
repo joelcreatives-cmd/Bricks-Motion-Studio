@@ -72,6 +72,8 @@ class Settings {
 				'native'   => 1,
 			),
 			'debug'          => 0,
+			// "My presets": a built-in preset with your own timing, picked like any other preset.
+			'custom_presets' => array(),
 		);
 	}
 
@@ -157,6 +159,7 @@ class Settings {
 	public static function flush() {
 		self::$cache = null;
 		self::$memo  = array();
+		Presets::flush(); // "My presets" live in the settings
 	}
 
 	public static function library_enabled( $lib ) {
@@ -209,7 +212,8 @@ class Settings {
 	 */
 	private static function merge( array $defaults, array $saved ) {
 		foreach ( $saved as $key => $value ) {
-			if ( 'rules' === $key ) {
+			// Lists of rows (rules, My presets) are taken whole, not merged key by key.
+			if ( 'rules' === $key || 'custom_presets' === $key ) {
 				$defaults[ $key ] = is_array( $value ) ? array_values( $value ) : array();
 				continue;
 			}
@@ -228,6 +232,45 @@ class Settings {
 	/* ---------------------------------------------------------------------
 	 * Sanitization
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * "My presets": stable slug (my-…), a name, the built-in preset it is based on, and optional
+	 * timing. Empty fields mean "as the base preset / site default".
+	 *
+	 * @param mixed $list Submitted rows.
+	 * @return array[]
+	 */
+	public static function sanitize_custom_presets( $list ) {
+		$out  = array();
+		$base = Presets::builtin();
+		foreach ( array_slice( is_array( $list ) ? $list : array(), 0, 50 ) as $row ) {
+			if ( ! is_array( $row ) ) {
+				continue;
+			}
+			$slug = is_string( $row['slug'] ?? null ) ? strtolower( $row['slug'] ) : '';
+			$from = is_string( $row['base'] ?? null ) ? $row['base'] : '';
+			if ( ! preg_match( '/^my-[a-z0-9-]{1,40}$/', $slug ) || ! isset( $base[ $from ] ) || isset( $out[ $slug ] ) ) {
+				continue;
+			}
+			$label = is_scalar( $row['label'] ?? null ) ? trim( sanitize_text_field( (string) $row['label'] ) ) : '';
+			$item  = array(
+				'slug'  => $slug,
+				'label' => '' !== $label ? substr( $label, 0, 60 ) : __( 'My preset', 'bricks-motion-studio' ),
+				'base'  => $from,
+			);
+			foreach ( array( 'duration' => 10, 'delay' => 10, 'distance' => 400, 'stagger' => 2 ) as $key => $max ) {
+				if ( isset( $row[ $key ] ) && is_scalar( $row[ $key ] ) && '' !== trim( (string) $row[ $key ] ) && is_numeric( $row[ $key ] ) ) {
+					$item[ $key ] = round( min( $max, max( 0, (float) $row[ $key ] ) ), 3 );
+				}
+			}
+			$ease = is_string( $row['ease'] ?? null ) ? $row['ease'] : '';
+			if ( isset( self::eases()[ $ease ] ) ) {
+				$item['ease'] = $ease;
+			}
+			$out[ $slug ] = $item;
+		}
+		return array_values( $out );
+	}
 
 	public static function eases() {
 		return array(
@@ -317,6 +360,8 @@ class Settings {
 		$out['perf']['native']   = empty( $p['native'] ) ? 0 : 1;
 
 		$out['debug'] = empty( $in['debug'] ) ? 0 : 1;
+
+		$out['custom_presets'] = self::sanitize_custom_presets( $in['custom_presets'] ?? array() );
 
 		self::flush();
 		return $out;
