@@ -70,6 +70,7 @@ class Settings {
 				'failsafe' => 3000,
 				'always'   => 0,
 				'native'   => 1,
+				'clip_x'   => 1, // animations never make the page scroll sideways
 			),
 			'debug'          => 0,
 			// "My presets": a built-in preset with your own timing, picked like any other preset.
@@ -360,6 +361,8 @@ class Settings {
 		$out['perf']['failsafe'] = (int) self::num( $p['failsafe'] ?? null, 500, 15000, $d['perf']['failsafe'] );
 		$out['perf']['always']   = empty( $p['always'] ) ? 0 : 1;
 		$out['perf']['native']   = empty( $p['native'] ) ? 0 : 1;
+		// Older exports don't have it: keep the default instead of reading "missing" as off.
+		$out['perf']['clip_x'] = array_key_exists( 'clip_x', $p ) ? ( empty( $p['clip_x'] ) ? 0 : 1 ) : (int) $d['perf']['clip_x'];
 
 		$out['debug'] = empty( $in['debug'] ) ? 0 : 1;
 

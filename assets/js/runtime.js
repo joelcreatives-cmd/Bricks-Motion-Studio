@@ -487,10 +487,11 @@
 			el.insertBefore( sr, el.firstChild );
 		}
 
-		// Line index per word (for line-staggered reveals).
+		// Line index per word (for line-staggered reveals only: reading each word's position right
+		// after inserting the spans forces a layout, which words / characters don't need).
 		var lines = [];
 		var lastTop = null;
-		words.forEach( function ( w ) {
+		( type === 'lines' ? words : [] ).forEach( function ( w ) {
 			var top = Math.round( w.getBoundingClientRect().top );
 			if ( lastTop === null || Math.abs( top - lastTop ) > 3 ) {
 				lines.push( [] );
@@ -1391,7 +1392,11 @@
 				finish( rec );
 				return;
 			}
-			if ( rec.engine && rec.engine.special && rec.engine.special.draw ) {
+			// GSAP DrawSVG measures real lengths, which pathLength="…" rescales: the core draws those.
+			var scaled = rec.paths.some( function ( sv ) {
+				return sv.hasAttribute( 'pathLength' );
+			} );
+			if ( rec.engine && rec.engine.special && rec.engine.special.draw && ! scaled ) {
 				rec.ctrl = rec.engine.special.draw( rec.el, rec.paths, { duration: c.duration, delay: delay, ease: c.ease, stagger: c.stagger } );
 			} else {
 				rec.ctrl = coreTween( {
@@ -1533,6 +1538,9 @@
 		if ( rec.numberNode ) {
 			rec.numberNode.nodeValue = rec.numberOriginal;
 			rec.el.style.removeProperty( 'font-variant-numeric' );
+			if ( rec.counterWidth > 0 ) {
+				rec.el.style.removeProperty( 'min-width' );
+			}
 		}
 		// Counters too: a counting tween left running would keep writing mid-values over the number.
 		if ( rec.ctrl && rec.ctrl.revert ) {
@@ -1928,6 +1936,20 @@
 			rec.numberSuffix = node.nodeValue.slice( m.index + m[ 0 ].length );
 			rec.numberFmt = parseNumber( m[ 0 ] );
 		}
+		// Counting from "0" up to "1,250" must not push its neighbours around (a stat in a row):
+		// hold the finished number's width while it counts.
+		if ( rec.counterWidth === undefined ) {
+			var ccs = getComputedStyle( rec.el );
+			var pcs = rec.el.parentElement ? getComputedStyle( rec.el.parentElement ).display : '';
+			rec.counterWidth = 0;
+			if ( ! rec.el.style.minWidth && ( /inline/.test( ccs.display ) || /flex|grid/.test( pcs ) ) ) {
+				var bw = rec.el.getBoundingClientRect().width;
+				rec.counterWidth = ccs.boxSizing === 'border-box' ? bw : bw - parseFloat( ccs.paddingLeft ) - parseFloat( ccs.paddingRight ) - parseFloat( ccs.borderLeftWidth ) - parseFloat( ccs.borderRightWidth );
+			}
+		}
+		if ( rec.counterWidth > 0 ) {
+			rec.el.style.minWidth = rec.counterWidth + 'px';
+		}
 		node.nodeValue = rec.numberPrefix + formatNumber( 0, rec.numberFmt ) + rec.numberSuffix;
 		rec.el.style.fontVariantNumeric = 'tabular-nums';
 	}
@@ -1949,6 +1971,9 @@
 			complete: function () {
 				rec.numberNode.nodeValue = rec.numberOriginal;
 				rec.el.style.removeProperty( 'font-variant-numeric' );
+				if ( rec.counterWidth > 0 ) {
+					rec.el.style.removeProperty( 'min-width' );
+				}
 				rec.el.setAttribute( 'data-bme-state', 'done' );
 				rec.busy = false;
 				emit( 'bme:complete', { element: rec.el, preset: rec.cfg.slug }, rec.el );
@@ -2042,6 +2067,20 @@
 		return false;
 	}
 
+	// Bricks element parallax (2.3+) drives the element's `translate`; background parallax doesn't.
+	function elementParallax( el ) {
+		var a = el.getAttribute( 'data-brx-motion-parallax' );
+		if ( a === null ) {
+			return false;
+		}
+		try {
+			var o = JSON.parse( a );
+			return ! o || !! o.element;
+		} catch ( e ) {
+			return true;
+		}
+	}
+
 	function setupHover( el ) {
 		if ( el.__bmeHover || destroyedEls.has( el ) ) {
 			return;
@@ -2056,7 +2095,7 @@
 		el.__bmeHover = true;
 
 		// Bricks 2.3+ "Real parallax" drives the same individual `translate` property.
-		if ( el.hasAttribute( 'data-brx-motion-parallax' ) && type !== 'tilt' && type !== 'grow' ) {
+		if ( elementParallax( el ) && type !== 'tilt' && type !== 'grow' ) {
 			log( 'Hover effect skipped (Bricks parallax owns translate)', el );
 			return;
 		}
@@ -2492,7 +2531,14 @@
 		};
 	}
 
+	var previewScan = false;
+
 	function scan( root ) {
+		// Builder canvas: nothing animates on its own while you edit; only the live preview
+		// (builder-canvas.js → BricksMotion.refresh) sets elements up.
+		if ( cfg.builder && ! previewScan ) {
+			return;
+		}
 		root = root || document;
 		var off = motionOff();
 
@@ -2640,6 +2686,9 @@
 			if ( rec.numberNode ) {
 				rec.numberNode.nodeValue = rec.numberOriginal;
 				rec.el.style.removeProperty( 'font-variant-numeric' );
+				if ( rec.counterWidth > 0 ) {
+					rec.el.style.removeProperty( 'min-width' );
+				}
 			}
 			if ( rec.paths ) {
 				rec.paths.forEach( function ( sv ) {
@@ -2801,7 +2850,7 @@
 						var node = m.addedNodes[ j ];
 						// Content injected by other scripts (filters, lightboxes, custom fetch):
 						// initialize it even when no Bricks event fires. Our own split spans are ignored.
-						if ( node.nodeType === 1 && ! ( node.classList && /(^|\s)bme-(word|char|mask|sr-only|3d-canvas)/.test( node.className ) ) && ( node.matches( RELEVANT ) || node.querySelector( RELEVANT ) ) ) {
+						if ( node.nodeType === 1 && ! ( node.classList && /(^|\s)bme-(word|char|mask|line|sr-only|3d-canvas)/.test( node.className ) ) && ( node.matches( RELEVANT ) || node.querySelector( RELEVANT ) ) ) {
 							added.push( node );
 						}
 					}
@@ -2851,6 +2900,15 @@
 			toArray( document.querySelectorAll( '[data-bme-hide]' ) ).forEach( unhide );
 		}
 		api.started = true;
+		// play / reset / destroy called before the first scan (a Bricks "content loaded"
+		// interaction runs first): carry them out now.
+		early.splice( 0 ).forEach( function ( call ) {
+			try {
+				api[ call[ 0 ] ]( call[ 1 ] );
+			} catch ( e ) {
+				log( e );
+			}
+		} );
 
 		// Safety net for content that is still marked hidden but never got a record (inserted by a
 		// script the MutationObserver could not see): pick it up, or show it.
@@ -2918,8 +2976,12 @@
 					byEl.delete( el );
 					scan( el );
 					var hv = el.getAttribute( 'data-bme-hover' );
-					if ( ( hv === 'lift' || hv === 'grow' ) && ! destroyedEls.has( el ) && ! ( hv === 'lift' && el.hasAttribute( 'data-brx-motion-parallax' ) ) ) {
+					if ( ( hv === 'lift' || hv === 'grow' ) && ! destroyedEls.has( el ) && ! ( hv === 'lift' && elementParallax( el ) ) ) {
 						el.classList.add( 'bme-hover-' + hv );
+						el.__bmeHover = true;
+						el.__bmeHoverOff = function () {
+							el.classList.remove( 'bme-hover-lift', 'bme-hover-grow' );
+						};
 					}
 				}
 			} );
@@ -3053,7 +3115,12 @@
 					destroyedEls.delete( el );
 				}
 			} );
-			scan( root || document );
+			previewScan = true;
+			try {
+				scan( root || document );
+			} finally {
+				previewScan = false;
+			}
 			refreshSoon();
 		},
 		/**
@@ -3061,6 +3128,10 @@
 		 * object Bricks Interactions pass to "JavaScript (Function)": use BricksMotion.play there.
 		 */
 		play: function ( target ) {
+			if ( ! api.started ) {
+				early.push( [ 'play', target ] );
+				return;
+			}
 			resolveTargets( target ).forEach( function ( el ) {
 				var rec = byEl.get( el );
 				if ( ! rec || rec.skipped || rec.inert || rec.persistent ) {
@@ -3084,6 +3155,10 @@
 		},
 		/** Return elements to their start state, ready to play again (e.g. BricksMotion.reset on close). */
 		reset: function ( target ) {
+			if ( ! api.started ) {
+				early.push( [ 'reset', target ] );
+				return;
+			}
 			resolveTargets( target ).forEach( function ( el ) {
 				var rec = byEl.get( el );
 				if ( rec && ! rec.skipped && ! rec.persistent && rec.played && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
@@ -3103,6 +3178,10 @@
 		},
 		/** Stop and undo animations: an element, selector, list or Bricks' %brx%, like play() / reset(). */
 		destroy: function ( target ) {
+			if ( ! api.started ) {
+				early.push( [ 'destroy', target ] );
+				return;
+			}
 			destroyedEls.forEach( function ( el ) {
 				if ( ! el.isConnected ) {
 					destroyedEls.delete( el ); // removed from the page meanwhile: forget it
@@ -3130,11 +3209,16 @@
 		},
 	};
 
+	var early = []; // API calls made before start()
 	window.BricksMotion = api;
 
 	// Deferred scripts (runtime, libraries, adapters) all execute before DOMContentLoaded, so
 	// starting there guarantees every engine has registered. Late injection: start right away.
-	if ( document.readyState === 'complete' ) {
+	// Deferred scripts run while readyState is already "interactive", before DOMContentLoaded:
+	// only a runtime injected after DOMContentLoaded fired (e.g. "load JS on first interaction")
+	// starts right away instead of waiting for `load`.
+	var nav = window.performance && performance.getEntriesByType ? performance.getEntriesByType( 'navigation' )[ 0 ] : null;
+	if ( document.readyState === 'complete' || ( nav && nav.domContentLoadedEventStart > 0 ) ) {
 		setTimeout( start, 0 );
 	} else {
 		document.addEventListener( 'DOMContentLoaded', start );

@@ -501,11 +501,18 @@ async function run( mode ) {
 		const lp = add( '<div ' + tlAttr( [ { on: 'loop', p: 'opacity', k: [ [ 0, '0' ], [ 50, '1' ], [ 100, '0' ] ], d: 2 } ] ) + '>loop</div>' );
 		show( lp ); await wait( 400 );
 		if ( mode === 'default' ) {
-			BricksMotion.pauseAll(); await wait( 200 );
+			// Pause freezes a loop where it is; only a nearly invisible frame moves to the visible one.
+			BricksMotion.pauseAll(); await wait( 100 );
+			const p1 = +getComputedStyle( lp ).opacity;
+			await wait( 400 );
+			const p2 = +getComputedStyle( lp ).opacity;
+			if ( Math.abs( p1 - p2 ) > 0.01 ) fail.push( 'paused timeline loop kept moving (' + p1 + ' → ' + p2 + ')' );
+			if ( p2 < 0.5 ) fail.push( 'paused timeline loop rests hidden (opacity ' + p2 + ')' );
+			BricksMotion.resumeAll();
+		} else {
+			const lop = +getComputedStyle( lp ).opacity;
+			if ( lop < 0.95 ) fail.push( 'parked timeline loop rests hidden (opacity ' + lop + ')' );
 		}
-		const lop = +getComputedStyle( lp ).opacity;
-		if ( lop < 0.95 ) fail.push( 'parked timeline loop rests hidden (opacity ' + lop + ')' );
-		if ( mode === 'default' ) BricksMotion.resumeAll();
 		if ( mode !== 'default' ) return fail;
 		window.scrollTo( 0, 0 ); await wait( 100 );
 		// Hover row + view row on the same property: before the reveal the view row's start state wins.

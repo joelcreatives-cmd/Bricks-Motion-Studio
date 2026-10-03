@@ -48,6 +48,7 @@
 
 	var previewTimer = 0;
 	var lastKey = '';
+	var previewSeq = 0; // a reply for an element no longer selected is dropped
 
 	function motionSettings( el ) {
 		var s = ( el && el.settings ) || {};
@@ -70,6 +71,7 @@
 			return;
 		}
 		lastKey = key;
+		var seq = ++previewSeq;
 		var body = new FormData();
 		body.append( 'action', 'bme_preview' );
 		body.append( 'nonce', cfg.nonce || '' );
@@ -81,7 +83,7 @@
 			} )
 			.then( function ( res ) {
 				var cw = canvasWindow();
-				if ( ! res || ! res.success || ! cw || ! cw.BMEPreview ) {
+				if ( seq !== previewSeq || ! res || ! res.success || ! cw || ! cw.BMEPreview ) {
 					return;
 				}
 				if ( ! cw.BMEPreview.play( el.id, res.data ) && force ) {
@@ -134,6 +136,7 @@
 				if ( ! now || ! before || now.split( '{' )[ 0 ] !== before.split( '{' )[ 0 ] ) {
 					lastKey = now;
 					clearTimeout( previewTimer );
+					previewSeq++;
 					stopPreview();
 					return;
 				}

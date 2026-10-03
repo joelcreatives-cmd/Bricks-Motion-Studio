@@ -44,6 +44,12 @@
 
 	var w = window;
 	var d = document;
+	// A second copy (scripts re-run by a page-transition plugin) would bind everything twice and
+	// read the first copy's styles as the design.
+	if ( w.__bmeTimelineLoaded ) {
+		return;
+	}
+	w.__bmeTimelineLoaded = true;
 	var cfg = w.BME_TL || {};
 	var PROPS = [ 'x', 'y', 'rotate', 'scale', 'scaleX', 'scaleY', 'opacity', 'width', 'height', 'color', 'backgroundColor' ];
 	var TRANSFORM = { x: 1, y: 1, rotate: 1, scale: 1, scaleX: 1, scaleY: 1 };
@@ -314,9 +320,10 @@
 		if ( ! sx ) {
 			return null;
 		}
-		// A mirrored design (scaleX(-1)) keeps its reflection on x, not as rotate(180) + scaleY(-1):
-		// a rotate row replaces the rotation, and the flip must survive it.
-		if ( a * dd - b * c < 0 ) {
+		// A mirrored design keeps its flip on the axis it was made on (scaleX(-1) or scaleY(-1)),
+		// not as rotate(180) + the other axis: a rotate row replaces the rotation, the flip must
+		// survive it. Of the two readings, the one with the smaller rotation is the designed one.
+		if ( a * dd - b * c < 0 && Math.abs( Math.atan2( b, a ) ) > Math.PI / 2 ) {
 			sx = -sx;
 		}
 		var sy = ( a * dd - b * c ) / sx;
@@ -542,6 +549,13 @@
 			el.style.setProperty( 'transition', 'none', 'important' );
 		} );
 		list.forEach( function ( item ) {
+			// The element's own Motion Studio reveal is still waiting or playing: what is on screen is
+			// its start or a mid-animation state, not the design. Keep the last reading (re-read
+			// when the reveal completes, see bme:complete).
+			if ( item[ 1 ].hasAttribute( 'data-bme' ) && item[ 1 ].getAttribute( 'data-bme-state' ) === 'ready' && item[ 0 ].design ) {
+				item[ 0 ].last = {};
+				return;
+			}
 			readDesign( item[ 0 ], item[ 1 ] );
 		} );
 		return function () {
@@ -737,6 +751,12 @@
 	function layoutTop( el ) {
 		var y = 0;
 		for ( var n = el; n; n = n.offsetParent ) {
+			// Pinned by GSAP ScrollTrigger (position: fixed for now): its spacer holds the place
+			// it has in the page.
+			var pin = n.parentElement && n.parentElement.classList.contains( 'pin-spacer' ) ? n.parentElement : null;
+			if ( pin && w.getComputedStyle( n ).position === 'fixed' ) {
+				n = pin;
+			}
 			y += n.offsetTop;
 		}
 		return y;
@@ -808,6 +828,21 @@
 	function measure() {
 		var vh = w.innerHeight;
 		var putBack = refreshDesigns();
+		var restick = function () {};
+		try {
+			measureLayout( vh, function ( fn ) {
+				restick = fn;
+			} );
+		} finally {
+			restick();
+			putBack(); // even if measuring threw: never leave elements stripped or transition-less
+		}
+		redraw.forEach( function ( item ) {
+			item.fn(); // timed timelines re-render at their current time with the fresh designs
+		} );
+	}
+
+	function measureLayout( vh, setRestick ) {
 		scrollers = scrollers.filter( function ( g ) {
 			return g.root.isConnected;
 		} );
@@ -837,7 +872,7 @@
 		viewers.forEach( function ( g ) {
 			measured.push( g.root );
 		} );
-		var restick = unstick( measured );
+		setRestick( unstick( measured ) );
 		scrollers.forEach( function ( g ) {
 			var top = layoutTop( g.root );
 			g.start = top - vh;
@@ -858,11 +893,6 @@
 			if ( g.trig === Infinity && sizeWatch ) {
 				sizeWatch.observe( g.root );
 			}
-		} );
-		restick();
-		putBack();
-		redraw.forEach( function ( item ) {
-			item.fn(); // timed timelines re-render at their current time with the fresh designs
 		} );
 	}
 
@@ -934,6 +964,9 @@
 			reset: function () {
 				self.stop();
 				t = 0;
+			},
+			time: function () {
+				return t;
 			},
 			seek: function ( to ) {
 				self.stop();
@@ -1114,10 +1147,12 @@
 				pl.to( 1, true );
 			} else if ( ! onScreen ) {
 				pl.stop(); // loops rest while off-screen
-			} else {
-				// Paused, or reduced motion: rest where the loop is most visible (a pulse that
-				// starts at opacity 0 must not stay hidden behind the pause button).
+			} else if ( opacityAt( g, pl.time() ) < 0.5 ) {
+				// Paused, or reduced motion, on a nearly invisible frame (a pulse that starts at
+				// opacity 0): rest where the loop is most visible instead.
 				pl.seek( restAt( g ) );
+			} else {
+				pl.stop(); // paused: freeze where it is
 			}
 		};
 		loopers.push( { g: g, go: go } );
@@ -1141,28 +1176,36 @@
 		} );
 	}
 
+	// The least opacity a loop's opacity rows give at time t (1 without any).
+	function opacityAt( g, t ) {
+		var least = 1;
+		g.rows.forEach( function ( r ) {
+			if ( r.p !== 'opacity' ) {
+				return;
+			}
+			var p = r.du > 0 ? ( t - r.dl ) / r.du : t >= r.dl ? 1 : 0;
+			p = Math.min( 1, Math.max( 0, p ) );
+			r.els.forEach( function ( el ) {
+				var v = sample( r.tr, p, el, 'opacity' );
+				var n = v && typeof v.n === 'number' ? ( v.u === '%' ? v.n / 100 : v.n ) : 1;
+				least = Math.min( least, n );
+			} );
+		} );
+		return least;
+	}
+
 	// The time a parked loop rests on: where its opacity rows are most visible (0 without any).
 	function restAt( g ) {
-		var rows = g.rows.filter( function ( r ) {
+		if ( g.span <= 0 || ! g.rows.some( function ( r ) {
 			return r.p === 'opacity';
-		} );
-		if ( ! rows.length || g.span <= 0 ) {
+		} ) ) {
 			return 0;
 		}
 		var best = 0;
 		var bestOpacity = -1;
 		for ( var i = 0; i <= 40; i++ ) {
 			var t = ( g.span * i ) / 40;
-			var least = 1;
-			rows.forEach( function ( r ) {
-				var p = r.du > 0 ? ( t - r.dl ) / r.du : t >= r.dl ? 1 : 0;
-				p = Math.min( 1, Math.max( 0, p ) );
-				r.els.forEach( function ( el ) {
-					var v = sample( r.tr, p, el, 'opacity' );
-					var n = v && typeof v.n === 'number' ? ( v.u === '%' ? v.n / 100 : v.n ) : 1;
-					least = Math.min( least, n );
-				} );
-			} );
+			var least = opacityAt( g, t );
 			if ( least > bestOpacity + 1e-6 ) {
 				bestOpacity = least;
 				best = t;
@@ -1330,6 +1373,16 @@
 			requestScroll();
 		};
 		w.addEventListener( 'load', remeasure );
+		// A reveal on a timeline element finished: its design can be read now.
+		d.addEventListener( 'bme:complete', function ( e ) {
+			if ( e.target && states.has( e.target ) ) {
+				measureSoon();
+			}
+		} );
+		// ScrollTrigger pins (position: fixed while pinned) move what the ranges are measured on.
+		if ( w.ScrollTrigger && w.ScrollTrigger.addEventListener ) {
+			w.ScrollTrigger.addEventListener( 'refresh', measureSoon );
+		}
 		// Separate timers: a layout change (ResizeObserver) must never cancel a pending
 		// breakpoint rebuild, or rows for the old screen size would stay applied.
 		var resizeTimer = 0;

@@ -53,6 +53,8 @@ class Bricks_Integration {
 		add_action( 'bricks/load_elements/before', array( $this, 'hook_controls' ) );
 
 		add_filter( 'bricks/element/set_root_attributes', array( $this, 'root_attributes' ), 20, 2 );
+		add_action( 'bricks/render_query_page/start', array( __CLASS__, 'load_request_page_settings' ) );
+		add_action( 'bricks/render_query_result/start', array( __CLASS__, 'load_request_page_settings' ) );
 		// Root attributes are built before Bricks checks element conditions: only count what renders.
 		add_filter( 'bricks/element/render', array( $this, 'commit_usage' ), 9999, 2 );
 		// As late as possible before footer scripts print (wp_footer:20): Bricks templates assigned
@@ -253,7 +255,7 @@ class Bricks_Integration {
 		$c['bmeInfoManual'] = $g + array(
 			'type'     => 'info',
 			/* translators: %brx% is a literal Bricks token, not a placeholder: keep it unchanged. */
-			'content'  => esc_html__( 'On the element that starts it: Interactions → add. Action: JavaScript (Function). Target: CSS selector of this element (# Copy CSS ID). Function name: BricksMotion.play (or BricksMotion.reset). Arguments: click "Add item" (fills in %brx%).', 'bricks-motion-studio' ),
+			'content'  => esc_html__( 'On the element that starts it: Interactions → add. Action: JavaScript (Function). Target: a CSS selector for this element: its class, or a custom attribute such as [data-reveal="hero"] (inside query loops and components the element has no CSS ID). Function name: BricksMotion.play (or BricksMotion.reset). Arguments: click "Add item" (fills in %brx%).', 'bricks-motion-studio' ),
 			'required' => array( $custom, array( 'bmeTrigger', '=', 'manual' ) ),
 		);
 
@@ -389,17 +391,20 @@ class Bricks_Integration {
 			),
 			'placeholder' => esc_html__( 'None', 'bricks-motion-studio' ),
 			'inline'      => true,
+			'required'    => array( 'bmeMode', '!=', 'off' ), // "Disabled" turns hover effects off too
 		);
 
 		// Timeline: keyframe rows for this element and the elements inside it.
 		$c['bmeTlSeparator'] = $g + array(
 			'label'       => esc_html__( 'Timeline (keyframes)', 'bricks-motion-studio' ),
 			'type'        => 'separator',
+			'required'    => array( 'bmeMode', '!=', 'off' ),
 			'description' => esc_html__( 'Choreograph this element and anything inside it. Each row animates one property. Scroll rows follow this element\'s trip through the screen (0 = its top reaches the bottom of the screen, 100 = its bottom leaves the top), so a tall section can run a whole sequence.', 'bricks-motion-studio' ),
 		);
 		$c['bmeTimeline']    = $g + array(
 			'label'         => esc_html__( 'Rows', 'bricks-motion-studio' ),
 			'type'          => 'repeater',
+			'required'      => array( 'bmeMode', '!=', 'off' ),
 			'titleProperty' => 'prop',
 			'fields'        => array(
 				'on'           => array(
@@ -676,8 +681,30 @@ class Bricks_Integration {
 		if ( ! class_exists( '\Bricks\Database' ) || ! is_array( \Bricks\Database::$page_settings ) ) {
 			return '';
 		}
-		$value = \Bricks\Database::$page_settings[ $key ] ?? '';
+		$page  = \Bricks\Database::$page_settings ? \Bricks\Database::$page_settings : self::$request_page_settings;
+		$value = $page[ $key ] ?? '';
 		return is_string( $value ) ? $value : '';
+	}
+
+	/** @var array Page settings for Bricks' REST renders (load more, filters, infinite scroll). */
+	public static $request_page_settings = array();
+
+	/**
+	 * Bricks renders "Load more", AJAX pagination, filters and infinite scroll through its REST API,
+	 * which never loads the page's settings: read them the way a page load does (the active
+	 * content template's, else the post's), so "Animations" and "Animation level" apply there too.
+	 *
+	 * @param array $request_data Bricks request data (postId).
+	 */
+	public static function load_request_page_settings( $request_data ) {
+		$post_id = is_array( $request_data ) && isset( $request_data['postId'] ) ? absint( $request_data['postId'] ) : 0;
+		if ( ! $post_id || ! class_exists( '\Bricks\Database' ) || ! defined( 'BRICKS_DB_PAGE_SETTINGS' ) ) {
+			return;
+		}
+		$templates                   = \Bricks\Database::$active_templates;
+		$source                      = is_array( $templates ) && ! empty( $templates['content'] ) ? (int) $templates['content'] : $post_id;
+		$settings                    = get_post_meta( $source, BRICKS_DB_PAGE_SETTINGS, true );
+		self::$request_page_settings = is_array( $settings ) ? $settings : array();
 	}
 
 	/** The Bricks builder (main window, canvas iframe, or its own render requests). */
@@ -1101,6 +1128,46 @@ class Bricks_Integration {
 	}
 
 	/**
+	 * Sticky or fixed at any breakpoint, on the element or through one of its global classes?
+	 *
+	 * @param array $settings Element settings.
+	 * @return bool
+	 */
+	public static function positioned( array $settings ) {
+		$sets = array( $settings );
+		if ( ! empty( $settings['_cssGlobalClasses'] ) && is_array( $settings['_cssGlobalClasses'] ) && class_exists( '\Bricks\Database' ) ) {
+			$classes = \Bricks\Database::$global_data['globalClasses'] ?? array();
+			foreach ( is_array( $classes ) ? $classes : array() as $class ) {
+				if ( is_array( $class ) && isset( $class['id'] ) && in_array( $class['id'], $settings['_cssGlobalClasses'], true ) && ! empty( $class['settings'] ) && is_array( $class['settings'] ) ) {
+					$sets[] = $class['settings'];
+				}
+			}
+		}
+		foreach ( $sets as $set ) {
+			foreach ( $set as $key => $value ) {
+				if ( is_string( $key ) && ( '_position' === $key || 0 === strpos( $key, '_position:' ) ) && in_array( $value, array( 'fixed', 'sticky' ), true ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Bricks element parallax (not just background parallax) on this element?
+	 *
+	 * @param array $attributes Root attributes.
+	 * @return bool
+	 */
+	public static function element_parallax( array $attributes ) {
+		if ( ! isset( $attributes['data-brx-motion-parallax'] ) ) {
+			return false;
+		}
+		$data = is_string( $attributes['data-brx-motion-parallax'] ) ? json_decode( $attributes['data-brx-motion-parallax'], true ) : null;
+		return ! is_array( $data ) || ! empty( $data['element'] ); // unreadable: assume it moves the element
+	}
+
+	/**
 	 * Does any row animate the element itself (no target selector)?
 	 *
 	 * @param array $rows Validated rows.
@@ -1313,15 +1380,15 @@ class Bricks_Integration {
 			return null;
 		}
 
-		// Sticky / fixed elements (any breakpoint, custom ones included): transforms would break positioning.
-		foreach ( $settings as $key => $value ) {
-			if ( is_string( $key ) && ( '_position' === $key || 0 === strpos( $key, '_position:' ) ) && in_array( $value, array( 'fixed', 'sticky' ), true ) ) {
-				return null;
-			}
+		// Sticky / fixed elements (any breakpoint, custom ones included, set on the element or through
+		// one of its global classes): transforms would break positioning.
+		if ( self::positioned( $settings ) ) {
+			return null;
 		}
 
-		// Bricks' own scroll parallax (2.3+) moves this element with `translate`: leave it to Bricks.
-		if ( isset( $attributes['data-brx-motion-parallax'] ) ) {
+		// Bricks' own element parallax (2.3+) moves this element with `translate`: leave it to Bricks.
+		// Background parallax only moves the background, so the element can still animate.
+		if ( self::element_parallax( $attributes ) ) {
 			return null;
 		}
 

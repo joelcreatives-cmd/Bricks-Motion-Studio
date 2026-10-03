@@ -26,6 +26,33 @@ class Updater {
 		add_filter( 'plugins_api', array( $this, 'details' ), 10, 3 );
 		// A manual "Check again" on Dashboard → Updates also refreshes the cached release.
 		add_action( 'load-update-core.php', array( $this, 'maybe_flush' ) );
+		// Installed from GitHub's "Download ZIP" (folder Bricks-Motion-Studio-main): unpack the
+		// update into the folder the plugin already lives in, or WordPress adds a second copy.
+		add_filter( 'upgrader_source_selection', array( $this, 'keep_folder' ), 10, 4 );
+	}
+
+	/**
+	 * @param string|\WP_Error $source        Unpacked update folder.
+	 * @param string           $remote_source Its parent folder.
+	 * @param object           $upgrader      WP_Upgrader instance.
+	 * @param array            $hook_extra    Contains 'plugin' for plugin updates.
+	 * @return string|\WP_Error
+	 */
+	public function keep_folder( $source, $remote_source, $upgrader = null, $hook_extra = array() ) {
+		global $wp_filesystem;
+		$plugin = plugin_basename( BME_FILE );
+		if ( is_wp_error( $source ) || ! is_array( $hook_extra ) || ( $hook_extra['plugin'] ?? '' ) !== $plugin || ! $wp_filesystem ) {
+			return $source;
+		}
+		$folder = dirname( $plugin );
+		if ( '.' === $folder || untrailingslashit( basename( $source ) ) === $folder ) {
+			return $source;
+		}
+		$target = trailingslashit( $remote_source ) . $folder . '/';
+		if ( $wp_filesystem->move( $source, $target, true ) ) {
+			return $target;
+		}
+		return new \WP_Error( 'bme_rename_failed', __( 'The update could not be unpacked into the plugin folder.', 'bricks-motion-studio' ) );
 	}
 
 	/**

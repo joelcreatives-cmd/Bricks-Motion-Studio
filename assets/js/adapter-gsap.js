@@ -142,7 +142,12 @@
 				if ( tween.scrollTrigger ) {
 					tween.scrollTrigger.kill();
 				}
-				tween.revert();
+				// revert() is GSAP 3.11+; an older copy from another plugin only has kill().
+				if ( tween.revert ) {
+					tween.revert();
+				} else {
+					tween.kill();
+				}
 				if ( onRevert ) {
 					onRevert();
 				}

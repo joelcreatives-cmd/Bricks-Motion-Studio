@@ -3,7 +3,7 @@
 Multi-library animation engine for **Bricks Builder**. Enable **GSAP**, **Anime.js**, **Motion (motion.dev)**, **Three.js** and **Lenis** — one or all at once — and Bricks elements are animated automatically, with full per-element control in the builder.
 
 - **Auto-animate:** site-wide rules map Bricks element types or CSS classes to presets (headings split into words, text fades up, images zoom out, lists stagger…). Nothing to do per element.
-- **Per-element control:** every Bricks element (native and third-party) gets a **Content → Motion Studio** group: preset, engine, start trigger, duration, delay, stagger, easing, distance, viewport offset, replay, mobile toggle, hover effect — and a **Three.js 3D background** on sections, containers, blocks and divs.
+- **Per-element control:** every Bricks element (native and third-party) gets a **Content → Motion Studio** group: preset, engine, start trigger, duration, delay, stagger, easing, distance, viewport offset, replay, Turn off on (phone / tablet / desktop), hover effect — and a **Three.js 3D background** on sections, containers, blocks and divs.
 - **3D Scene element:** standalone Three.js canvas — liquid gradient, particle field, wave grid, floating shapes, or a GLB/GLTF model viewer.
 - **No conflicts:** each element is owned by exactly one engine, libraries load only on pages that use them, and everything is cleaned up so animated elements end up exactly as your stylesheet renders them.
 
@@ -40,7 +40,7 @@ Every element's **Motion Studio** group has a **Timeline** list. Each row animat
 | Scroll range | optional ScrollTrigger-style `"<element edge> <screen line>"`, e.g. `top 15%` → `bottom bottom`, measured on this element or another |
 | Screen sizes | all, desktop (992px+), or tablet and phone (991px and below) |
 
-Rows replace the part of the designed transform they animate (like GSAP's x / y / rotate / scale) and keep the rest; when several rows drive the same property, the most recently started one applies. Only styles the timeline wrote are ever restored (other scripts' inline styles are left alone). View rows inside hidden content (closed popups, tabs, accordions) wait until it is shown; timelines in content Bricks loads by AJAX are picked up; hover rows ignore touch taps and focus moving between links inside the element. Timelines run on `assets/js/timeline.js` (3 KB gzipped, no library), enqueued only on pages that use them. Under reduced motion, scroll rows still follow the scrollbar (the visitor drives them, and stacked sections need them for layout); view and hover rows jump to their end state and loops stay parked.
+Rows replace the part of the designed transform they animate (like GSAP's x / y / rotate / scale) and keep the rest; when several rows drive the same property, the most recently started one applies. Only styles the timeline wrote are ever restored (other scripts' inline styles are left alone). View rows inside hidden content (closed popups, tabs, accordions) wait until it is shown; timelines in content Bricks loads by AJAX are picked up; hover rows ignore touch taps and focus moving between links inside the element. Timelines run on `assets/js/timeline.js` (≈8 KB gzipped, no library), enqueued only on pages that use them. Under reduced motion, scroll rows still follow the scrollbar (the visitor drives them, and stacked sections need them for layout); view and hover rows jump to their end state and loops stay parked.
 
 ## Settings (dashboard → Motion Studio)
 
@@ -59,7 +59,7 @@ Unsaved changes are tracked in the top bar; save with the button or Ctrl/⌘ + S
 ### Performance and page weight
 - **Nothing loads on pages without animations.** Libraries load per page, only when an element on that page needs them.
 - **Lightweight engine (on by default).** Reveals, loops and word/character text run on the browser's built-in Web Animations engine: no library download, and transform/opacity animations run off the main thread. GSAP / Anime.js / Motion load only for what needs them (scroll-linked, pinning, horizontal scroll, SVG drawing, scramble, line splitting) or where an element or rule picks an engine explicitly. Switch: Libraries → *Lightweight engine for simple effects*.
-- **Minified builds.** `runtime.min.js` (≈12 KB gzipped, preset catalog included and cached with it), minified adapters and CSS; slim bundled builds of Motion (≈23 KB gz) and Anime.js (≈19 KB gz) with only the functions the adapters use. `SCRIPT_DEBUG` loads the readable sources.
+- **Minified builds.** `runtime.min.js` (≈17 KB gzipped, preset catalog included and cached with it), minified adapters and CSS; slim bundled builds of Motion (≈23 KB gz) and Anime.js (≈19 KB gz) with only the functions the adapters use. `SCRIPT_DEBUG` loads the readable sources.
 - **Three.js is lazy**: downloaded only when a 3D element approaches the viewport.
 - Server cost measured at ≈8 µs per rendered element.
 
@@ -109,7 +109,7 @@ Motion Studio → Timing & feel → **My presets**: give a built-in preset your 
 | Reveal | fade, fade-up/down/left/right, zoom-in/out, flip-up, flip-left, rotate-in, skew-up, blur-in, blur-up, clip-up/down/left/right, reveal-image | Built-in, GSAP, Anime.js, Motion |
 | Text | split-lines (masked), split-words, split-words-blur, split-chars, typewriter, scramble (GSAP), scroll-highlight | Built-in (words/chars/typewriter); GSAP (SplitText, needed for lines and scramble); Anime.js/Motion (built-in accessible splitter) |
 | Scroll-linked | parallax, parallax-x, scroll-fade, scroll-scale, scroll-rotate, scroll-expand, horizontal-scroll (GSAP), pin (GSAP) | GSAP ScrollTrigger, Anime.js `onScroll`, Motion `scroll()` |
-| Loop | float, pulse, sway, spin (pause automatically off-screen) | Built-in, GSAP, Anime.js, Motion |
+| Loop | float, pulse, sway, spin, marquee (pause automatically off-screen) | Built-in, GSAP, Anime.js, Motion |
 | Special | counter (count-up with number formatting), draw-svg (stroked SVGs; GSAP DrawSVG when available) | built-in / any |
 | Hover | lift, grow, magnetic, 3D tilt (separate "Hover effect" setting, combinable with any preset) | built-in |
 
@@ -137,6 +137,10 @@ Eases: `smooth`, `soft`, `strong`, `in-out`, `back`, `elastic`, `bounce`, `sine`
 
 Motion that lasts longer than five seconds (loops, marquees, timeline loops, 3D backgrounds) needs a way to stop it. Drop the **Pause animations button** element (Bricks → General) anywhere, e.g. in the footer: a real `<button>` with a pause / play icon, an editable label (or icon only, the label kept for screen readers). Or add `data-bme-pause-toggle` to any button of your own (Bricks: **Attributes**), e.g. a "Pause animations" button in the footer: it pauses and resumes all of it, sets `aria-pressed`, and the choice is kept for the rest of the visit. Marquees also pause on hover, on keyboard focus (a focused link that slid out of view is moved back into view) and on tap.
 
+## No sideways scrolling
+
+An element sliding in from the side, zooming or rotating near the edge of the screen makes the page wider than the window while it waits or plays, so phones let the page wobble sideways. On pages with animations the plugin clips the page at the window edge (`overflow-x: clip` on `html` and `body`, which keeps sticky headers and pinned sections working). Settings → Accessibility → **No sideways scrolling** turns it off, as does the `bme/clip_x` filter (`add_filter( 'bme/clip_x', '__return_false' );`) — only needed for a page that is meant to scroll sideways.
+
 ## JavaScript API
 
 ```js
@@ -149,6 +153,10 @@ BricksMotion.resumeAll();        // …and start it again (remembered for the vi
 BricksMotion.lenis;              // Lenis instance when smooth scroll is enabled
 BricksMotion.adapters;           // { native, gsap, anime, motion } registered engines
 BricksMotion.registerAdapter( 'name', adapter ); // add your own engine (see runtime.js)
+
+BricksMotionTimeline.refresh();       // re-measure timelines (after a layout change of your own)
+BricksMotionTimeline.rebuild();       // rebuild every timeline (after changing data-bme-tl yourself)
+BricksMotionTimeline.pauseLoops( on ); // pause (true) / resume (false) timeline loops only
 
 document.addEventListener( 'bme:ready',    e => {} ); // { engines, animations, config }
 document.addEventListener( 'bme:play',     e => {} ); // { element, preset, engine }
@@ -166,7 +174,7 @@ Reviewed for: stored XSS through builder settings and custom attributes, setting
 - Settings: `manage_options` + nonces on save, import and reset; every value rebuilt from an allowlist, numbers clamped, selectors stripped of `<{};\` and checked for balanced brackets.
 - Frontend output: all attributes escaped by Bricks, config JSON-encoded (cannot close `<script>`), no `eval`, no `innerHTML` with user data, no server-side fetching.
 - Builder users can only choose from allowlisted presets/engines/scenes; 3D values are clamped again in the browser and model URLs must be http(s).
-- No AJAX/REST endpoints, no file writes, no `unserialize`. Every PHP file refuses direct access; folders carry `index.php` guards.
+- One AJAX endpoint, for logged-in editors only (builder live preview: nonce and `edit_post` checked); no REST endpoints, no file writes, no `unserialize`. Every PHP file refuses direct access; folders carry `index.php` guards.
 - Libraries are bundled at pinned versions; the optional CDN mode adds Subresource Integrity hashes generated at build time.
 
 ## Updates and compatibility

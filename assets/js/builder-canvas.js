@@ -47,10 +47,12 @@
 			el.setAttribute( k, attrs[ k ] );
 		} );
 		current = { el: el, keys: keys };
-		if ( attrs[ 'data-bme' ] && w.BricksMotion ) {
-			w.BricksMotion.refresh( el );
-			w.BricksMotion.reset( el );
-			w.BricksMotion.play( el );
+		if ( w.BricksMotion && ( attrs[ 'data-bme' ] !== undefined || attrs[ 'data-bme-hover' ] || attrs[ 'data-bme-3d' ] ) ) {
+			w.BricksMotion.refresh( el ); // sets up the reveal, hover effect or 3D background
+			if ( attrs[ 'data-bme' ] !== undefined ) {
+				w.BricksMotion.reset( el );
+				w.BricksMotion.play( el );
+			}
 		}
 		if ( attrs[ 'data-bme-tl' ] && w.BricksMotionTimeline ) {
 			w.BricksMotionTimeline.rebuild(); // view rows play now, hover rows on hover, scroll rows follow the canvas

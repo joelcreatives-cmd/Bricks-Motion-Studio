@@ -885,6 +885,7 @@ class Admin {
 									$this->number_row( 'a11y.min_width', __( 'Turn animations off below', 'bricks-motion-studio' ), 0, 4000, 1, 'px', __( '0 keeps animations on every screen size.', 'bricks-motion-studio' ) );
 									$this->switch_row( 'perf.fouc', __( 'Hide elements until they animate', 'bricks-motion-studio' ), __( 'Prevents a flash of the final state. Content stays readable by screen readers and search engines.', 'bricks-motion-studio' ) );
 									$this->number_row( 'perf.failsafe', __( 'Show everything after', 'bricks-motion-studio' ), 500, 15000, 100, 'ms', __( 'If scripts are blocked or delayed by an optimization plugin, content appears anyway.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'perf.clip_x', __( 'No sideways scrolling', 'bricks-motion-studio' ), __( 'Elements sliding, zooming or rotating in near the edge of the screen can make the page wider than the window for a moment, so it wobbles sideways on phones. This clips the page at the window edge on pages with animations (sticky and pinned sections keep working). Turn off only if your page is meant to scroll sideways.', 'bricks-motion-studio' ) );
 									$this->switch_row( 'perf.always', __( 'Load engines on every page', 'bricks-motion-studio' ), __( 'Only needed for content added by custom code or other plugins after the page loads.', 'bricks-motion-studio' ) );
 									$this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'Logs decisions to the browser console and shows scroll trigger markers.', 'bricks-motion-studio' ) );
 									?>

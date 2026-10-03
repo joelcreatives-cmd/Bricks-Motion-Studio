@@ -30,6 +30,7 @@ jobs:
           test "v$VERSION" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match Version: $VERSION"; exit 1; }
           test "$VERSION" = "$STABLE" || { echo "readme.txt Stable tag ($STABLE) does not match Version: $VERSION"; exit 1; }
           grep -q "define( 'BME_VERSION', '$VERSION' )" bricks-motion-studio.php || { echo "BME_VERSION does not match Version: $VERSION"; exit 1; }
+          test "$(node -p "require('./package.json').version")" = "$VERSION" || { echo "package.json version does not match Version: $VERSION"; exit 1; }
       - run: npm ci
       - run: npm run check
       - run: npm run test:e2e
