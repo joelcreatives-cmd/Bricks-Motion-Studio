@@ -159,7 +159,7 @@
 
 	function sync() {
 		// Rule buttons say which rule they act on ("Remove rule 3"), for screen-reader users.
-		$$( '.bme-rule' ).forEach( function ( row, i ) {
+		$$( '#bme-rules-body .bme-rule' ).forEach( function ( row, i ) {
 			$$( '[data-bme-remove-rule], [data-bme-preview-rule]', row ).forEach( function ( btn ) {
 				btn.__bmeLabel = btn.__bmeLabel || btn.getAttribute( 'aria-label' );
 				btn.setAttribute( 'aria-label', ( i18n.ruleBtn || '%1$s (rule %2$d)' ).replace( '%1$s', btn.__bmeLabel ).replace( '%2$d', String( i + 1 ) ) );
@@ -224,7 +224,7 @@
 			var rules = $$( '#bme-rules-body .bme-rule input[type=checkbox]:checked' ).length;
 			var levels = i18n.levels || {};
 			var text = val( 'auto.enabled' )
-				? ( rules === 1 ? i18n.autoOn1 || 'auto-animate on, %1$s rule, %2$s level' : i18n.autoOnN || 'auto-animate on, %1$s rules, %2$s level' )
+				? ( i18n.autoOn || 'auto-animate on, %2$s level, active rules: %1$s' ) // one string: every language's plurals work
 					.replace( '%1$s', rules )
 					.replace( '%2$s', levels[ val( 'level' ) ] || val( 'level' ) || '' )
 				: i18n.autoOff || 'auto-animate off';
@@ -400,6 +400,11 @@
 		return isFinite( n ) ? n : fallback;
 	}
 
+	// A preset's own value (My presets; 0 counts) or the Timing & feel one.
+	function own( p, o, k ) {
+		return typeof p[ k ] === 'number' && isFinite( p[ k ] ) ? p[ k ] : o[ k ];
+	}
+
 	function opts() {
 		return {
 			duration: numVal( 'defaults.duration', 0.8 ),
@@ -507,9 +512,10 @@
 			} );
 			return;
 		}
-		var duration = ( p.duration || o.duration ) * 1000;
+		var duration = own( p, o, 'duration' ) * 1000;
 		var ease = EASE[ p.ease || o.ease ] || EASE.smooth;
-		var stagger = ( p.stagger || o.stagger ) * 1000;
+		var stagger = own( p, o, 'stagger' ) * 1000;
+		var delay = Math.max( 0, own( p, o, 'delay' ) ) * 1000;
 
 		if ( p.core && slug === 'counter' && textEl ) {
 			var start = performance.now();
@@ -557,7 +563,7 @@
 			var pieces = splitWords( textEl, p.split === 'chars' );
 			var st = states( p, o );
 			pieces.forEach( function ( piece, i ) {
-				piece.animate( st, { duration: duration, delay: i * stagger, easing: p.ease ? EASE[ p.ease ] : ease, fill: 'backwards' } );
+				piece.animate( st, { duration: duration, delay: delay + i * stagger, easing: p.ease ? EASE[ p.ease ] : ease, fill: 'backwards' } );
 			} );
 			return;
 		}
@@ -568,7 +574,7 @@
 		targets.forEach( function ( t, i ) {
 			t.animate( pair, {
 				duration: scrub ? 1600 : duration,
-				delay: loop || scrub ? 0 : i * stagger,
+				delay: loop || scrub ? 0 : delay + i * stagger,
 				easing: scrub ? 'linear' : ease,
 				iterations: loop ? 4 : scrub ? 2 : 1,
 				direction: loop ? ( p.yoyo === false ? 'normal' : 'alternate' ) : scrub ? 'alternate' : 'normal',
@@ -645,7 +651,7 @@
 		box.style.top = Math.min( window.innerHeight - h - 8, Math.max( 40, r.top + r.height / 2 - h / 2 ) ) + 'px';
 		playPreset( slug, items, isText ? items[ 0 ] : null );
 		var o = opts();
-		var ms = ( ( p.duration || o.duration ) + ( p.stagger || o.stagger ) * 6 ) * 1000 + 1200;
+		var ms = ( own( p, o, 'delay' ) + own( p, o, 'duration' ) + own( p, o, 'stagger' ) * 6 ) * 1000 + 1200;
 		swatchTimer = setTimeout( function () {
 			box.remove();
 		}, Math.min( 6000, Math.max( 2400, ms ) ) );

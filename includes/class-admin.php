@@ -91,10 +91,8 @@ class Admin {
 						/* translators: %s: a number, e.g. 1,250 */
 						'counter' => __( '%s+ launches', 'bricks-motion-studio' ),
 						'noLibs'  => __( 'No libraries', 'bricks-motion-studio' ),
-						/* translators: 1: number of rules, 2: animation level name */
-						'autoOn1' => __( 'auto-animate on, %1$s rule, %2$s level', 'bricks-motion-studio' ),
-						/* translators: 1: number of rules, 2: animation level name */
-						'autoOnN' => __( 'auto-animate on, %1$s rules, %2$s level', 'bricks-motion-studio' ),
+						/* translators: 1: number of active rules (no plural form needed), 2: animation level name */
+						'autoOn'  => __( 'auto-animate on, %2$s level, active rules: %1$s', 'bricks-motion-studio' ),
 						'autoOff' => __( 'auto-animate off', 'bricks-motion-studio' ),
 						'levels'  => array_map(
 							static function ( $t ) {
@@ -158,8 +156,12 @@ class Admin {
 		if ( isset( $data['auto'] ) && is_array( $data['auto'] ) && array_key_exists( 'rules', $data['auto'] ) ) {
 			$merged['auto']['rules'] = is_array( $data['auto']['rules'] ) ? $data['auto']['rules'] : array();
 		}
+		// My presets too: an imported list replaces the current one (merging by position would mix them).
+		if ( array_key_exists( 'custom_presets', $data ) ) {
+			$merged['custom_presets'] = is_array( $data['custom_presets'] ) ? $data['custom_presets'] : array();
+		}
 
-		update_option( BME_OPTION, Settings::sanitize( wp_slash( $merged ) ) );
+		update_option( BME_OPTION, $merged ); // sanitized once, by the registered Settings::sanitize()
 		Settings::flush();
 		wp_safe_redirect( add_query_arg( 'bme_notice', 'imported', self::page_url() ) . '#system' ); // back to where Import / Reset live
 		exit;
@@ -494,14 +496,14 @@ class Admin {
 
 		// PHP drops form fields past max_input_vars: a long rule list could be cut off on save.
 		$max_vars = (int) ini_get( 'max_input_vars' );
-		$needed   = 80 + 8 * count( (array) Settings::get( 'auto.rules', array() ) );
+		$needed   = 80 + 8 * count( (array) Settings::get( 'auto.rules', array() ) ) + 8 * count( (array) Settings::get( 'custom_presets', array() ) );
 		if ( $max_vars > 0 ) {
 			$checks[] = array(
 				'label'  => __( 'Form size limit', 'bricks-motion-studio' ),
 				/* translators: 1: fields the settings form sends, 2: PHP max_input_vars */
 				'value'  => sprintf( __( '%1$d of %2$d fields', 'bricks-motion-studio' ), $needed, $max_vars ),
 				'status' => $needed < $max_vars * 0.8 ? 'ok' : ( $needed < $max_vars ? 'warn' : 'fail' ),
-				'note'   => __( 'PHP max_input_vars. Each rule adds 8 fields; ask your host to raise the limit before adding many more rules.', 'bricks-motion-studio' ),
+				'note'   => __( 'PHP max_input_vars. Each rule and each of My presets adds 8 fields; ask your host to raise the limit before adding many more.', 'bricks-motion-studio' ),
 			);
 		}
 

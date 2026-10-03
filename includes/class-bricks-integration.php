@@ -34,7 +34,7 @@ class Bricks_Integration {
 	const LAYOUT_ELEMENTS = array( 'section', 'container', 'block', 'div' );
 
 	/** Elements never auto-animated (they animate themselves or break when transformed). */
-	const NEVER_AUTO = array( 'slider', 'slider-nested', 'carousel', 'nav-menu', 'nav-nested', 'offcanvas', 'toggle', 'back-to-top', 'post-reading-progress-bar', 'animated-typing', 'counter', 'testimonials', 'map', 'map-leaflet', 'map-connector', 'code', 'html', 'shortcode', 'template', 'slot', 'bme-3d-scene', 'dropdown', 'toggle-mode', 'post-content', 'wordpress', 'sidebar', 'facebook-page', 'instagram-feed', 'pagination', 'query-results-summary' );
+	const NEVER_AUTO = array( 'slider', 'slider-nested', 'carousel', 'nav-menu', 'nav-nested', 'offcanvas', 'toggle', 'back-to-top', 'post-reading-progress-bar', 'animated-typing', 'counter', 'testimonials', 'map', 'map-leaflet', 'map-connector', 'code', 'html', 'shortcode', 'template', 'slot', 'bme-3d-scene', 'bme-pause-toggle', 'dropdown', 'toggle-mode', 'post-content', 'wordpress', 'sidebar', 'facebook-page', 'instagram-feed', 'pagination', 'query-results-summary' );
 
 	/** @var string[] Render area stack (header/content/footer/popup). */
 	private $areas = array();
@@ -690,12 +690,12 @@ class Bricks_Integration {
 	public static $previewing = false;
 
 	public static function is_passive_context() {
-		if ( self::$previewing ) {
-			return false;
-		}
-		// Page setting "Disabled": no Motion Studio output at all on this page.
+		// Page setting "Disabled": no Motion Studio output at all on this page (nor in its preview).
 		if ( 'off' === self::page_setting( 'bmePageMode' ) ) {
 			return true;
+		}
+		if ( self::$previewing ) {
+			return false;
 		}
 		// Constant for the rest of a frontend request once WordPress parsed it: compute it once
 		// instead of for every element and loop item.
@@ -1092,7 +1092,9 @@ class Bricks_Integration {
 	 */
 	public static function off_on( array $settings ) {
 		$list = isset( $settings['bmeOffOn'] ) ? (array) $settings['bmeOffOn'] : array();
-		if ( ! empty( $settings['bmeNoMobile'] ) ) {
+		// The old "Disable below 768px" box (Custom mode only, as it was) counts as Phone until the
+		// new field is set; once it is, the new field alone decides.
+		if ( ! isset( $settings['bmeOffOn'] ) && ! empty( $settings['bmeNoMobile'] ) && 'custom' === self::str( $settings, 'bmeMode' ) ) {
 			$list[] = 'phone';
 		}
 		return array_values( array_unique( array_intersect( array( 'phone', 'tablet', 'desktop' ), array_filter( $list, 'is_string' ) ) ) );
@@ -1276,9 +1278,6 @@ class Bricks_Integration {
 		}
 		if ( ! empty( $s['bmeReplay'] ) ) {
 			$opts['replay'] = 1;
-		}
-		if ( ! empty( $s['bmeNoMobile'] ) ) {
-			$opts['minWidth'] = 768;
 		}
 
 		return array(

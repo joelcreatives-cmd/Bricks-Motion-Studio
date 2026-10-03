@@ -41,31 +41,10 @@ class Assets {
 		if ( null !== $this->gsap_core ) {
 			return $this->gsap_core;
 		}
-		$scripts = wp_scripts();
-		$found   = '';
-		$seen    = array();
-		// Queued/printed handles and, recursively, their dependencies (GSAP is often only a dependency).
-		$stack = array_merge( (array) $scripts->queue, (array) $scripts->done );
-		while ( $stack && ! $found ) {
-			$handle = (string) array_pop( $stack );
-			if ( isset( $seen[ $handle ] ) || 0 === strpos( $handle, 'bme-' ) || empty( $scripts->registered[ $handle ] ) ) {
-				continue;
-			}
-			$seen[ $handle ] = true;
-			$dep             = $scripts->registered[ $handle ];
-			if ( preg_match( '#/gsap(?:\.min)?\.js(?:\?|$)#i', (string) $dep->src ) ) {
-				// Only build on it when it is new enough for the bundled plugins (3.13+); an older
-				// or unknown core keeps our own copy.
-				$ver = is_string( $dep->ver ) && $dep->ver ? $dep->ver : ( preg_match( '#gsap@([0-9.]+)#', (string) $dep->src, $m ) ? $m[1] : '' );
-				if ( $ver && version_compare( $ver, '3.13', '>=' ) ) {
-					$found = $handle;
-				}
-				break;
-			}
-			foreach ( (array) $dep->deps as $child ) {
-				$stack[] = $child;
-			}
-		}
+		// Any GSAP core another plugin or theme loads is built on, whatever its version: a second core
+		// would replace window.gsap and orphan their plugins, which is worse than a version mismatch
+		// (the adapter registers each plugin separately and skips one that fails).
+		$found = self::external_handle( '#/gsap(?:\.min)?\.js(?:\?|$)#i' );
 		/**
 		 * Filter the GSAP core handle to build on (return 'bme-gsap' to always use the bundled copy).
 		 *
@@ -73,6 +52,33 @@ class Assets {
 		 */
 		$this->gsap_core = (string) apply_filters( 'bme/gsap_core_handle', $found ? $found : 'bme-gsap' );
 		return $this->gsap_core;
+	}
+
+	/**
+	 * A script another plugin or theme queued (directly or as a dependency) whose URL matches.
+	 *
+	 * @param string $pattern Regex for the script src.
+	 * @return string Handle, or ''.
+	 */
+	private static function external_handle( $pattern ) {
+		$scripts = wp_scripts();
+		$seen    = array();
+		$stack   = array_merge( (array) $scripts->queue, (array) $scripts->done );
+		while ( $stack ) {
+			$handle = (string) array_pop( $stack );
+			if ( isset( $seen[ $handle ] ) || 0 === strpos( $handle, 'bme-' ) || empty( $scripts->registered[ $handle ] ) ) {
+				continue;
+			}
+			$seen[ $handle ] = true;
+			$dep             = $scripts->registered[ $handle ];
+			if ( preg_match( $pattern, (string) $dep->src ) ) {
+				return $handle;
+			}
+			foreach ( (array) $dep->deps as $child ) {
+				$stack[] = $child;
+			}
+		}
+		return '';
 	}
 
 	/** @var string|null Resolved GSAP core handle for this request. */
@@ -321,6 +327,13 @@ class Assets {
 				foreach ( array_unique( $gsap_plugins ) as $plugin ) {
 					if ( in_array( $plugin, Libraries::GSAP_PLUGINS, true ) ) {
 						$handle = Libraries::gsap_plugin_handle( $plugin );
+						// Their copy of this plugin too, if they load one (two ScrollTriggers would each
+						// listen to scrolling and refresh separately).
+						$theirs = 'bme-gsap' !== $core ? self::external_handle( '#/' . preg_quote( $plugin, '#' ) . '(?:\.min)?\.js(?:\?|$)#i' ) : '';
+						if ( $theirs ) {
+							$deps[] = $theirs;
+							continue;
+						}
 						if ( 'bme-gsap' !== $core ) {
 							wp_deregister_script( $handle );
 							wp_register_script( $handle, Libraries::url( 'gsap', $plugin . '.min.js' ), array( $core ), Libraries::VERSIONS['gsap'], array( 'in_footer' => true, 'strategy' => 'defer' ) );

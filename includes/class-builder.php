@@ -51,8 +51,8 @@ class Builder {
 						'empty'     => __( 'Add at least one keyframe, e.g. 0: 0, 100: 1', 'bricks-motion-studio' ),
 						'ok'        => __( 'Keyframes OK', 'bricks-motion-studio' ),
 						'dragHint'  => __( 'Drag a dot to move a keyframe; click the track to add one.', 'bricks-motion-studio' ),
-						/* translators: %s: keyframe position in percent, e.g. 25 */
-						'keyframe'  => __( 'Keyframe at %s%%', 'bricks-motion-studio' ),
+						/* translators: %s: keyframe position, e.g. 25 (the percent sign follows it) */
+						'keyframe'  => __( 'Keyframe at %s%', 'bricks-motion-studio' ),
 						'noPreview' => __( 'Nothing to preview: this element has no animation.', 'bricks-motion-studio' ),
 					),
 				)
@@ -97,10 +97,24 @@ class Builder {
 		$instance->settings = $settings;
 		$instance->id       = isset( $element['id'] ) && is_string( $element['id'] ) ? sanitize_key( $element['id'] ) : '';
 
-		$attributes                     = array( 'class' => array( 'brxe-' . $name ) );
+		// Only our own attribute builder runs: other plugins' callbacks on the shared Bricks filter may
+		// expect a real \Bricks\Element and must not run (or fatal) for a preview.
+		$attributes = array( 'class' => array( 'brxe-' . $name ) );
+		// Bricks' own interaction attributes first (they decide conflicts, as on the live page).
+		$theme = class_exists( '\Bricks\Theme' ) && method_exists( '\Bricks\Theme', 'instance' ) ? \Bricks\Theme::instance() : null;
+		if ( $theme && isset( $theme->interactions ) && is_object( $theme->interactions ) && method_exists( $theme->interactions, 'add_data_attributes' ) ) {
+			try {
+				$attributes = (array) $theme->interactions->add_data_attributes( $attributes, $instance );
+			} catch ( \Throwable $e ) {
+				unset( $e ); // a Bricks change must not break the preview
+			}
+		}
 		Bricks_Integration::$previewing = true;
-		$out                            = apply_filters( 'bricks/element/set_root_attributes', $attributes, $instance );
-		Bricks_Integration::$previewing = false;
+		try {
+			$out = Plugin::instance()->bricks->root_attributes( $attributes, $instance );
+		} finally {
+			Bricks_Integration::$previewing = false;
+		}
 
 		$keep = array();
 		foreach ( (array) $out as $key => $value ) {

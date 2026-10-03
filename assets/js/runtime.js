@@ -39,6 +39,9 @@
 	var adapters = {};
 	var records = new Set();
 	var byEl = new WeakMap();
+	// BricksMotion.destroy()ed elements stay as designed through later rescans (AJAX, screen-size
+	// switches) until BricksMotion.refresh() is called on them.
+	var destroyedEls = new Set();
 	var claimed = new WeakSet();
 	var claimedBy = new WeakMap(); // scoped child → the record animating it
 	var observers = {};
@@ -757,7 +760,7 @@
 			delay: num( o.delay, num( p.delay, D.delay ) ),
 			stagger: num( o.stagger, num( p.stagger, D.stagger ) * lv[ 2 ] ),
 			distance: Math.max( -1000, Math.min( 1000, num( o.distance, num( p.distance, D.distance ) * lv[ 0 ] ) ) ),
-			offset: num( o.offset, D.offset ),
+			offset: Math.max( 0, Math.min( 50, num( o.offset, D.offset ) ) ),
 			speed: num( o.speed, D.speed ),
 			ease: o.ease || p.ease || D.ease,
 			trigger: o.trigger === 'load' || o.trigger === 'manual' ? o.trigger : 'scroll',
@@ -1080,7 +1083,7 @@
 	}
 
 	function create( el ) {
-		if ( byEl.has( el ) ) {
+		if ( byEl.has( el ) || destroyedEls.has( el ) ) {
 			return null;
 		}
 		var c = readConfig( el );
@@ -1281,7 +1284,9 @@
 			}
 			// Hidden-stroke start state (engine plugins such as DrawSVG take over from here).
 			rec.paths.forEach( function ( s ) {
-				var len = s.getTotalLength();
+				// pathLength="1" (common in exported icons) rescales the dash lengths to that unit.
+				var pl = parseFloat( s.getAttribute( 'pathLength' ) );
+				var len = pl > 0 ? pl : s.getTotalLength();
 				s.__bmeLen = len;
 				s.style.strokeDasharray = len + ' ' + len;
 				s.style.strokeDashoffset = len;
@@ -1341,7 +1346,7 @@
 	/** Watchdog: if an engine never reports completion (tween killed elsewhere), clean up anyway. */
 	function watchdog( rec, extraDelay ) {
 		var c = rec.cfg;
-		var n = Math.max( 1, rec.targets.length, rec.split ? rec.split.pieces.length : 1 );
+		var n = Math.max( 1, rec.targets.length, rec.split ? rec.split.pieces.length : 1, rec.paths ? rec.paths.length : 1 );
 		// Real piece count: a 400-character typewriter legitimately runs for many seconds.
 		var ms = ( c.duration + c.delay + ( extraDelay === undefined ? rec.lastExtra || 0 : extraDelay ) + c.stagger * n ) * 1000 + 1500;
 		clearTimeout( rec.watchdog );
@@ -1529,7 +1534,8 @@
 			rec.numberNode.nodeValue = rec.numberOriginal;
 			rec.el.style.removeProperty( 'font-variant-numeric' );
 		}
-		if ( rec.ctrl && rec.ctrl.revert && rec.kind !== 'counter' ) {
+		// Counters too: a counting tween left running would keep writing mid-values over the number.
+		if ( rec.ctrl && rec.ctrl.revert ) {
 			try {
 				rec.ctrl.revert();
 			} catch ( e ) {
@@ -1578,6 +1584,17 @@
 	function setupAgain( rec ) {
 		unwatch( rec );
 		var c = rec.cfg;
+		// Shown before it was ever set up (printed, played while its popup was still closed): set it
+		// up once it has a size, like the first time.
+		if ( rec.kind === 'reveal' && ! rec.from ) {
+			if ( setupWait ) {
+				waiting.set( rec.el, rec );
+				setupWait.observe( rec.el );
+			} else {
+				runSetup( rec );
+			}
+			return;
+		}
 		if ( rec.kind === 'text' ) {
 			saveInline( rec.el );
 			rec.el.style.opacity = String( HIDDEN );
@@ -2026,10 +2043,13 @@
 	}
 
 	function setupHover( el ) {
-		if ( el.__bmeHover ) {
+		if ( el.__bmeHover || destroyedEls.has( el ) ) {
 			return;
 		}
 		var type = el.getAttribute( 'data-bme-hover' );
+		if ( type !== 'lift' && type !== 'grow' && type !== 'magnetic' && type !== 'tilt' ) {
+			return; // unknown value: no effect (never a stray tilt)
+		}
 		if ( offHere( el ) && ( type === 'lift' || type === 'grow' ) ) {
 			return; // "Turn off on" this screen size: added when the size changes
 		}
@@ -2043,6 +2063,9 @@
 
 		if ( type === 'lift' || type === 'grow' ) {
 			el.classList.add( 'bme-hover-' + type );
+			el.__bmeHoverOff = function () {
+				el.classList.remove( 'bme-hover-lift', 'bme-hover-grow' );
+			};
 			return;
 		}
 		if ( ! finePointer ) {
@@ -2105,7 +2128,7 @@
 			}
 		}
 
-		el.addEventListener( 'pointermove', function ( e ) {
+		function onMove( e ) {
 			if ( motionOff() || fadeOnly() || e.pointerType === 'touch' || offHere( el ) ) {
 				return;
 			}
@@ -2121,13 +2144,24 @@
 				ty = dy * 8;
 			}
 			start();
-		} );
-		el.addEventListener( 'pointerleave', function () {
+		}
+		function onLeave() {
 			hovering = false;
 			tx = 0;
 			ty = 0;
 			start();
-		} );
+		}
+		el.addEventListener( 'pointermove', onMove );
+		el.addEventListener( 'pointerleave', onLeave );
+		// BricksMotion.destroy(): take the effect off completely (the builder preview switches it).
+		el.__bmeHoverOff = function () {
+			el.removeEventListener( 'pointermove', onMove );
+			el.removeEventListener( 'pointerleave', onLeave );
+			if ( raf ) {
+				cancelAnimationFrame( raf );
+			}
+			settle();
+		};
 	}
 
 	/* ------------------------------------------------------------------
@@ -2169,7 +2203,7 @@
 	var threeHosts = new Set();
 
 	function setupThree( el ) {
-		if ( el.__bme3d || ! cfg.three ) {
+		if ( el.__bme3d || ! cfg.three || destroyedEls.has( el ) ) {
 			return;
 		}
 		el.__bme3d = { state: 'pending' };
@@ -2850,9 +2884,11 @@
 		var relayLoops = function () {
 			var redo = [];
 			records.forEach( function ( rec ) {
-				if ( rec.kind === 'loop' && rec.engine === nativeAdapter && ! rec.inert && rec.targets.some( function ( t ) {
+				// Anime.js turns a marquee's -50% into pixels once, too.
+				var anime = rec.engine && rec.engine === adapters.anime && rec.cfg.preset && rec.cfg.preset.marquee;
+				if ( rec.kind === 'loop' && ! rec.inert && ( anime || ( rec.engine === nativeAdapter && rec.targets.some( function ( t ) {
 					return restOf( t ) && restOf( t ).t;
-				} ) ) {
+				} ) ) ) ) {
 					redo.push( rec );
 				}
 			} );
@@ -2882,7 +2918,7 @@
 					byEl.delete( el );
 					scan( el );
 					var hv = el.getAttribute( 'data-bme-hover' );
-					if ( hv === 'lift' || hv === 'grow' ) {
+					if ( ( hv === 'lift' || hv === 'grow' ) && ! destroyedEls.has( el ) && ! ( hv === 'lift' && el.hasAttribute( 'data-brx-motion-parallax' ) ) ) {
 						el.classList.add( 'bme-hover-' + hv );
 					}
 				}
@@ -3012,6 +3048,11 @@
 		foreign: { anime: window.anime, lenis: window.lenis, motion: window.Motion },
 		registerAdapter: registerAdapter,
 		refresh: function ( root ) {
+			destroyedEls.forEach( function ( el ) {
+				if ( ! root || root === document || root === el || ( root.contains && root.contains( el ) ) ) {
+					destroyedEls.delete( el );
+				}
+			} );
 			scan( root || document );
 			refreshSoon();
 		},
@@ -3062,8 +3103,18 @@
 		},
 		/** Stop and undo animations: an element, selector, list or Bricks' %brx%, like play() / reset(). */
 		destroy: function ( target ) {
+			destroyedEls.forEach( function ( el ) {
+				if ( ! el.isConnected ) {
+					destroyedEls.delete( el ); // removed from the page meanwhile: forget it
+				}
+			} );
 			resolveTargets( target ).forEach( function ( el ) {
 				destroy( el );
+				if ( el.__bmeHoverOff ) {
+					el.__bmeHoverOff();
+				}
+				el.__bmeHover = el.__bmeHoverOff = null;
+				destroyedEls.add( el );
 			} );
 		},
 		on: function ( name, fn ) {

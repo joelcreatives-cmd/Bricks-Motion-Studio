@@ -21,6 +21,9 @@ class Plugin {
 		return self::$instance;
 	}
 
+	/** @var Bricks_Integration The element controls and attribute builder (the builder preview calls it). */
+	public $bricks;
+
 	/** Settings schema version; bump when a release needs to migrate saved options. */
 	const SCHEMA = 3;
 
@@ -28,7 +31,7 @@ class Plugin {
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 		add_action( 'init', array( __CLASS__, 'maybe_upgrade' ), 5 );
 
-		new Bricks_Integration();
+		$this->bricks = new Bricks_Integration();
 		// Without Bricks nothing on the front end can be animated: load nothing there.
 		// (Checked once the theme is set up; the settings screen still loads.)
 		add_action(

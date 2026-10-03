@@ -255,7 +255,7 @@ class Settings {
 			$label = is_scalar( $row['label'] ?? null ) ? trim( sanitize_text_field( (string) $row['label'] ) ) : '';
 			$item  = array(
 				'slug'  => $slug,
-				'label' => '' !== $label ? substr( $label, 0, 60 ) : __( 'My preset', 'bricks-motion-studio' ),
+				'label' => '' !== $label ? ( function_exists( 'mb_substr' ) ? mb_substr( $label, 0, 60 ) : wp_html_excerpt( $label, 60 ) ) : __( 'My preset', 'bricks-motion-studio' ),
 				'base'  => $from,
 			);
 			foreach ( array( 'duration' => 10, 'delay' => 10, 'distance' => 400, 'stagger' => 2 ) as $key => $max ) {
@@ -293,8 +293,10 @@ class Settings {
 	 * @return array
 	 */
 	public static function sanitize( $input ) {
-		$d   = self::defaults();
-		$in  = is_array( $input ) ? wp_unslash( $input ) : array();
+		$d = self::defaults();
+		// Already unslashed: options.php unslashes the form, and update_option() runs this again on
+		// its result (unslashing here would eat backslashes, twice).
+		$in  = is_array( $input ) ? $input : array();
 		$out = array();
 
 		// Only what was submitted changes. A setting missing from the submission (a settings tab
@@ -381,9 +383,10 @@ class Settings {
 				continue;
 			}
 			$type   = self::pick( $rule['type'] ?? '', array( 'element', 'class' ), 'element' );
+			$raw    = is_scalar( $rule['target'] ?? '' ) ? (string) ( $rule['target'] ?? '' ) : '';
 			$target = 'class' === $type
-				? self::sanitize_class_name( (string) ( $rule['target'] ?? '' ) )
-				: ( '*' === trim( (string) ( $rule['target'] ?? '' ) ) ? '*' : sanitize_key( wp_strip_all_tags( (string) ( $rule['target'] ?? '' ) ) ) );
+				? self::sanitize_class_name( $raw )
+				: ( '*' === trim( $raw ) ? '*' : sanitize_key( wp_strip_all_tags( $raw ) ) );
 			$preset = is_scalar( $rule['preset'] ?? '' ) ? (string) ( $rule['preset'] ?? '' ) : '';
 
 			// An unknown preset (broken presets.json, a deactivated add-on that registered it) keeps
@@ -411,7 +414,7 @@ class Settings {
 	 * @return string
 	 */
 	public static function sanitize_scope( $scope ) {
-		$scope = trim( wp_strip_all_tags( (string) $scope ) );
+		$scope = trim( wp_strip_all_tags( is_scalar( $scope ) ? (string) $scope : '' ) );
 		if ( '' === $scope || 'self' === $scope ) {
 			return 'self';
 		}

@@ -215,6 +215,9 @@
 		return { n: num, u: u };
 	}
 
+	var ANGLE = { deg: 1, turn: 360 };
+	var LENGTH = /^(px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)$/;
+
 	function mix( a, b, t ) {
 		if ( a.c && b.c ) {
 			// Mixed with premultiplied alpha, like a CSS transition: transparent → white fades
@@ -235,11 +238,22 @@
 			if ( u !== null ) {
 				return { n: a.n + ( b.n - a.n ) * t, u: u };
 			}
+			// deg ↔ turn: the same quantity.
+			if ( ANGLE[ a.u ] && ANGLE[ b.u ] ) {
+				return { n: a.n * ANGLE[ a.u ] + ( b.n * ANGLE[ b.u ] - a.n * ANGLE[ a.u ] ) * t, u: 'deg' };
+			}
+			// Two lengths in different units (10vh → 50px, -100% → the designed px): CSS blends them.
+			if ( LENGTH.test( a.u ) && LENGTH.test( b.u ) ) {
+				return { n: 1, u: '', calc: 'calc(' + +( a.n * ( 1 - t ) ).toFixed( 4 ) + a.u + ' + ' + +( b.n * t ).toFixed( 4 ) + b.u + ')' };
+			}
 		}
 		return t < 1 ? a : b; // incompatible values step at the next keyframe
 	}
 
 	function css( v ) {
+		if ( v.calc ) {
+			return v.calc;
+		}
 		if ( v.c ) {
 			return 'rgba(' + Math.round( v.c[ 0 ] ) + ', ' + Math.round( v.c[ 1 ] ) + ', ' + Math.round( v.c[ 2 ] ) + ', ' + +v.c[ 3 ].toFixed( 3 ) + ')';
 		}
@@ -300,6 +314,11 @@
 		if ( ! sx ) {
 			return null;
 		}
+		// A mirrored design (scaleX(-1)) keeps its reflection on x, not as rotate(180) + scaleY(-1):
+		// a rotate row replaces the rotation, and the flip must survive it.
+		if ( a * dd - b * c < 0 ) {
+			sx = -sx;
+		}
 		var sy = ( a * dd - b * c ) / sx;
 		if ( Math.abs( a * c + b * dd ) > 1e-6 * sx * sx ) {
 			return null; // skew
@@ -307,7 +326,7 @@
 		return {
 			x: { n: v[ 4 ], u: 'px' },
 			y: { n: v[ 5 ], u: 'px' },
-			rotate: { n: ( Math.atan2( b, a ) * 180 ) / Math.PI, u: 'deg' },
+			rotate: { n: ( Math.atan2( b / sx, a / sx ) * 180 ) / Math.PI, u: 'deg' },
 			scaleX: sx,
 			scaleY: sy,
 		};
@@ -329,6 +348,7 @@
 		};
 		st.ox = st.oy = undefined;
 		st.cols = null;
+		st.prim = null;
 		st.last = {}; // inline styles were taken off: the next render writes everything again
 	}
 
@@ -504,7 +524,10 @@
 	}
 
 	// Re-read designed values (after a resize the design may differ): take our inline styles
-	// off, read everything in one pass, then let the next render put them back.
+	// off, read everything in one pass. Returns the function that puts them back, so layout can
+	// be measured on the design too (a row that resizes its own element must not feed back).
+	// CSS transitions are off meanwhile: with `transition: all` taking a style off would start a
+	// transition, and the computed value would still be ours, read as the "design".
 	function refreshDesigns() {
 		var list = [];
 		states.forEach( function ( st, el ) {
@@ -514,19 +537,36 @@
 			}
 			list.push( [ st, el, Object.keys( st.saved ).map( function ( cp ) {
 				return [ cp, el.style.getPropertyValue( cp ), el.style.getPropertyPriority( cp ) ];
-			} ) ] );
+			} ), [ el.style.getPropertyValue( 'transition' ), el.style.getPropertyPriority( 'transition' ) ] ] );
 			restoreProps( st, el );
+			el.style.setProperty( 'transition', 'none', 'important' );
 		} );
 		list.forEach( function ( item ) {
 			readDesign( item[ 0 ], item[ 1 ] );
 		} );
-		list.forEach( function ( item ) {
-			item[ 2 ].forEach( function ( c ) {
-				if ( c[ 1 ] ) {
-					item[ 1 ].style.setProperty( c[ 0 ], c[ 1 ], c[ 2 ] );
+		return function () {
+			list.forEach( function ( item ) {
+				item[ 2 ].forEach( function ( c ) {
+					if ( c[ 1 ] ) {
+						item[ 1 ].style.setProperty( c[ 0 ], c[ 1 ], c[ 2 ] );
+					}
+				} );
+			} );
+			if ( list.length ) {
+				w.getComputedStyle( list[ 0 ][ 1 ] ).opacity; // eslint-disable-line no-unused-expressions -- settle on our values while transitions are still off
+			}
+			list.forEach( function ( item ) {
+				var el = item[ 1 ];
+				if ( item[ 3 ][ 0 ] ) {
+					el.style.setProperty( 'transition', item[ 3 ][ 0 ], item[ 3 ][ 1 ] );
+				} else {
+					el.style.removeProperty( 'transition' );
+				}
+				if ( el.getAttribute( 'style' ) === '' ) {
+					el.removeAttribute( 'style' );
 				}
 			} );
-		} );
+		};
 	}
 
 	/* ---------- building ---------------------------------------------------- */
@@ -655,7 +695,7 @@
 				start = r.dl;
 				p = r.du > 0 ? ( at - r.dl ) / r.du : ( at > r.dl || ( at === r.dl && ( at > 0 || end ) ) ? 1 : 0 );
 			}
-			var started = g.on === 'scroll' ? ( r.range ? p > 0 : at >= r.tr.k[ 0 ].at ) : at > r.dl || ( end && at >= r.dl ) || ( r.du > 0 && at >= r.dl && at > 0 );
+			var started = g.on === 'scroll' ? ( r.range ? p >= r.tr.k[ 0 ].at && p > 0 : at >= r.tr.k[ 0 ].at ) : at > r.dl || ( end && at >= r.dl ) || ( r.du > 0 && at >= r.dl && at > 0 );
 			p = Math.min( 1, Math.max( 0, p ) );
 			r.els.forEach( function ( el ) {
 				var byProp = pick.get( el ) || ( pick.set( el, {} ), pick.get( el ) );
@@ -666,10 +706,22 @@
 				}
 			} );
 		} );
+		var primary = g.on === 'view' || g.on === 'scroll';
 		pick.forEach( function ( byProp, el ) {
 			Object.keys( byProp ).forEach( function ( prop ) {
 				var c = byProp[ prop ];
-				write( el, prop, sample( c.r.tr, c.p, el, prop ) );
+				var st = stateOf( el );
+				// A hover / loop row at rest leaves a property a view or scroll row on the same element
+				// drives to that row (its last value): a reveal must not flash its end state first.
+				if ( ! primary && ! c.started && st.prim && prop in st.prim ) {
+					write( el, prop, st.prim[ prop ] );
+					return;
+				}
+				var v = sample( c.r.tr, c.p, el, prop );
+				if ( primary ) {
+					( st.prim || ( st.prim = {} ) )[ prop ] = v;
+				}
+				write( el, prop, v );
 			} );
 		} );
 	}
@@ -755,7 +807,7 @@
 
 	function measure() {
 		var vh = w.innerHeight;
-		refreshDesigns();
+		var putBack = refreshDesigns();
 		scrollers = scrollers.filter( function ( g ) {
 			return g.root.isConnected;
 		} );
@@ -808,6 +860,7 @@
 			}
 		} );
 		restick();
+		putBack();
 		redraw.forEach( function ( item ) {
 			item.fn(); // timed timelines re-render at their current time with the fresh designs
 		} );
@@ -881,6 +934,11 @@
 			reset: function () {
 				self.stop();
 				t = 0;
+			},
+			seek: function ( to ) {
+				self.stop();
+				t = Math.min( g.span, Math.max( 0, to ) );
+				render( g, t, false );
 			},
 			to: function ( target, loop ) {
 				if ( ( reduced() && ! loop ) || g.span <= 0 ) {
@@ -1054,8 +1112,12 @@
 		var go = function () {
 			if ( onScreen && ! reduced() && ! loopsPaused ) {
 				pl.to( 1, true );
+			} else if ( ! onScreen ) {
+				pl.stop(); // loops rest while off-screen
 			} else {
-				pl.stop(); // loops rest while off-screen or paused
+				// Paused, or reduced motion: rest where the loop is most visible (a pulse that
+				// starts at opacity 0 must not stay hidden behind the pause button).
+				pl.seek( restAt( g ) );
 			}
 		};
 		loopers.push( { g: g, go: go } );
@@ -1077,6 +1139,36 @@
 			io.disconnect();
 			pl.stop();
 		} );
+	}
+
+	// The time a parked loop rests on: where its opacity rows are most visible (0 without any).
+	function restAt( g ) {
+		var rows = g.rows.filter( function ( r ) {
+			return r.p === 'opacity';
+		} );
+		if ( ! rows.length || g.span <= 0 ) {
+			return 0;
+		}
+		var best = 0;
+		var bestOpacity = -1;
+		for ( var i = 0; i <= 40; i++ ) {
+			var t = ( g.span * i ) / 40;
+			var least = 1;
+			rows.forEach( function ( r ) {
+				var p = r.du > 0 ? ( t - r.dl ) / r.du : t >= r.dl ? 1 : 0;
+				p = Math.min( 1, Math.max( 0, p ) );
+				r.els.forEach( function ( el ) {
+					var v = sample( r.tr, p, el, 'opacity' );
+					var n = v && typeof v.n === 'number' ? ( v.u === '%' ? v.n / 100 : v.n ) : 1;
+					least = Math.min( least, n );
+				} );
+			} );
+			if ( least > bestOpacity + 1e-6 ) {
+				bestOpacity = least;
+				best = t;
+			}
+		}
+		return best;
 	}
 
 	// Inside a fixed layer (a popup) or a box with its own scrollbar?

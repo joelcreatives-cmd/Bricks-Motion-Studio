@@ -32,8 +32,8 @@ class BME_Element_Pause_Toggle extends \Bricks\Element {
 			'tab'         => 'content',
 			'label'       => esc_html__( 'Label', 'bricks-motion-studio' ),
 			'type'        => 'text',
-			'default'     => esc_html__( 'Pause animations', 'bricks-motion-studio' ),
-			'placeholder' => esc_html__( 'Pause animations', 'bricks-motion-studio' ),
+			'default'     => __( 'Pause animations', 'bricks-motion-studio' ), // saved as text, escaped on output
+			'placeholder' => __( 'Pause animations', 'bricks-motion-studio' ),
 			'description' => esc_html__( 'Screen readers announce it as a toggle that is pressed while animations are paused. The icon switches between pause and play.', 'bricks-motion-studio' ),
 		);
 
@@ -77,14 +77,20 @@ class BME_Element_Pause_Toggle extends \Bricks\Element {
 		$this->set_attribute( '_root', 'data-bme-pause-toggle', '' );
 		$this->set_attribute( '_root', 'aria-pressed', 'false' );
 		$this->set_attribute( '_root', 'class', 'bme-pause' );
-		// Works without the plugin stylesheet (pages with timelines only don't load it).
-		$this->set_attribute( '_root', 'style', 'display:inline-flex;align-items:center;gap:0.5em;cursor:pointer' );
 
 		$svg = static function ( $path, $which ) {
 			return '<svg data-bme-icon="' . $which . '" width="1em" height="1em" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"' . ( 'play' === $which ? ' hidden' : '' ) . '><path d="' . $path . '"/></svg>';
 		};
 
-		$out = '<' . $this->tag . ' ' . $this->render_attributes( '_root' ) . '>';
+		// Base styles once per page, at zero specificity so the Gap control and the Style tab win.
+		// Inline here: pages with timelines only don't load the plugin stylesheet.
+		static $styled = false;
+		$out           = '';
+		if ( ! $styled ) {
+			$styled = true;
+			$out   .= '<style id="bme-pause-css">:where(.bme-pause){display:inline-flex;align-items:center;gap:.5em;cursor:pointer}:where(.bme-pause) svg[hidden]{display:none}</style>';
+		}
+		$out .= '<' . $this->tag . ' ' . $this->render_attributes( '_root' ) . '>';
 		if ( $icon ) {
 			$out .= $svg( 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z', 'pause' ) . $svg( 'M8 5.5v13l10.5-6.5z', 'play' );
 		}

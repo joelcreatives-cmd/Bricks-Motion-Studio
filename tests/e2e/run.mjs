@@ -478,6 +478,87 @@ async function run( mode ) {
 		if ( ! ph.hover ) res.fail.push( 'per-device: hover effect not set up after leaving desktop' );
 		if ( Math.abs( ph.tl - 0.6 ) > 0.01 ) res.fail.push( 'per-device: timeline did not run after leaving desktop (' + ph.tl + ')' );
 	}
+	// Sixth QA pass (data-case9: elements are added by the test itself).
+	const c9Fail = await page.evaluate( async ( mode ) => {
+		const fail = [];
+		const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+		// Room below, so every element can scroll to the middle of the screen.
+		const spacer = document.createElement( 'div' );
+		spacer.style.height = '1500px';
+		spacer.setAttribute( 'data-case9', '' );
+		document.body.appendChild( spacer );
+		const add = ( html ) => {
+			const box = document.createElement( 'div' );
+			box.innerHTML = html;
+			const el = box.firstElementChild;
+			el.setAttribute( 'data-case9', '' );
+			document.body.insertBefore( el, spacer );
+			return el;
+		};
+		const show = ( el ) => el.scrollIntoView( { block: 'center', behavior: 'instant' } );
+		const tlAttr = ( rows ) => "data-bme-tl='" + JSON.stringify( rows ) + "'";
+		// Timeline loop: paused (or reduced motion) it rests where it is visible, not on an opacity-0 frame.
+		const lp = add( '<div ' + tlAttr( [ { on: 'loop', p: 'opacity', k: [ [ 0, '0' ], [ 50, '1' ], [ 100, '0' ] ], d: 2 } ] ) + '>loop</div>' );
+		show( lp ); await wait( 400 );
+		if ( mode === 'default' ) {
+			BricksMotion.pauseAll(); await wait( 200 );
+		}
+		const lop = +getComputedStyle( lp ).opacity;
+		if ( lop < 0.95 ) fail.push( 'parked timeline loop rests hidden (opacity ' + lop + ')' );
+		if ( mode === 'default' ) BricksMotion.resumeAll();
+		if ( mode !== 'default' ) return fail;
+		window.scrollTo( 0, 0 ); await wait( 100 );
+		// Hover row + view row on the same property: before the reveal the view row's start state wins.
+		const hv = add( '<div ' + tlAttr( [ { on: 'view', p: 'opacity', k: [ [ 0, '0' ], [ 100, '1' ] ], d: 0.3, o: 0 }, { on: 'hover', p: 'opacity', k: [ [ 0, '1' ], [ 100, '0.8' ] ], d: 0.2 } ] ) + '>hover + view</div>' );
+		// Design read with a CSS transition on the element: an "auto" end is the real design.
+		const tr = add( '<div style="transition:all .5s" ' + tlAttr( [ { on: 'view', p: 'y', k: [ [ 0, '60px' ], [ 100, 'auto' ] ], d: 0.3, o: 0 } ] ) + '>transition</div>' );
+		await wait( 250 );
+		const hvo = +getComputedStyle( hv ).opacity;
+		if ( hvo > 0.05 ) fail.push( 'hover row overwrote the view row start state (opacity ' + hvo + ')' );
+		BricksMotionTimeline.refresh(); await wait( 300 );
+		show( tr ); await wait( 1600 );
+		const trY = new DOMMatrix( getComputedStyle( tr ).transform ).m42;
+		if ( Math.abs( trY ) > 0.5 ) fail.push( 'element with a CSS transition ended ' + trY + 'px off its design' );
+		// Mixed units blend (10vh → 50px) instead of jumping at the end.
+		const mx = add( '<div ' + tlAttr( [ { on: 'view', p: 'y', k: [ [ 0, '10vh' ], [ 100, '50px' ] ], d: 2, e: 'linear', o: 0 } ] ) + '>mixed units</div>' );
+		show( mx ); await wait( 700 );
+		const mxY = new DOMMatrix( getComputedStyle( mx ).transform ).m42;
+		if ( ! ( mxY > 51 && mxY < 79 ) ) fail.push( 'mixed-unit keyframes did not blend (y ' + mxY + ', 10vh = ' + innerHeight / 10 + ')' );
+		// A mirrored design keeps its flip when a rotate row runs.
+		const mr = add( '<div style="transform:scaleX(-1);width:60px" ' + tlAttr( [ { on: 'view', p: 'rotate', k: [ [ 0, '0deg' ], [ 100, '90deg' ] ], d: 0.1, o: 0 } ] ) + '>mirror</div>' );
+		show( mr ); await wait( 600 );
+		const mm = new DOMMatrix( getComputedStyle( mr ).transform );
+		if ( ! ( mm.b < -0.99 && mm.c < -0.99 ) ) fail.push( 'mirrored element lost its flip under a rotate row: ' + getComputedStyle( mr ).transform );
+		// BricksMotion.destroy() lasts through an AJAX rescan; refresh() brings it back.
+		const de = add( '<div data-bme="fade-up" data-bme-engine="native" style="height:40px">destroy me</div>' );
+		show( de ); BricksMotion.refresh( de ); await wait( 1500 );
+		BricksMotion.destroy( de );
+		de.removeAttribute( 'data-bme-state' );
+		document.dispatchEvent( new Event( 'bricks/ajax/query_result/displayed' ) ); await wait( 600 );
+		if ( de.dataset.bmeState || /opacity|translate|transform/.test( de.getAttribute( 'style' ) || '' ) ) fail.push( 'destroyed element was set up again by an AJAX rescan (' + ( de.dataset.bmeState || de.getAttribute( 'style' ) ) + ')' );
+		BricksMotion.refresh( de ); await wait( 1500 );
+		if ( de.dataset.bmeState !== 'done' ) fail.push( 'refresh() did not bring a destroyed element back (' + de.dataset.bmeState + ')' );
+		// destroy() takes hover effects off; an unknown hover value does nothing.
+		const hl = add( '<div data-bme-hover="lift">lift</div>' );
+		BricksMotion.refresh( hl ); await wait( 50 );
+		BricksMotion.destroy( hl );
+		if ( hl.classList.contains( 'bme-hover-lift' ) ) fail.push( 'destroy() left the hover lift on' );
+		const hu = add( '<div data-bme-hover="true" style="width:200px;height:100px">unknown hover</div>' );
+		BricksMotion.refresh( hu ); show( hu ); await wait( 50 );
+		const hr = hu.getBoundingClientRect();
+		hu.dispatchEvent( new PointerEvent( 'pointermove', { clientX: hr.left + 10, clientY: hr.top + 10, pointerType: 'mouse', bubbles: true } ) );
+		await wait( 250 );
+		if ( hu.style.transform || hu.style.translate ) fail.push( 'unknown hover value moved the element: ' + ( hu.style.transform || hu.style.translate ) );
+		// SVG drawing honours pathLength.
+		const sv = add( '<svg data-bme="draw-svg" data-bme-engine="native" width="100" height="20" viewBox="0 0 100 20"><path pathLength="1" d="M0 10H100" stroke="#000" fill="none"/></svg>' );
+		BricksMotion.refresh( sv ); show( sv ); await wait( 150 );
+		const path = sv.querySelector( 'path' );
+		const off = parseFloat( path.style.strokeDashoffset );
+		if ( ! ( path.__bmeLen === 1 && off <= 1 ) ) fail.push( 'drawing ignores pathLength (length ' + path.__bmeLen + ', offset ' + off + ')' );
+		document.querySelectorAll( '[data-case9]' ).forEach( ( e ) => e.remove() );
+		return fail;
+	}, mode );
+	res.fail.push( ...c9Fail );
 	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
 	if ( mode === 'default' ) {
 		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );

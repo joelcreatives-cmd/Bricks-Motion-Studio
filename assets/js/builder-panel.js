@@ -93,6 +93,17 @@
 			} );
 	}
 
+	function stopPreview() {
+		var cw = canvasWindow();
+		try {
+			if ( cw && cw.BMEPreview ) {
+				cw.BMEPreview.stop();
+			}
+		} catch ( e ) {
+			/* the canvas may be reloading */
+		}
+	}
+
 	function note( text ) {
 		var btn = d.querySelector( '.bme-preview-trigger' );
 		if ( ! btn || ! text ) {
@@ -118,9 +129,12 @@
 				return el ? el.id + JSON.stringify( motionSettings( el ) ) : '';
 			},
 			function ( now, before ) {
-				// A new selection is not a change: only edits to the same element play.
+				// A new selection is not a change: only edits to the same element play. The
+				// previous element's preview is undone, so nothing keeps looping on the canvas.
 				if ( ! now || ! before || now.split( '{' )[ 0 ] !== before.split( '{' )[ 0 ] ) {
 					lastKey = now;
+					clearTimeout( previewTimer );
+					stopPreview();
 					return;
 				}
 				clearTimeout( previewTimer );
@@ -166,7 +180,7 @@
 	// "0: 40px, 50%: 0" → { pairs: [[0,'40px'],[50,'0']], error }
 	function parseKeys( text, prop ) {
 		var pairs = [];
-		var parts = String( text || '' ).split( /,(?![^()]*\))/ );
+		var parts = String( text || '' ).split( /,(?![^()]*\))/ ).slice( 0, 50 ); // the server reads 50
 		var re = new RegExp( '^(?:' + allowed( prop ) + ')$', 'i' );
 		for ( var i = 0; i < parts.length; i++ ) {
 			var part = parts[ i ];
@@ -189,6 +203,11 @@
 		return { pairs: pairs, error: '' };
 	}
 
+	// Positions keep the precision the server keeps (3 decimals): moving one dot never rounds the others.
+	function round( n ) {
+		return Math.round( n * 1000 ) / 1000;
+	}
+
 	function write( input, pairs ) {
 		input.value = pairs
 			.slice()
@@ -196,7 +215,7 @@
 				return a[ 0 ] - b[ 0 ];
 			} )
 			.map( function ( p ) {
-				return +p[ 0 ].toFixed( 1 ) + ': ' + p[ 1 ];
+				return round( p[ 0 ] ) + ': ' + p[ 1 ];
 			} )
 			.join( ', ' );
 		input.dispatchEvent( new Event( 'input', { bubbles: true } ) );
@@ -252,10 +271,10 @@
 				dot.setAttribute( 'role', 'slider' );
 				dot.setAttribute( 'aria-valuemin', '0' );
 				dot.setAttribute( 'aria-valuemax', '100' );
-				dot.setAttribute( 'aria-valuenow', String( +p[ 0 ].toFixed( 1 ) ) );
+				dot.setAttribute( 'aria-valuenow', String( round( p[ 0 ] ) ) );
 				dot.style.left = p[ 0 ] + '%';
-				dot.setAttribute( 'aria-label', ( t.keyframe || '%s%' ).replace( '%s', String( +p[ 0 ].toFixed( 1 ) ) ) + ': ' + p[ 1 ] );
-				dot.title = +p[ 0 ].toFixed( 1 ) + '%: ' + p[ 1 ];
+				dot.setAttribute( 'aria-label', ( t.keyframe || '%s%' ).replace( '%s', String( round( p[ 0 ] ) ) ) + ': ' + p[ 1 ] );
+				dot.title = round( p[ 0 ] ) + '%: ' + p[ 1 ];
 				dot.dataset.i = String( i );
 				track.appendChild( dot );
 			} );
@@ -270,8 +289,8 @@
 		track.addEventListener( 'pointerdown', function ( e ) {
 			var dot = e.target.closest( '.bme-kf__dot' );
 			var res = parseKeys( input.value, rowProp( item ) );
-			if ( res.error && ! res.pairs.length ) {
-				return;
+			if ( res.error ) {
+				return; // fix the text first: editing now would drop the pairs after the bad one
 			}
 			if ( dot ) {
 				dragging = { i: +dot.dataset.i, pairs: res.pairs };
@@ -313,7 +332,7 @@
 			}
 			var res = parseKeys( input.value, rowProp( item ) );
 			var i = +dot.dataset.i;
-			if ( ! res.pairs[ i ] ) {
+			if ( res.error || ! res.pairs[ i ] ) {
 				return;
 			}
 			var step = e.shiftKey ? 10 : 1;
@@ -325,15 +344,18 @@
 				return;
 			}
 			e.preventDefault();
-			var at = res.pairs[ i ] && res.pairs[ i ][ 0 ];
+			var moved = res.pairs[ i ] || res.pairs[ Math.max( 0, i - 1 ) ];
 			write( input, res.pairs );
 			render();
-			// Keep focus on the moved keyframe (its index may change after sorting).
-			Array.prototype.forEach.call( track.children, function ( n ) {
-				if ( at !== undefined && n.style.left === at + '%' ) {
-					n.focus();
-				}
+			// Keep focus on the moved keyframe (or the neighbour of a deleted one); sorting may
+			// have changed its index, and write() sorts the same way.
+			var order = res.pairs.slice().sort( function ( a, b ) {
+				return a[ 0 ] - b[ 0 ];
 			} );
+			var focusDot = track.children[ order.indexOf( moved ) ];
+			if ( focusDot ) {
+				focusDot.focus();
+			}
 		} );
 		input.addEventListener( 'input', render );
 		render();
