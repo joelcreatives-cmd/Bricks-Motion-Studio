@@ -114,7 +114,10 @@
 	function checkDirty() {
 		dirty = snapshot() !== initial;
 		saveBtn.disabled = ! dirty;
-		stateEl.textContent = dirty ? i18n.unsaved : i18n.saved;
+		var said = dirty ? i18n.unsaved : i18n.saved;
+		if ( stateEl.textContent !== said ) {
+			stateEl.textContent = said; // a live region: only announce real changes, not every keystroke
+		}
 		stateEl.classList.toggle( 'is-dirty', dirty );
 	}
 
@@ -686,6 +689,12 @@
 				// The label to go back to is read once: a second click while "Copied" shows must not keep it.
 				copy.__bmeLabel = copy.__bmeLabel || copy.textContent;
 				copy.textContent = i18n.copied || 'Copied';
+				if ( stateEl ) {
+					stateEl.textContent = i18n.copied || 'Copied'; // announced (the button text alone is not)
+					setTimeout( function () {
+						stateEl.textContent = dirty ? i18n.unsaved : i18n.saved;
+					}, 1600 );
+				}
 				clearTimeout( copy.__bmeTimer );
 				copy.__bmeTimer = setTimeout( function () {
 					copy.textContent = copy.__bmeLabel;

@@ -259,7 +259,7 @@ class Admin {
 		?>
 		<span class="bme-switch">
 			<input type="hidden" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="0">
-			<input type="checkbox" role="switch" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="1" <?php checked( ! empty( Settings::get( $path ) ) ); ?> data-bme-bind="<?php echo esc_attr( $path ); ?>">
+			<input type="checkbox" role="switch" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="1" <?php checked( ! empty( Settings::get( $path ) ) ); ?>>
 			<span class="bme-switch__track" aria-hidden="true"></span>
 		</span>
 		<?php
@@ -275,7 +275,7 @@ class Admin {
 			</div>
 			<div class="bme-row__control">
 				<span class="bme-input">
-					<input type="number" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="<?php echo esc_attr( (string) Settings::get( $path ) ); ?>" min="<?php echo esc_attr( (string) $min ); ?>" max="<?php echo esc_attr( (string) $max ); ?>" step="<?php echo esc_attr( (string) $step ); ?>" data-bme-bind="<?php echo esc_attr( $path ); ?>">
+					<input type="number" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="<?php echo esc_attr( (string) Settings::get( $path ) ); ?>" min="<?php echo esc_attr( (string) $min ); ?>" max="<?php echo esc_attr( (string) $max ); ?>" step="<?php echo esc_attr( (string) $step ); ?>">
 					<?php if ( $unit ) : ?><span class="bme-input__unit"><?php echo esc_html( $unit ); ?></span><?php endif; ?>
 				</span>
 			</div>
@@ -293,7 +293,7 @@ class Admin {
 				<?php if ( $help ) : ?><p class="bme-row__help"><?php echo esc_html( $help ); ?></p><?php endif; ?>
 			</div>
 			<div class="bme-row__control">
-				<select class="bme-select" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" data-bme-bind="<?php echo esc_attr( $path ); ?>">
+				<select class="bme-select" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>">
 					<?php foreach ( $options as $value => $text ) : ?>
 						<option value="<?php echo esc_attr( (string) $value ); ?>" <?php selected( $current, (string) $value ); ?>><?php echo esc_html( $text ); ?></option>
 					<?php endforeach; ?>
@@ -310,7 +310,7 @@ class Admin {
 		<div class="bme-seg <?php echo esc_attr( $extra_class ); ?>" role="radiogroup" aria-label="<?php echo esc_attr( $label ); ?>">
 			<?php foreach ( $options as $value => $text ) : ?>
 				<label class="bme-seg__opt" data-value="<?php echo esc_attr( (string) $value ); ?>">
-					<input type="radio" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="<?php echo esc_attr( (string) $value ); ?>" <?php checked( $current, (string) $value ); ?> data-bme-bind="<?php echo esc_attr( $path ); ?>">
+					<input type="radio" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="<?php echo esc_attr( (string) $value ); ?>" <?php checked( $current, (string) $value ); ?>>
 					<span><?php echo esc_html( $text ); ?></span>
 				</label>
 			<?php endforeach; ?>
@@ -385,10 +385,16 @@ class Admin {
 		<div class="bme-mine" data-bme-mine>
 			<input type="hidden" name="<?php echo esc_attr( $base . '[slug]' ); ?>" value="<?php echo esc_attr( (string) ( $row['slug'] ?? '__SLUG__' ) ); ?>">
 			<div class="bme-mine__top">
-				<input type="text" class="bme-text" name="<?php echo esc_attr( $base . '[label]' ); ?>" value="<?php echo esc_attr( (string) ( $row['label'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'Name, e.g. Brand fade', 'bricks-motion-studio' ); ?>" aria-label="<?php esc_attr_e( 'Preset name', 'bricks-motion-studio' ); ?>" maxlength="60">
-				<select class="bme-select" name="<?php echo esc_attr( $base . '[base]' ); ?>" aria-label="<?php esc_attr_e( 'Based on', 'bricks-motion-studio' ); ?>" data-bme-mine-base>
-					<?php $this->preset_optgroups( (string) ( $row['base'] ?? 'fade-up' ), true ); ?>
-				</select>
+				<label class="bme-mine__field">
+					<span class="bme-cap bme-cap--on"><?php esc_html_e( 'Preset name', 'bricks-motion-studio' ); ?></span>
+					<input type="text" class="bme-text" name="<?php echo esc_attr( $base . '[label]' ); ?>" value="<?php echo esc_attr( (string) ( $row['label'] ?? '' ) ); ?>" placeholder="<?php esc_attr_e( 'e.g. Brand fade', 'bricks-motion-studio' ); ?>" maxlength="60">
+				</label>
+				<label class="bme-mine__field">
+					<span class="bme-cap bme-cap--on"><?php esc_html_e( 'Based on', 'bricks-motion-studio' ); ?></span>
+					<select class="bme-select" name="<?php echo esc_attr( $base . '[base]' ); ?>" data-bme-mine-base>
+						<?php $this->preset_optgroups( (string) ( $row['base'] ?? 'fade-up' ), true ); ?>
+					</select>
+				</label>
 				<button type="button" class="bme-icon-btn" data-bme-preview-mine aria-label="<?php esc_attr_e( 'Preview this preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Preview', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 				<button type="button" class="bme-icon-btn bme-icon-btn--danger" data-bme-remove-mine aria-label="<?php esc_attr_e( 'Remove preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Remove', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 			</div>
@@ -414,7 +420,7 @@ class Admin {
 	private function rule_row( $index, array $rule ) {
 		$base    = BME_OPTION . '[auto][rules][' . $index . ']';
 		$engines = array(
-			''       => __( 'Default', 'bricks-motion-studio' ),
+			''       => __( 'Site default', 'bricks-motion-studio' ),
 			'native' => __( 'Built-in', 'bricks-motion-studio' ),
 			'gsap'   => 'GSAP',
 			'anime'  => 'Anime.js',
@@ -435,14 +441,17 @@ class Admin {
 				<input type="text" class="bme-text bme-mono" list="bme-element-list" name="<?php echo esc_attr( $base . '[target]' ); ?>" value="<?php echo esc_attr( (string) ( $rule['target'] ?? '' ) ); ?>" placeholder="heading" aria-label="<?php esc_attr_e( 'Element name or class', 'bricks-motion-studio' ); ?>" spellcheck="false">
 			</span>
 			<span role="cell">
+				<span class="bme-cap" aria-hidden="true"><?php esc_html_e( 'Preset', 'bricks-motion-studio' ); ?></span>
 				<select class="bme-select" name="<?php echo esc_attr( $base . '[preset]' ); ?>" aria-label="<?php esc_attr_e( 'Preset', 'bricks-motion-studio' ); ?>" data-bme-preset>
 					<?php $this->preset_optgroups( (string) ( $rule['preset'] ?? '' ) ); ?>
 				</select>
 			</span>
 			<span role="cell">
+				<span class="bme-cap" aria-hidden="true"><?php esc_html_e( 'Animate', 'bricks-motion-studio' ); ?></span>
 				<input type="text" class="bme-text bme-mono" name="<?php echo esc_attr( $base . '[scope]' ); ?>" value="<?php echo esc_attr( (string) ( $rule['scope'] ?? 'self' ) ); ?>" list="bme-scope-list" placeholder="self" aria-label="<?php esc_attr_e( 'Animate: self, children or a selector', 'bricks-motion-studio' ); ?>" spellcheck="false">
 			</span>
 			<span role="cell">
+				<span class="bme-cap" aria-hidden="true"><?php esc_html_e( 'Engine', 'bricks-motion-studio' ); ?></span>
 				<select class="bme-select" name="<?php echo esc_attr( $base . '[engine]' ); ?>" aria-label="<?php esc_attr_e( 'Engine', 'bricks-motion-studio' ); ?>" data-bme-engine-select>
 					<?php foreach ( $engines as $value => $label ) : ?>
 						<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $rule['engine'] ?? '', $value ); ?>><?php echo esc_html( $label ); ?></option>
@@ -597,7 +606,12 @@ class Admin {
 								<?php echo self::icon( $panel[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
 								<span><?php echo esc_html( $panel[0] ); ?></span>
 								<?php if ( 'system' === $id && $issues ) : ?>
-									<span class="bme-nav__badge"><?php echo esc_html( (string) $issues ); ?><span class="screen-reader-text"> <?php echo esc_html( _n( 'issue', 'issues', (int) $issues, 'bricks-motion-studio' ) ); ?></span></span>
+									<span class="bme-nav__badge"><span aria-hidden="true"><?php echo esc_html( (string) $issues ); ?></span><span class="screen-reader-text">
+										<?php
+										/* translators: %d: number of system checks that need attention */
+										echo esc_html( sprintf( _n( '%d issue', '%d issues', (int) $issues, 'bricks-motion-studio' ), (int) $issues ) );
+										?>
+									</span></span>
 								<?php endif; ?>
 							</a>
 						<?php endforeach; ?>
@@ -693,7 +707,7 @@ class Admin {
 											</span>
 										</label>
 									<?php endforeach; ?>
-									<p class="bme-choices__note"><?php esc_html_e( 'Applies to element-type rules. Class rules always keep the exact preset you chose, and Custom animations keep their own settings. A page (Page settings) or an element can pick its own level in the builder.', 'bricks-motion-studio' ); ?></p>
+									<p class="bme-choices__note"><?php esc_html_e( 'Applies to element-type rules. Class rules keep the exact preset you chose unless the element picks its own level, and Custom animations keep their own settings. A page (Page settings) or an element can pick its own level in the builder.', 'bricks-motion-studio' ); ?></p>
 								</fieldset>
 
 								<?php // Marks the rule list as submitted, so removing every rule really clears it. ?>
@@ -713,7 +727,9 @@ class Admin {
 									<div id="bme-rules-body" role="rowgroup">
 										<?php
 										foreach ( $rules as $i => $rule ) {
-											$this->rule_row( $i, $rule );
+											if ( is_array( $rule ) ) { // a corrupted row must not take the whole screen down
+												$this->rule_row( $i, $rule );
+											}
 										}
 										?>
 									</div>
@@ -790,8 +806,8 @@ class Admin {
 											$this->number_row( 'defaults.stagger', __( 'Stagger', 'bricks-motion-studio' ), 0, 2, 0.01, 's', __( 'Between children and between words or letters.', 'bricks-motion-studio' ) );
 											$this->number_row( 'defaults.batch', __( 'Cascade', 'bricks-motion-studio' ), 0, 1, 0.01, 's', __( 'Between elements that enter the screen together, like grid items.', 'bricks-motion-studio' ) );
 											$this->number_row( 'defaults.offset', __( 'Start line', 'bricks-motion-studio' ), 0, 50, 1, '%', __( 'How far above the bottom of the screen an element starts.', 'bricks-motion-studio' ) );
-											$this->number_row( 'defaults.speed', __( 'Parallax speed', 'bricks-motion-studio' ), -2, 2, 0.05 );
-											$this->switch_row( 'defaults.replay', __( 'Replay when scrolling back up', 'bricks-motion-studio' ) );
+											$this->number_row( 'defaults.speed', __( 'Speed / intensity', 'bricks-motion-studio' ), -2, 2, 0.05 );
+											$this->switch_row( 'defaults.replay', __( 'Replay when scrolled back into view', 'bricks-motion-studio' ) );
 											?>
 										</div>
 

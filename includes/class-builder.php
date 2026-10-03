@@ -45,14 +45,15 @@ class Builder {
 					'nonce'  => wp_create_nonce( self::NONCE ),
 					'postId' => (int) get_the_ID(),
 					'i18n'   => array(
-						'invalid'   => __( 'This row is skipped:', 'bricks-motion-studio' ),
-						'fits'      => __( 'Values must suit the property: lengths for position and size, deg or turn for rotate, numbers or % for scale and opacity, colours for colours.', 'bricks-motion-studio' ),
-						'pair'      => __( 'Write keyframes as percent: value, separated by commas, e.g. 0: 40px, 100: 0px', 'bricks-motion-studio' ),
-						'empty'     => __( 'Add at least one keyframe, e.g. 0: 0, 100: 1', 'bricks-motion-studio' ),
+						/* translators: %s: the part of the keyframes text that is wrong */
+						'fits'      => __( 'This row is skipped. Values must suit the property: lengths for position and size, deg or turn for rotate, numbers or percent for scale and opacity, colors for colors. Check: "%s"', 'bricks-motion-studio' ),
+						/* translators: %s: the part of the keyframes text that is wrong */
+						'pair'      => __( 'This row is skipped. Write keyframes as percent: value, separated by commas, e.g. 0: 40px, 100: 0px. Check: "%s"', 'bricks-motion-studio' ),
+						'empty'     => __( 'This row is skipped. Add at least one keyframe, e.g. 0: 0, 100: 1', 'bricks-motion-studio' ),
 						'ok'        => __( 'Keyframes OK', 'bricks-motion-studio' ),
 						'dragHint'  => __( 'Drag a dot to move a keyframe; click the track to add one.', 'bricks-motion-studio' ),
-						/* translators: %s: keyframe position, e.g. 25 (the percent sign follows it) */
-						'keyframe'  => __( 'Keyframe at %s%', 'bricks-motion-studio' ),
+						/* translators: 1: keyframe position with its unit, e.g. 25%, 2: its value, e.g. 40px */
+						'keyframe'  => __( 'Keyframe at %1$s: %2$s', 'bricks-motion-studio' ),
 						'noPreview' => __( 'Nothing to preview: this element has no animation.', 'bricks-motion-studio' ),
 					),
 				)

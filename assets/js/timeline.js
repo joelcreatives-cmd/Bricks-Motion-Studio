@@ -47,6 +47,15 @@
 	// A second copy (scripts re-run by a page-transition plugin) would bind everything twice and
 	// read the first copy's styles as the design.
 	if ( w.__bmeTimelineLoaded ) {
+		// …but the running copy picks up what this page brought (a page-transition tool may
+		// have swapped the whole <body>).
+		try {
+			if ( w.BricksMotionTimeline ) {
+				w.BricksMotionTimeline.scan();
+			}
+		} catch ( e ) {
+			/* nothing to do */
+		}
 		return;
 	}
 	w.__bmeTimelineLoaded = true;
@@ -169,6 +178,35 @@
 
 	/* ---------- values ------------------------------------------------------ */
 
+	// Any CSS colour → [r, g, b, a] in sRGB, by painting one pixel (null when it isn't a colour).
+	var paint = null;
+	function pixel( colour ) {
+		try {
+			if ( ! paint ) {
+				var cv = d.createElement( 'canvas' );
+				cv.width = cv.height = 1;
+				paint = cv.getContext( '2d', { willReadFrequently: true } );
+			}
+			if ( ! paint ) {
+				return null;
+			}
+			paint.fillStyle = '#000';
+			paint.fillStyle = colour;
+			var one = paint.fillStyle;
+			paint.fillStyle = '#fff';
+			paint.fillStyle = colour;
+			if ( one !== paint.fillStyle ) {
+				return null; // not a colour: the assignment was ignored
+			}
+			paint.clearRect( 0, 0, 1, 1 );
+			paint.fillRect( 0, 0, 1, 1 );
+			var px = paint.getImageData( 0, 0, 1, 1 ).data;
+			return [ px[ 0 ], px[ 1 ], px[ 2 ], px[ 3 ] / 255 ];
+		} catch ( e ) {
+			return null;
+		}
+	}
+
 	// '12.5%' → {n: 12.5, u: '%'}; colours → {c: [r, g, b, a]}.
 	function parse( v, prop ) {
 		var word = String( v ).trim();
@@ -202,6 +240,13 @@
 					return isFinite( f ) ? f : 0;
 				} );
 				return { c: [ p[ 0 ] || 0, p[ 1 ] || 0, p[ 2 ] || 0, p.length > 3 ? Math.min( 1, Math.max( 0, p[ 3 ] ) ) : 1 ] };
+			}
+			// Browsers report oklch(), oklab(), color(), color-mix()… in that format: draw it to read sRGB.
+			if ( /^(oklch|oklab|lab|lch|color|color-mix|hwb|hsla?)\(/i.test( s ) ) {
+				var px = pixel( s );
+				if ( px ) {
+					return { c: px };
+				}
 			}
 			return { raw: s, col: true }; // named, hsl(), var(): resolved on the element (resolveColour)
 		}
@@ -469,7 +514,8 @@
 		if ( prop === 'scaleX' || prop === 'scaleY' ) {
 			return { n: b ? b[ prop ] : 1, u: '' };
 		}
-		return { n: 1, u: '' }; // scale
+		// scale replaces both axes: a uniformly scaled design (scale(1.2)) starts from that, not from 1.
+		return { n: b && Math.abs( b.scaleX - b.scaleY ) < 1e-6 ? b.scaleX : 1, u: '' };
 	}
 
 	function put( st, el, cssProp, value ) {
@@ -615,7 +661,6 @@
 
 	// Can this value be written to this property? (translate(10deg) or width: 1turn would make the
 	// browser drop the whole declaration, taking the element's other transform parts with it.)
-	var ANGLE = { deg: 1, turn: 1 };
 	function fits( v, prop ) {
 		var colour = prop === 'color' || prop === 'backgroundColor';
 		if ( v.auto ) {
@@ -825,7 +870,18 @@
 		return !! ( el.offsetWidth || el.offsetHeight || el.getClientRects().length );
 	}
 
+	// ScrollTrigger pins (position: fixed while pinned) move what the ranges are measured on. GSAP
+	// loads after this script, so look again later too.
+	var pinsHooked = false;
+	function hookPins() {
+		if ( ! pinsHooked && w.ScrollTrigger && w.ScrollTrigger.addEventListener ) {
+			pinsHooked = true;
+			w.ScrollTrigger.addEventListener( 'refresh', measureSoon );
+		}
+	}
+
 	function measure() {
+		hookPins();
 		var vh = w.innerHeight;
 		var putBack = refreshDesigns();
 		var restick = function () {};
@@ -853,6 +909,30 @@
 		redraw = redraw.filter( function ( item ) {
 			return item.g.root.isConnected;
 		} );
+		// A removed timeline (closed AJAX popup…) hands back what it wrote on elements outside it
+		// (page: targets) that no other timeline uses.
+		var gone = liveRoots.filter( function ( r ) {
+			return ! r.root.isConnected;
+		} );
+		if ( gone.length ) {
+			liveRoots = liveRoots.filter( function ( r ) {
+				return r.root.isConnected;
+			} );
+			var used = new Set();
+			liveRoots.forEach( function ( r ) {
+				r.els.forEach( function ( el ) {
+					used.add( el );
+				} );
+			} );
+			gone.forEach( function ( r ) {
+				r.els.forEach( function ( el ) {
+					if ( el.isConnected && ! used.has( el ) && states.has( el ) ) {
+						restoreProps( states.get( el ), el );
+						states.delete( el );
+					}
+				} );
+			} );
+		}
 		cleanups = cleanups.filter( function ( item ) {
 			if ( item.root && ! item.root.isConnected ) {
 				item.fn();
@@ -1013,6 +1093,7 @@
 	/* ---------- binding ----------------------------------------------------- */
 
 	var cleanups = [];
+	var liveRoots = []; // { root, els }: every element a timeline writes to
 	var loopers = []; // loop timelines: { g, go } (BricksMotion.pauseAll / data-bme-pause-toggle)
 	var loopsPaused = false;
 
@@ -1264,6 +1345,15 @@
 				return; // one broken timeline never stops the others
 			}
 			fresh.push( groups );
+			var els = new Set();
+			groups.forEach( function ( g ) {
+				g.rows.forEach( function ( r ) {
+					r.els.forEach( function ( el ) {
+						els.add( el );
+					} );
+				} );
+			} );
+			liveRoots.push( { root: root, els: els } );
 			// Read every designed value before the first write (no forced layout per element).
 			groups.forEach( function ( g ) {
 				g.rows.forEach( function ( r ) {
@@ -1296,6 +1386,7 @@
 			item.fn();
 		} );
 		cleanups = [];
+		liveRoots = [];
 		loopers = [];
 		scrollers = [];
 		viewers = [];
@@ -1379,10 +1470,8 @@
 				measureSoon();
 			}
 		} );
-		// ScrollTrigger pins (position: fixed while pinned) move what the ranges are measured on.
-		if ( w.ScrollTrigger && w.ScrollTrigger.addEventListener ) {
-			w.ScrollTrigger.addEventListener( 'refresh', measureSoon );
-		}
+		hookPins();
+		w.addEventListener( 'load', hookPins );
 		// Separate timers: a layout change (ResizeObserver) must never cancel a pending
 		// breakpoint rebuild, or rows for the old screen size would stay applied.
 		var resizeTimer = 0;
@@ -1411,13 +1500,10 @@
 			}, 150 );
 		} );
 		// Late layout changes (fonts, images without dimensions) move the scroll ranges.
-		if ( 'ResizeObserver' in w ) {
-			var ro = new w.ResizeObserver( function () {
-				clearTimeout( layoutTimer );
-				layoutTimer = setTimeout( remeasure, 100 );
-			} );
-			ro.observe( d.body );
-		}
+		var ro = 'ResizeObserver' in w ? new w.ResizeObserver( function () {
+			clearTimeout( layoutTimer );
+			layoutTimer = setTimeout( remeasure, 100 );
+		} ) : null;
 		// Visitor switches reduced motion on or off while the page is open.
 		var onReduce = function () {
 			band = bandNow();
@@ -1430,6 +1516,8 @@
 		}
 		// Bricks: AJAX content brings new timelines; shown popups / tabs / accordions move things.
 		var scanNow = function () {
+			pressed();
+			watchBody();
 			if ( running ) {
 				init();
 			} else {
@@ -1440,21 +1528,35 @@
 			d.addEventListener( evt, scanNow );
 		} );
 		// Content other scripts insert (filter plugins, custom fetch) fires no Bricks event.
-		if ( 'MutationObserver' in w && d.body ) {
-			var addedTimer = 0;
-			new w.MutationObserver( function ( list ) {
-				for ( var i = 0; i < list.length; i++ ) {
-					for ( var j = 0; j < list[ i ].addedNodes.length; j++ ) {
-						var n = list[ i ].addedNodes[ j ];
-						if ( n.nodeType === 1 && ( n.hasAttribute( 'data-bme-tl' ) || n.querySelector( '[data-bme-tl]' ) ) ) {
-							clearTimeout( addedTimer );
-							addedTimer = setTimeout( scanNow, 30 );
-							return;
-						}
+		var addedTimer = 0;
+		var mo = 'MutationObserver' in w ? new w.MutationObserver( function ( list ) {
+			for ( var i = 0; i < list.length; i++ ) {
+				for ( var j = 0; j < list[ i ].addedNodes.length; j++ ) {
+					var n = list[ i ].addedNodes[ j ];
+					if ( n.nodeType === 1 && ( n.matches( '[data-bme-tl], [data-bme-pause-toggle]' ) || n.querySelector( '[data-bme-tl], [data-bme-pause-toggle]' ) ) ) {
+						clearTimeout( addedTimer );
+						addedTimer = setTimeout( scanNow, 30 );
+						return;
 					}
 				}
-			} ).observe( d.body, { childList: true, subtree: true } );
-		}
+			}
+		} ) : null;
+		// The body these observers watch (again after a page-transition tool swapped it).
+		var watched = null;
+		var watchBody = function () {
+			if ( d.body && d.body !== watched ) {
+				watched = d.body;
+				if ( ro ) {
+					ro.disconnect();
+					ro.observe( d.body );
+				}
+				if ( mo ) {
+					mo.disconnect();
+					mo.observe( d.body, { childList: true, subtree: true } );
+				}
+			}
+		};
+		watchBody();
 		[ 'bricks/popup/open', 'bricks/accordion/open', 'bricks/accordion/close', 'bricks/tabs/changed' ].forEach( function ( evt ) {
 			d.addEventListener( evt, function () {
 				if ( running ) {

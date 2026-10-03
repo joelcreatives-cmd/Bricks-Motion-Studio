@@ -931,7 +931,10 @@
 						} catch ( e ) {
 							log( 'Loop pause failed', rec.el, e );
 						}
-					} else if ( rec.played && rec.cfg.replay && entry.boundingClientRect.top > 0 ) {
+					} else if ( rec.played && rec.cfg.replay && entry.boundingClientRect.top >= ( window.innerHeight || html.clientHeight ) ) {
+						// Replay once it is fully below the screen again: resetting as soon as it dips under
+						// the start line would raise "fade down" / "zoom out" start states back over it and
+						// play again by themselves, forever. (sweepNow resets the ones that leave later.)
 						reset( rec );
 					}
 				} );
@@ -977,7 +980,12 @@
 		// the next box after a write would force a fresh style + layout pass per element.
 		var passed = [];
 		var reached = [];
+		var replays = [];
 		records.forEach( function ( rec ) {
+			if ( rec.played && rec.cfg.replay && ! rec.busy && rec.observer && ! rec.persistent && rec.el.isConnected && /^(reveal|text|draw|counter)$/.test( rec.kind ) && rec.el.getBoundingClientRect().top >= vh ) {
+				replays.push( rec ); // scrolled back up past it: ready to play again
+				return;
+			}
 			if ( rec.played || rec.inert || ! rec.observer || ! /^(reveal|text|draw|counter)$/.test( rec.kind ) || ! rec.el.isConnected ) {
 				return;
 			}
@@ -997,6 +1005,7 @@
 				reached.push( rec );
 			}
 		} );
+		replays.forEach( reset );
 		passed.forEach( function ( rec ) {
 			if ( ! rec.cfg.replay ) {
 				unwatch( rec ); // replays keep their observer: they play again when scrolled back to
@@ -1336,6 +1345,19 @@
 		if ( ! records.has( rec ) ) {
 			return;
 		}
+		// Line splits are measured on the text as it renders: wait (briefly) for the web fonts, or the
+		// lines re-wrap mid-animation when the font swaps in.
+		if ( rec.kind === 'text' && rec.cfg.preset && rec.cfg.preset.split === 'lines' && ! rec.fontsWaited && document.fonts && document.fonts.status !== 'loaded' ) {
+			rec.fontsWaited = true;
+			var again = function () {
+				if ( ! rec.played && ! rec.busy ) {
+					safePlay( rec, extraDelay );
+				}
+			};
+			document.fonts.ready.then( again, again );
+			setTimeout( again, 1200 );
+			return;
+		}
 		try {
 			play( rec, extraDelay );
 		} catch ( e ) {
@@ -1349,7 +1371,9 @@
 		var c = rec.cfg;
 		var n = Math.max( 1, rec.targets.length, rec.split ? rec.split.pieces.length : 1, rec.paths ? rec.paths.length : 1 );
 		// Real piece count: a 400-character typewriter legitimately runs for many seconds.
-		var ms = ( c.duration + c.delay + ( extraDelay === undefined ? rec.lastExtra || 0 : extraDelay ) + c.stagger * n ) * 1000 + 1500;
+		// Generous: a busy or slow device stretches animations (GSAP lag smoothing, dropped frames), and
+		// finishing one early would make it jump to its end.
+		var ms = ( c.duration + c.delay + ( extraDelay === undefined ? rec.lastExtra || 0 : extraDelay ) + c.stagger * n ) * 1500 + 3000;
 		clearTimeout( rec.watchdog );
 		rec.watchdog = setTimeout( function () {
 			if ( rec.busy && rec.el.isConnected ) {
@@ -1476,6 +1500,10 @@
 		var targets = split ? split.pieces : [ el ];
 		var from = lcpSafe( rec.fade ? { opacity: 0 } : resolveProps( p.from || { opacity: 0 }, c ) );
 		var to = toProps( from, rec.fade ? null : p.to, c );
+		// Not split (gentle fades, mixed right-to-left text): end at the element's designed opacity.
+		if ( ! split && typeof to.opacity === 'number' && restOf( el ) && restOf( el ).o < 0.999 ) {
+			to.opacity = restOf( el ).o;
+		}
 		var stagger = c.stagger;
 
 		// Line reveals with the core splitter: every word of a line shares the line's delay.
@@ -1538,6 +1566,7 @@
 		if ( rec.numberNode ) {
 			rec.numberNode.nodeValue = rec.numberOriginal;
 			rec.el.style.removeProperty( 'font-variant-numeric' );
+			counterSrOff( rec );
 			if ( rec.counterWidth > 0 ) {
 				rec.el.style.removeProperty( 'min-width' );
 			}
@@ -1912,6 +1941,20 @@
 		return ( v < 0 ? '-' : '' ) + parts.join( fmt.decimalSep );
 	}
 
+	// Undo the screen-reader copy of a counter: the number goes back to where it was.
+	function counterSrOff( rec ) {
+		var parts = rec.counterSr;
+		if ( ! parts ) {
+			return;
+		}
+		rec.counterSr = null;
+		if ( parts[ 0 ].parentNode && rec.numberNode ) {
+			parts[ 0 ].parentNode.insertBefore( rec.numberNode, parts[ 0 ] );
+		}
+		parts[ 0 ].remove();
+		parts[ 1 ].remove();
+	}
+
 	function setupCounter( rec ) {
 		var node = rec.numberNode || numberNode( rec.el );
 		if ( ! node ) {
@@ -1950,6 +1993,18 @@
 		if ( rec.counterWidth > 0 ) {
 			rec.el.style.minWidth = rec.counterWidth + 'px';
 		}
+		// Screen readers get the real number while the visible one counts (or still shows 0).
+		if ( ! rec.counterSr && node.parentNode ) {
+			var wrap = document.createElement( 'span' );
+			wrap.setAttribute( 'aria-hidden', 'true' );
+			var sr = document.createElement( 'span' );
+			sr.className = 'bme-sr-only';
+			sr.textContent = node.nodeValue;
+			node.parentNode.insertBefore( sr, node );
+			node.parentNode.insertBefore( wrap, node );
+			wrap.appendChild( node );
+			rec.counterSr = [ wrap, sr ];
+		}
 		node.nodeValue = rec.numberPrefix + formatNumber( 0, rec.numberFmt ) + rec.numberSuffix;
 		rec.el.style.fontVariantNumeric = 'tabular-nums';
 	}
@@ -1971,6 +2026,7 @@
 			complete: function () {
 				rec.numberNode.nodeValue = rec.numberOriginal;
 				rec.el.style.removeProperty( 'font-variant-numeric' );
+				counterSrOff( rec );
 				if ( rec.counterWidth > 0 ) {
 					rec.el.style.removeProperty( 'min-width' );
 				}
@@ -2533,6 +2589,18 @@
 
 	var previewScan = false;
 
+	// Set an element up again after the runtime itself took it down (font swap, screen-size switch):
+	// in the builder canvas too, where only previewed elements have records.
+	function rescan( el ) {
+		var was = previewScan;
+		previewScan = true;
+		try {
+			scan( el );
+		} finally {
+			previewScan = was;
+		}
+	}
+
 	function scan( root ) {
 		// Builder canvas: nothing animates on its own while you edit; only the live preview
 		// (builder-canvas.js → BricksMotion.refresh) sets elements up.
@@ -2654,6 +2722,10 @@
 				}
 			} );
 			runSetup( rec );
+			if ( rec.playWhenReady ) {
+				rec.playWhenReady = false;
+				api.play( rec.el );
+			}
 			sweep();
 		} );
 	} ) : null;
@@ -2686,6 +2758,7 @@
 			if ( rec.numberNode ) {
 				rec.numberNode.nodeValue = rec.numberOriginal;
 				rec.el.style.removeProperty( 'font-variant-numeric' );
+				counterSrOff( rec );
 				if ( rec.counterWidth > 0 ) {
 					rec.el.style.removeProperty( 'min-width' );
 				}
@@ -2956,7 +3029,7 @@
 				ts.forEach( function ( t ) {
 					resting.delete( t );
 				} );
-				scan( rec.el );
+				rescan( rec.el );
 			} );
 		};
 		var band = screenBand();
@@ -2974,7 +3047,7 @@
 					el.classList.remove( 'bme-hover-lift', 'bme-hover-grow' ); // magnetic / tilt check offHere() themselves
 				} else if ( ! rec || rec.skipped ) {
 					byEl.delete( el );
-					scan( el );
+					rescan( el );
 					var hv = el.getAttribute( 'data-bme-hover' );
 					if ( ( hv === 'lift' || hv === 'grow' ) && ! destroyedEls.has( el ) && ! ( hv === 'lift' && elementParallax( el ) ) ) {
 						el.classList.add( 'bme-hover-' + hv );
@@ -3110,17 +3183,16 @@
 		foreign: { anime: window.anime, lenis: window.lenis, motion: window.Motion },
 		registerAdapter: registerAdapter,
 		refresh: function ( root ) {
+			// An element, a selector, a list or Bricks' %brx% (like play / reset / destroy), or everything.
+			var roots = ! root || root === document ? [ document ] : resolveTargets( root );
 			destroyedEls.forEach( function ( el ) {
-				if ( ! root || root === document || root === el || ( root.contains && root.contains( el ) ) ) {
-					destroyedEls.delete( el );
-				}
+				roots.forEach( function ( r ) {
+					if ( r === document || r === el || ( r.contains && r.contains( el ) ) ) {
+						destroyedEls.delete( el );
+					}
+				} );
 			} );
-			previewScan = true;
-			try {
-				scan( root || document );
-			} finally {
-				previewScan = false;
-			}
+			roots.forEach( rescan );
 			refreshSoon();
 		},
 		/**
@@ -3135,6 +3207,11 @@
 			resolveTargets( target ).forEach( function ( el ) {
 				var rec = byEl.get( el );
 				if ( ! rec || rec.skipped || rec.inert || rec.persistent ) {
+					return;
+				}
+				// Not set up yet (inside a popup that is only now opening): play once it has a size.
+				if ( waiting.has( el ) ) {
+					rec.playWhenReady = true;
 					return;
 				}
 				if ( rec.kind === 'loop' ) {
@@ -3219,7 +3296,19 @@
 	// starts right away instead of waiting for `load`.
 	var nav = window.performance && performance.getEntriesByType ? performance.getEntriesByType( 'navigation' )[ 0 ] : null;
 	if ( document.readyState === 'complete' || ( nav && nav.domContentLoadedEventStart > 0 ) ) {
-		setTimeout( start, 0 );
+		// …once the engines injected along with it have registered (up to 3 s), so elements set to
+		// a specific engine keep it.
+		var since = Date.now();
+		( function whenEngines() {
+			var missing = ( cfg.engines || [] ).some( function ( name ) {
+				return name !== 'native' && ! adapters[ name ];
+			} );
+			if ( ! missing || Date.now() - since > 3000 ) {
+				start();
+			} else {
+				setTimeout( whenEngines, 50 );
+			}
+		} )();
 	} else {
 		document.addEventListener( 'DOMContentLoaded', start );
 		window.addEventListener( 'load', start );

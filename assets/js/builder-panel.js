@@ -111,14 +111,20 @@
 		if ( ! btn || ! text ) {
 			return;
 		}
-		var n = btn.parentNode.querySelector( '.bme-preview-note' ) || d.createElement( 'span' );
-		n.className = 'bme-preview-note';
-		n.setAttribute( 'role', 'status' );
-		n.textContent = text;
-		btn.parentNode.appendChild( n );
+		var n = btn.parentNode.querySelector( '.bme-preview-note' );
+		if ( ! n ) {
+			// The status region must exist before its text arrives, or screen readers skip it.
+			n = d.createElement( 'span' );
+			n.className = 'bme-preview-note';
+			n.setAttribute( 'role', 'status' );
+			btn.parentNode.appendChild( n );
+		}
 		setTimeout( function () {
-			n.textContent = '';
-		}, 4000 );
+			n.textContent = text;
+			setTimeout( function () {
+				n.textContent = '';
+			}, 4000 );
+		}, 50 );
 	}
 
 	function watchSettings() {
@@ -160,7 +166,7 @@
 	// Mirrors Bricks_Integration::timeline_keys(): what the live page accepts for each property.
 	var NUM = '-?(?:\\d+\\.?\\d*|\\.\\d+)';
 	var LEN = NUM + '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)?';
-	var COLOUR = 'transparent|currentcolor|[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\\(--[a-z0-9_-]+\\)' +
+	var COLOUR = 'transparent|currentcolor|(?!overflow\\b)[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\\(--[a-z0-9_-]+\\)' +
 		'|rgba?\\((?:\\d+(?:\\.\\d+)?%?)(?:[, ]\\d+(?:\\.\\d+)?%?){2}(?:[,/](?:\\d*\\.?\\d+%?))?\\)' +
 		'|hsla?\\(' + NUM + '(?:deg|turn)?(?:[, ]\\d+(?:\\.\\d+)?%?){2}(?:[,/](?:\\d*\\.?\\d+%?))?\\)';
 	function allowed( prop ) {
@@ -192,11 +198,11 @@
 			}
 			var m = /^\s*(-?(?:\d+(?:\.\d+)?|\.\d+))\s*%?\s*:\s*(.+?)\s*$/.exec( part );
 			if ( ! m ) {
-				return { pairs: pairs, error: t.pair + ' — "' + part.trim() + '"' };
+				return { pairs: pairs, error: say( t.pair || 'This row is skipped: "%s"', part.trim() ) };
 			}
 			var value = m[ 2 ].replace( /\s+/g, ' ' ).replace( /\s*([,/()])\s*/g, '$1' ).replace( /^(-?\d*\.?\d+) ([a-z%]+)$/i, '$1$2' );
 			if ( ! re.test( value ) || /^(none|inherit|initial|unset|revert)$/i.test( value ) ) {
-				return { pairs: pairs, error: t.fits + ' — "' + value + '"' };
+				return { pairs: pairs, error: say( t.fits || 'This row is skipped: "%s"', value ) };
 			}
 			pairs.push( [ Math.min( 100, Math.max( 0, parseFloat( m[ 1 ] ) ) ), m[ 2 ].trim() ] );
 		}
@@ -204,6 +210,11 @@
 			return { pairs: pairs, error: t.empty };
 		}
 		return { pairs: pairs, error: '' };
+	}
+
+	// A whole translated sentence with its placeholder filled in (never pieces joined together).
+	function say( text, a, b ) {
+		return String( text ).replace( '%1$s', a ).replace( '%2$s', b ).replace( '%s', a );
 	}
 
 	// Positions keep the precision the server keeps (3 decimals): moving one dot never rounds the others.
@@ -248,7 +259,8 @@
 		var item = input.closest( 'li.repeater-item' );
 		var box = d.createElement( 'div' );
 		box.className = 'bme-kf';
-		box.innerHTML = '<div class="bme-kf__track" title="' + ( t.dragHint || '' ) + '"></div><div class="bme-kf__msg" role="status"></div>';
+		box.innerHTML = '<div class="bme-kf__track"></div><div class="bme-kf__msg" role="status"></div>';
+		box.firstChild.title = t.dragHint || ''; // set as text: a translation may hold quotes
 		field.appendChild( box );
 		// Line up with the field above (the builder pads its controls, not their wrapper).
 		var control = field.querySelector( '.control' );
@@ -263,7 +275,10 @@
 
 		function render() {
 			var res = parseKeys( input.value, rowProp( item ) );
-			msg.textContent = res.error ? ( t.invalid || '' ) + ' ' + res.error : t.ok || '';
+			var text = res.error || t.ok || '';
+			if ( msg.textContent !== text ) {
+				msg.textContent = text; // only when it changes: screen readers announce every write
+			}
 			box.classList.toggle( 'is-invalid', !! res.error );
 			track.textContent = '';
 			res.pairs.forEach( function ( p, i ) {
@@ -275,8 +290,9 @@
 				dot.setAttribute( 'aria-valuemin', '0' );
 				dot.setAttribute( 'aria-valuemax', '100' );
 				dot.setAttribute( 'aria-valuenow', String( round( p[ 0 ] ) ) );
+				dot.setAttribute( 'aria-valuetext', round( p[ 0 ] ) + '%' );
 				dot.style.left = p[ 0 ] + '%';
-				dot.setAttribute( 'aria-label', ( t.keyframe || '%s%' ).replace( '%s', String( round( p[ 0 ] ) ) ) + ': ' + p[ 1 ] );
+				dot.setAttribute( 'aria-label', say( t.keyframe || 'Keyframe at %1$s: %2$s', round( p[ 0 ] ) + '%', p[ 1 ] ) );
 				dot.title = round( p[ 0 ] ) + '%: ' + p[ 1 ];
 				dot.dataset.i = String( i );
 				track.appendChild( dot );
@@ -290,22 +306,32 @@
 		}
 
 		track.addEventListener( 'pointerdown', function ( e ) {
+			if ( e.button !== 0 ) {
+				return; // right / middle click: no new keyframe
+			}
 			var dot = e.target.closest( '.bme-kf__dot' );
 			var res = parseKeys( input.value, rowProp( item ) );
 			if ( res.error ) {
 				return; // fix the text first: editing now would drop the pairs after the bad one
 			}
 			if ( dot ) {
-				dragging = { i: +dot.dataset.i, pairs: res.pairs };
-				track.setPointerCapture( e.pointerId );
+				dragging = { i: +dot.dataset.i, pairs: res.pairs, from: res.pairs[ +dot.dataset.i ][ 0 ] };
+				try {
+					track.setPointerCapture( e.pointerId );
+				} catch ( err ) {
+					/* pointer already gone (synthetic event, released between frames) */
+				}
 				e.preventDefault();
 				return;
 			}
 			// Click on the track: a new keyframe there, holding the value of the one before it.
 			var at = pctAt( e );
-			var before = res.pairs.filter( function ( p ) {
+			var sorted = res.pairs.slice().sort( function ( a, b ) {
+				return a[ 0 ] - b[ 0 ];
+			} );
+			var before = sorted.filter( function ( p ) {
 				return p[ 0 ] <= at;
-			} ).pop() || res.pairs[ 0 ];
+			} ).pop() || sorted[ 0 ];
 			if ( before ) {
 				res.pairs.push( [ at, before[ 1 ] ] );
 				write( input, res.pairs );
@@ -321,13 +347,42 @@
 				}
 			}
 		} );
-		track.addEventListener( 'pointerup', function () {
-			if ( dragging ) {
-				write( input, dragging.pairs );
-				dragging = null;
-				render();
+		// Write once the drag ends, only if the keyframe really moved (a plain click on a dot keeps
+		// the text, the undo history and the focus), and keep focus on the dragged dot.
+		function endDrag( commit ) {
+			if ( ! dragging ) {
+				return;
 			}
+			var drag = dragging;
+			dragging = null;
+			var moved = drag.pairs[ drag.i ];
+			if ( commit && moved[ 0 ] !== drag.from ) {
+				write( input, drag.pairs );
+			} else {
+				moved[ 0 ] = drag.from;
+			}
+			render();
+			focusPair( drag.pairs, moved );
+		}
+		track.addEventListener( 'pointerup', function () {
+			endDrag( true );
 		} );
+		track.addEventListener( 'pointercancel', function () {
+			endDrag( false );
+		} );
+		track.addEventListener( 'lostpointercapture', function () {
+			endDrag( true );
+		} );
+
+		function focusPair( pairs, pair ) {
+			var order = pairs.slice().sort( function ( a, b ) {
+				return a[ 0 ] - b[ 0 ];
+			} );
+			var dot = track.children[ order.indexOf( pair ) ];
+			if ( dot ) {
+				dot.focus();
+			}
+		}
 		track.addEventListener( 'keydown', function ( e ) {
 			var dot = e.target.closest( '.bme-kf__dot' );
 			if ( ! dot ) {
@@ -339,8 +394,11 @@
 				return;
 			}
 			var step = e.shiftKey ? 10 : 1;
-			if ( e.key === 'ArrowLeft' || e.key === 'ArrowRight' ) {
-				res.pairs[ i ][ 0 ] = Math.min( 100, Math.max( 0, res.pairs[ i ][ 0 ] + ( e.key === 'ArrowLeft' ? -step : step ) ) );
+			// Slider keys: arrows ±1 (Shift ±10), Page Up / Down ±10, Home / End to 0 / 100.
+			var delta = { ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step, PageDown: -10, PageUp: 10 }[ e.key ];
+			if ( delta !== undefined || e.key === 'Home' || e.key === 'End' ) {
+				var to = e.key === 'Home' ? 0 : e.key === 'End' ? 100 : res.pairs[ i ][ 0 ] + delta;
+				res.pairs[ i ][ 0 ] = Math.min( 100, Math.max( 0, to ) );
 			} else if ( ( e.key === 'Delete' || e.key === 'Backspace' ) && res.pairs.length > 1 ) {
 				res.pairs.splice( i, 1 );
 			} else {
@@ -352,13 +410,7 @@
 			render();
 			// Keep focus on the moved keyframe (or the neighbour of a deleted one); sorting may
 			// have changed its index, and write() sorts the same way.
-			var order = res.pairs.slice().sort( function ( a, b ) {
-				return a[ 0 ] - b[ 0 ];
-			} );
-			var focusDot = track.children[ order.indexOf( moved ) ];
-			if ( focusDot ) {
-				focusDot.focus();
-			}
+			focusPair( res.pairs, moved );
 		} );
 		input.addEventListener( 'input', render );
 		render();

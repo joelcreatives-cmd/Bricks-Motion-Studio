@@ -24,7 +24,7 @@ async function run( mode ) {
 	page.on( 'console', ( m ) => {
 		if ( /Animation failed|Watchdog finished|No engine available|Could not initialize|Start failed|Loop (resume|pause) failed/.test( m.text() ) ) errors.push( 'runtime: ' + m.text().replace( /%c|color:[^;]*;font-weight:\d+/g, '' ).trim().slice( 0, 160 ) );
 	} );
-	await page.goto( 'http://localhost:8765/', { waitUntil: 'networkidle0' } );
+	await page.goto( 'http://localhost:' + server.address().port + '/', { waitUntil: 'networkidle0' } );
 	// Hidden start states must be opacity .01, never 0: Chrome drops elements painted at 0 from LCP
 	// (compositor fades never repaint), so a hero image would stop counting as the largest paint.
 	const zeroStarts = mode === 'default' ? await page.evaluate( () => [ ...document.querySelectorAll( '[data-bme], [data-bme] *' ) ].filter( ( e ) => e.style && e.style.opacity === '0' ).length ) : 0;
@@ -566,6 +566,64 @@ async function run( mode ) {
 		return fail;
 	}, mode );
 	res.fail.push( ...c9Fail );
+	// Final QA pass (data-case10: elements are added by the test itself).
+	if ( mode === 'default' ) {
+		const c10Fail = await page.evaluate( async () => {
+			const fail = [];
+			const wait = ( ms ) => new Promise( ( r ) => setTimeout( r, ms ) );
+			const spacer = document.createElement( 'div' );
+			spacer.style.height = '1500px';
+			spacer.setAttribute( 'data-case10', '' );
+			document.body.appendChild( spacer );
+			const add = ( html ) => {
+				const box = document.createElement( 'div' );
+				box.innerHTML = html;
+				const el = box.firstElementChild;
+				el.setAttribute( 'data-case10', '' );
+				document.body.insertBefore( el, spacer );
+				return el;
+			};
+			const show = ( el ) => el.scrollIntoView( { block: 'center', behavior: 'instant' } );
+			const tlAttr = ( rows ) => "data-bme-tl='" + JSON.stringify( rows ) + "'";
+			// Rotation from degrees to turns blends the long way round (90deg → 1turn = 360deg).
+			const rt = add( '<div style="width:40px;height:40px" ' + tlAttr( [ { on: 'view', p: 'rotate', k: [ [ 0, '90deg' ], [ 100, '1turn' ] ], d: 2, e: 'linear', o: 0 } ] ) + '>r</div>' );
+			show( rt ); await wait( 1000 );
+			const m = new DOMMatrix( getComputedStyle( rt ).transform );
+			const deg = ( ( Math.atan2( m.b, m.a ) * 180 ) / Math.PI + 360 ) % 360;
+			if ( ! ( deg > 150 && deg < 300 ) ) fail.push( 'deg → turn rotation did not blend (at ' + Math.round( deg ) + 'deg halfway)' );
+			// A uniformly scaled design: an "auto" scale start begins at the design, not at 1.
+			const sc = add( '<div style="transform:scale(1.2);width:40px;height:40px" ' + tlAttr( [ { on: 'view', p: 'scale', k: [ [ 0, 'auto' ], [ 100, '1.5' ] ], d: 2, e: 'linear', o: 0 } ] ) + '>s</div>' );
+			show( sc ); await wait( 150 );
+			const s0 = new DOMMatrix( getComputedStyle( sc ).transform ).a;
+			if ( s0 < 1.15 ) fail.push( 'auto scale started from 1 instead of the designed 1.2 (' + s0.toFixed( 3 ) + ')' );
+			// Modern colour formats blend (oklch design → red).
+			const oc = add( '<div style="color:oklch(0.7 0.1 250)" ' + tlAttr( [ { on: 'view', p: 'color', k: [ [ 0, 'auto' ], [ 100, '#ff0000' ] ], d: 2, e: 'linear', o: 0 } ] ) + '>oklch</div>' );
+			show( oc ); await wait( 1000 );
+			const mid = getComputedStyle( oc ).color;
+			if ( ! /rgba?\(/.test( mid ) || /rgb\(255, 0, 0\)/.test( mid ) ) fail.push( 'oklch colour did not blend: ' + mid );
+			// Replay on a "fade down" element resting just under the start line doesn't loop by itself.
+			const rp = add( '<div data-bme="fade-down" data-bme-engine="native" data-bme-replay="1" style="height:40px">replay</div>' );
+			BricksMotion.refresh( rp );
+			window.scrollTo( 0, rp.getBoundingClientRect().top + window.scrollY - innerHeight * 0.88 + 20 ); await wait( 200 );
+			let plays = 0; const count = ( e ) => { if ( e.target === rp ) plays++; };
+			document.addEventListener( 'bme:play', count );
+			await wait( 3500 );
+			document.removeEventListener( 'bme:play', count );
+			if ( plays > 1 ) fail.push( 'replay element played ' + plays + ' times without scrolling' );
+			// refresh() takes a selector like play / reset / destroy.
+			try { BricksMotion.refresh( '[data-case10]' ); } catch ( e ) { fail.push( 'refresh(selector) threw: ' + e.message ); }
+			// Counters: screen readers get the real number while it shows 0.
+			const ct = add( '<p data-bme="counter" style="margin-top:1200px">1,250 clients</p>' );
+			BricksMotion.refresh( ct ); await wait( 100 );
+			const srText = ( ct.querySelector( '.bme-sr-only' ) || {} ).textContent || '';
+			if ( ! /1,250/.test( srText ) ) fail.push( 'counter has no screen-reader copy of its number (' + srText + ')' );
+			show( ct ); await wait( 2600 );
+			if ( ct.querySelector( '.bme-sr-only, [aria-hidden]' ) || ct.textContent !== '1,250 clients' ) fail.push( 'counter markup not restored after counting: ' + ct.innerHTML );
+			document.querySelectorAll( '[data-case10]' ).forEach( ( e ) => e.remove() );
+			return fail;
+		} );
+		res.fail.push( ...c10Fail );
+	}
 	// Timeline rebuild across 992px restores only what it wrote (another script's inline style stays).
 	if ( mode === 'default' ) {
 		await page.evaluate( () => { const k = document.querySelector( '[data-case4="qa-tl-keep"]' ); k.style.outline = '3px solid red'; } );
@@ -589,6 +647,19 @@ async function run( mode ) {
 	const still = Object.entries( moving ).filter( ( [ k, v ] ) => /parallax|scroll-(fade|scale|rotate)|float|pulse|sway|spin|marquee/.test( k ) && v.size < 2 ).map( ( [ k ] ) => k );
 	if ( mode === 'default' && still.length ) res.fail.push( 'not moving: ' + still.join( ', ' ) );
 	if ( mode === 'reduced' && Object.entries( moving ).some( ( [ k, v ] ) => /float|pulse|sway|spin|marquee/.test( k ) && v.size > 1 ) ) res.fail.push( 'loops move under reduced motion' );
+	// 3D scenes download, parse and draw their first frame in software on CI machines: give them time.
+	if ( res.three.length ) {
+		res.three = await page.evaluate( async ( cases ) => {
+			const el = ( c ) => document.querySelector( '[data-case="' + c + '"]' );
+			for ( let i = 0; i < 100; i++ ) {
+				const left = cases.filter( ( c ) => el( c ) && ! el( c ).classList.contains( 'bme-3d-ready' ) );
+				if ( ! left.length ) return [];
+				el( left[ 0 ] ).scrollIntoView( { block: 'center', behavior: 'instant' } );
+				await new Promise( ( r ) => setTimeout( r, 200 ) );
+			}
+			return cases.filter( ( c ) => el( c ) && ! el( c ).classList.contains( 'bme-3d-ready' ) ).map( ( c ) => c + ' (' + el( c ).className + ')' );
+		}, res.three );
+	}
 	if ( res.three.length ) res.fail.push( '3D not mounted: ' + res.three.join( ', ' ) );
 	if ( playLoopBroken ) res.fail.push( 'audit: BricksMotion.play() stopped a loop' );
 	if ( zeroStarts ) res.fail.push( zeroStarts + ' hidden start states use opacity 0 (must be .01 for LCP)' );

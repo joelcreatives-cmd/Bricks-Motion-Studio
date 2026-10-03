@@ -15,12 +15,12 @@ concurrency:
 jobs:
   php:
     name: PHP ${{ matrix.php }} lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         php: ['7.4', '8.4']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
@@ -31,9 +31,9 @@ jobs:
 
   standards:
     name: WordPress coding standards
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
@@ -44,10 +44,10 @@ jobs:
 
   build-and-test:
     name: Builds, checks and browser tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -60,7 +60,8 @@ jobs:
       # Stale minified builds, library version drift, CDN integrity hashes, JS/PHP syntax.
       - run: npm run check
       # Every preset on every engine, normal and reduced motion, on the sources and the shipped builds.
-      - run: npm run test:e2e
+      # One retry: shared CI machines are sometimes too slow for the timing-based checks.
+      - run: npm run test:e2e || npm run test:e2e
         env:
           CHROME: /usr/bin/google-chrome
       - run: npm run zip

@@ -32,12 +32,73 @@ class Presets {
 	 */
 	public static function builtin() {
 		if ( null === self::$builtin ) {
-			$json          = file_get_contents( BME_PATH . 'includes/data/presets.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
-			$data          = json_decode( (string) $json, true );
-			self::$builtin = is_array( $data ) ? $data : array();
+			$json = file_get_contents( BME_PATH . 'includes/data/presets.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+			$data = json_decode( (string) $json, true );
+			$data = is_array( $data ) ? $data : array();
+			// Names in the site's language (only once translations are loaded: cached from then on).
+			if ( did_action( 'init' ) ) {
+				foreach ( self::labels() as $slug => $label ) {
+					if ( isset( $data[ $slug ] ) && is_array( $data[ $slug ] ) ) {
+						$data[ $slug ]['label'] = $label;
+					}
+				}
+				self::$builtin = $data;
+			}
+			return $data;
 		}
 		return self::$builtin;
 	}
+
+	/**
+	 * Translatable names of the shipped presets (presets.json holds the English names).
+	 *
+	 * @return array slug => name
+	 */
+	public static function labels() {
+		return array(
+			'fade'              => __( 'Fade in', 'bricks-motion-studio' ),
+			'fade-up'           => __( 'Fade up', 'bricks-motion-studio' ),
+			'fade-down'         => __( 'Fade down', 'bricks-motion-studio' ),
+			'fade-left'         => __( 'Fade in from right', 'bricks-motion-studio' ),
+			'fade-right'        => __( 'Fade in from left', 'bricks-motion-studio' ),
+			'zoom-in'           => __( 'Zoom in', 'bricks-motion-studio' ),
+			'zoom-out'          => __( 'Zoom out', 'bricks-motion-studio' ),
+			'flip-up'           => __( 'Flip up (3D)', 'bricks-motion-studio' ),
+			'flip-left'         => __( 'Flip from left (3D)', 'bricks-motion-studio' ),
+			'rotate-in'         => __( 'Rotate in', 'bricks-motion-studio' ),
+			'skew-up'           => __( 'Skew up', 'bricks-motion-studio' ),
+			'blur-in'           => __( 'Blur in', 'bricks-motion-studio' ),
+			'blur-up'           => __( 'Blur up', 'bricks-motion-studio' ),
+			'clip-up'           => __( 'Wipe up (clip)', 'bricks-motion-studio' ),
+			'clip-down'         => __( 'Wipe down (clip)', 'bricks-motion-studio' ),
+			'clip-left'         => __( 'Wipe left (clip)', 'bricks-motion-studio' ),
+			'clip-right'        => __( 'Wipe right (clip)', 'bricks-motion-studio' ),
+			'reveal-image'      => __( 'Image reveal (clip + zoom)', 'bricks-motion-studio' ),
+			'split-lines'       => __( 'Lines slide up (masked)', 'bricks-motion-studio' ),
+			'split-words'       => __( 'Words fade up', 'bricks-motion-studio' ),
+			'split-words-blur'  => __( 'Words blur in', 'bricks-motion-studio' ),
+			'split-chars'       => __( 'Characters fade up', 'bricks-motion-studio' ),
+			'typewriter'        => __( 'Typewriter', 'bricks-motion-studio' ),
+			'scramble'          => __( 'Scramble (GSAP)', 'bricks-motion-studio' ),
+			'scroll-highlight'  => __( 'Highlight words on scroll', 'bricks-motion-studio' ),
+			'parallax'          => __( 'Parallax (vertical)', 'bricks-motion-studio' ),
+			'parallax-x'        => __( 'Parallax (horizontal)', 'bricks-motion-studio' ),
+			'scroll-fade'       => __( 'Fade in while scrolling', 'bricks-motion-studio' ),
+			'scroll-scale'      => __( 'Scale up while scrolling', 'bricks-motion-studio' ),
+			'scroll-rotate'     => __( 'Rotate while scrolling', 'bricks-motion-studio' ),
+			'scroll-expand'     => __( 'Expand while scrolling (clip)', 'bricks-motion-studio' ),
+			'horizontal-scroll' => __( 'Horizontal scroll (pinned, GSAP)', 'bricks-motion-studio' ),
+			'pin'               => __( 'Pin while scrolling (GSAP)', 'bricks-motion-studio' ),
+			'float'             => __( 'Float', 'bricks-motion-studio' ),
+			'pulse'             => __( 'Pulse', 'bricks-motion-studio' ),
+			'sway'              => __( 'Sway', 'bricks-motion-studio' ),
+			'spin'              => __( 'Spin', 'bricks-motion-studio' ),
+			'marquee'           => __( 'Marquee (slides sideways forever)', 'bricks-motion-studio' ),
+			'counter'           => __( 'Count up numbers', 'bricks-motion-studio' ),
+			'draw-svg'          => __( 'Draw SVG strokes', 'bricks-motion-studio' ),
+		);
+	}
+
 
 	/**
 	 * "My presets" (Motion Studio → Timing & feel) as catalog entries: the base preset with the

@@ -148,3 +148,16 @@
 		scale: none;
 	}
 }
+
+/* Printing / "Save as PDF": everything readable, whatever state an animation is in (scroll-linked
+   effects below the fold, words not yet lit, start states). Positions are left alone. */
+@media print {
+	[data-bme]:not([data-bme-state="done"]),
+	[data-bme-hide],
+	.bme-word,
+	.bme-char {
+		opacity: 1 !important;
+		clip-path: none !important;
+		filter: none !important;
+	}
+}

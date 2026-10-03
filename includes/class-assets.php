@@ -298,9 +298,12 @@ class Assets {
 		}
 
 		// Something sliding in from the side (or rotating, zooming) near the window edge must not make
-		// the page wider than the window: clip sideways overflow at the window edge. `clip` creates no
-		// scroll container, so sticky headers and pinned sections keep working; Safari 15 (no `clip`)
-		// gets `hidden` on the root only, which is just as safe there.
+		// the page wider than the window. The clip sits on the page's top-level wrappers (Bricks'
+		// header, content, footer, popups), not on html / body: overflow on html would stop Bricks'
+		// own scroll lock (body.no-scroll for popups, off-canvas, the mobile menu), and on body alone
+		// phones still let a sideways swipe through. `clip` creates no scroll container, so sticky
+		// headers and pinned sections keep working; :where() keeps any rule of the site's own first.
+		// Browsers without `clip` (Safari 15) simply skip it.
 		/**
 		 * Filter whether pages with animations are clipped at the window edge (no sideways scrolling).
 		 *
@@ -309,7 +312,7 @@ class Assets {
 		if ( ! $canvas && apply_filters( 'bme/clip_x', (bool) Settings::get( 'perf.clip_x', 1 ) ) ) {
 			wp_register_style( 'bme-clip-x', false, array(), BME_VERSION );
 			wp_enqueue_style( 'bme-clip-x' );
-			wp_add_inline_style( 'bme-clip-x', 'html{overflow-x:hidden;overflow-x:clip}body{overflow-x:clip}' );
+			wp_add_inline_style( 'bme-clip-x', ':where(body>*){overflow-x:clip}' );
 		}
 
 		// Timelines run on their own small script (no runtime, no library).

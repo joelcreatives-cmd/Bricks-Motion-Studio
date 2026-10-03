@@ -52,8 +52,8 @@ Rows replace the part of the designed transform they animate (like GSAP's x / y 
 | **Auto-animate** | Master switch, **animation level** (Basic / Moderate / Advanced), rules (element type, CSS class, or `*` = any other content element → preset, scope, engine) with live preview per rule, and exclusions. |
 | **Timing & feel** | Duration, delay, easing, distance, stagger, cascade, start line, parallax speed, replay, with a live preview that plays as you type. |
 | **Scroll & 3D** | Lenis smoothness, wheel speed, anchors, touch. Three.js pixel ratio and phones on/off. |
-| **Accessibility** | Reduced-motion behavior (none / fades / full), minimum width, anti-flash, fail-safe timeout, load everywhere, debug mode. |
-| **System** | Compatibility checks (WordPress, PHP, Bricks, element coverage, bundled files), export / import, reset. |
+| **Accessibility** | Reduced-motion behavior (none / fades / full), minimum width, anti-flash, fail-safe timeout, no sideways scrolling, load everywhere, debug mode. |
+| **System** | Compatibility checks (WordPress, PHP, Bricks, element coverage, bundled files, form size limit, script loading), export / import, reset. |
 | **Reference** | Every preset as a hover-to-play card, attribute and JS API. |
 
 Unsaved changes are tracked in the top bar; save with the button or Ctrl/⌘ + S.
@@ -78,11 +78,11 @@ The level can be overridden per page (Bricks → Settings → Page settings → 
 
 ### Page settings
 Bricks → Settings → Page settings → **Motion Studio** (pages and templates):
-- **Animations on this page**: Site settings / Only elements set to Custom / Disabled (no Motion Studio output at all).
+- **Animations**: Site settings / Only elements set to Custom / Disabled (no Motion Studio output at all).
 - **Animation level**: overrides the site level on this page.
 
 ### Animations started by Bricks Interactions
-Set an element to **Custom → Start: By a Bricks interaction**. Then on any element add an interaction with the action **JavaScript (Function)**, function name `BricksMotion.play` (or `BricksMotion.reset`), target the animated element (CSS selector — use Bricks' **#** "Copy CSS ID" button), and under **Arguments** click **Add item** (Bricks fills in `%brx%`). Click, hover, popup open, form submit… all work.
+Set an element to **Custom → Start: By a Bricks interaction**. Then on any element add an interaction with the action **JavaScript (Function)**, function name `BricksMotion.play` (or `BricksMotion.reset`), target the animated element with a CSS selector (its class, or a custom attribute such as `[data-reveal="hero"]`; elements inside query loops and components have no CSS ID), and under **Arguments** click **Add item** (Bricks fills in `%brx%`). Click, hover, popup open, form submit… all work.
 
 ### Rule precedence
 1. Element set to **Disabled** → never animated.
@@ -141,7 +141,7 @@ Motion that lasts longer than five seconds (loops, marquees, timeline loops, 3D 
 
 ## No sideways scrolling
 
-An element sliding in from the side, zooming or rotating near the edge of the screen makes the page wider than the window while it waits or plays, so phones let the page wobble sideways. On pages with animations the plugin clips the page at the window edge (`overflow-x: clip` on `html` and `body`, which keeps sticky headers and pinned sections working). Settings → Accessibility → **No sideways scrolling** turns it off, as does the `bme/clip_x` filter (`add_filter( 'bme/clip_x', '__return_false' );`) — only needed for a page that is meant to scroll sideways.
+An element sliding in from the side, zooming or rotating near the edge of the screen makes the page wider than the window while it waits or plays, so phones let the page wobble sideways. On pages with animations the plugin clips the page at the window edge (`overflow-x: clip` on the page's top-level wrappers, which keeps sticky headers, pinned sections and Bricks' popup / off-canvas scroll lock working). Settings → Accessibility → **No sideways scrolling** turns it off, as does the `bme/clip_x` filter (`add_filter( 'bme/clip_x', '__return_false' );`) — only needed for a page that is meant to scroll sideways.
 
 ## JavaScript API
 

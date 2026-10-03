@@ -38,6 +38,12 @@
 		}
 	}
 
+	// clamp() in ScrollTrigger positions needs GSAP 3.12+ (another plugin's copy may be older).
+	var clampOk = ( function ( v ) {
+		var p = String( v || '0' ).split( '.' );
+		return +p[ 0 ] > 3 || ( +p[ 0 ] === 3 && +p[ 1 ] >= 12 );
+	} )( gsap.version );
+
 	var EASE = {
 		linear: 'none',
 		soft: 'power1.out',
@@ -186,7 +192,7 @@
 				trigger: trigger,
 				start: 'top bottom',
 				// clamp(): elements near the page end still reach their final state.
-				end: enter ? 'clamp(top 35%)' : 'bottom top',
+				end: enter ? ( clampOk ? 'clamp(top 35%)' : 'top 35%' ) : 'bottom top',
 				scrub: o.smooth || 0.6,
 				invalidateOnRefresh: true,
 				markers: debug,
@@ -203,7 +209,8 @@
 		special: {},
 	};
 
-	if ( Split ) {
+	// Split.create and its mask option are SplitText 3.13+ (an older shared copy uses the core splitter).
+	if ( Split && typeof Split.create === 'function' ) {
 		adapter.special.split = function ( el, type, mask ) {
 			var s = Split.create( el, {
 				type: type === 'chars' ? 'words,chars' : type === 'lines' ? 'lines' : 'words',

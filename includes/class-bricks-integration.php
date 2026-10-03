@@ -202,7 +202,7 @@ class Bricks_Integration {
 		// Live preview (builder-panel.js): plays on the canvas whenever these settings change, or here.
 		$c['bmePreview'] = $g + array(
 			'type'     => 'info',
-			'content'  => '<button type="button" class="bme-preview-trigger" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">&#9654; ' . esc_html__( 'Preview animation', 'bricks-motion-studio' ) . '</button>',
+			'content'  => '<button type="button" class="bme-preview-trigger" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><span aria-hidden="true">&#9654;</span> ' . esc_html__( 'Preview animation', 'bricks-motion-studio' ) . '</button>',
 			'required' => array( 'bmeMode', '!=', 'off' ),
 		);
 
@@ -254,8 +254,13 @@ class Bricks_Integration {
 
 		$c['bmeInfoManual'] = $g + array(
 			'type'     => 'info',
-			/* translators: %brx% is a literal Bricks token, not a placeholder: keep it unchanged. */
-			'content'  => esc_html__( 'On the element that starts it: Interactions → add. Action: JavaScript (Function). Target: a CSS selector for this element: its class, or a custom attribute such as [data-reveal="hero"] (inside query loops and components the element has no CSS ID). Function name: BricksMotion.play (or BricksMotion.reset). Arguments: click "Add item" (fills in %brx%).', 'bricks-motion-studio' ),
+			'content'  => esc_html(
+				sprintf(
+					/* translators: %s: the Bricks token %brx% (shown as is) */
+					__( 'On the element that starts it: Interactions → add. Action: JavaScript (Function). Target: a CSS selector for this element: its class, or a custom attribute such as [data-reveal="hero"] (inside query loops and components the element has no CSS ID). Function name: BricksMotion.play (or BricksMotion.reset). Arguments: click "Add item" (fills in %s).', 'bricks-motion-studio' ),
+					'%brx%'
+				)
+			),
 			'required' => array( $custom, array( 'bmeTrigger', '=', 'manual' ) ),
 		);
 
@@ -324,7 +329,7 @@ class Bricks_Integration {
 		);
 
 		$c['bmeDistance'] = $g + array(
-			'label'       => esc_html__( 'Distance (px)', 'bricks-motion-studio' ),
+			'label'       => esc_html__( 'Travel distance (px)', 'bricks-motion-studio' ),
 			'type'        => 'number',
 			'min'         => 0,
 			'max'         => 400,
@@ -336,7 +341,7 @@ class Bricks_Integration {
 		);
 
 		$c['bmeOffset'] = $g + array(
-			'label'       => esc_html__( 'Viewport offset (%)', 'bricks-motion-studio' ),
+			'label'       => esc_html__( 'Start line (%)', 'bricks-motion-studio' ),
 			'type'        => 'number',
 			'min'         => 0,
 			'max'         => 50,
@@ -435,7 +440,7 @@ class Bricks_Integration {
 					'label'       => esc_html__( 'Keyframes', 'bricks-motion-studio' ),
 					'type'        => 'text',
 					'placeholder' => '0: 100%, 100: 0%',
-					'description' => esc_html__( 'percent: value pairs. Values must suit the property: lengths (px, %, vw, vh, em, rem) for position and size, deg or turn for rotate, plain numbers or % for scale and opacity, colours as #hex, rgb(), hsl(), a name or var(--colour). auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge. If one pair doesn\'t fit, the row is skipped.', 'bricks-motion-studio' ),
+					'description' => esc_html__( 'percent: value pairs. Values must suit the property: lengths (px, %, vw, vh, em, rem) for position and size, deg or turn for rotate, plain numbers or % for scale and opacity, colors as #hex, rgb(), hsl(), a name or var(--color). auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge. If one pair doesn\'t fit, the row is skipped.', 'bricks-motion-studio' ),
 				),
 				'duration'     => array(
 					'label'       => esc_html__( 'Duration (s)', 'bricks-motion-studio' ),
@@ -700,6 +705,9 @@ class Bricks_Integration {
 		$post_id = is_array( $request_data ) && isset( $request_data['postId'] ) ? absint( $request_data['postId'] ) : 0;
 		if ( ! $post_id || ! class_exists( '\Bricks\Database' ) || ! defined( 'BRICKS_DB_PAGE_SETTINGS' ) ) {
 			return;
+		}
+		if ( empty( \Bricks\Database::$active_templates['content'] ) && method_exists( '\Bricks\Database', 'set_active_templates' ) ) {
+			\Bricks\Database::set_active_templates( $post_id ); // REST requests never ran the `wp` action that sets them
 		}
 		$templates                   = \Bricks\Database::$active_templates;
 		$source                      = is_array( $templates ) && ! empty( $templates['content'] ) ? (int) $templates['content'] : $post_id;
@@ -993,8 +1001,8 @@ class Bricks_Integration {
 			'rotate'          => esc_html__( 'Rotate', 'bricks-motion-studio' ),
 			'width'           => esc_html__( 'Width', 'bricks-motion-studio' ),
 			'height'          => esc_html__( 'Height', 'bricks-motion-studio' ),
-			'color'           => esc_html__( 'Text colour', 'bricks-motion-studio' ),
-			'backgroundColor' => esc_html__( 'Background colour', 'bricks-motion-studio' ),
+			'color'           => esc_html__( 'Text color', 'bricks-motion-studio' ),
+			'backgroundColor' => esc_html__( 'Background color', 'bricks-motion-studio' ),
 		);
 	}
 
@@ -1135,11 +1143,20 @@ class Bricks_Integration {
 	 */
 	public static function positioned( array $settings ) {
 		$sets = array( $settings );
-		if ( ! empty( $settings['_cssGlobalClasses'] ) && is_array( $settings['_cssGlobalClasses'] ) && class_exists( '\Bricks\Database' ) ) {
-			$classes = \Bricks\Database::$global_data['globalClasses'] ?? array();
-			foreach ( is_array( $classes ) ? $classes : array() as $class ) {
-				if ( is_array( $class ) && isset( $class['id'] ) && in_array( $class['id'], $settings['_cssGlobalClasses'], true ) && ! empty( $class['settings'] ) && is_array( $class['settings'] ) ) {
-					$sets[] = $class['settings'];
+		if ( ! empty( $settings['_cssGlobalClasses'] ) && is_array( $settings['_cssGlobalClasses'] ) ) {
+			// id → settings, built once per request (sites can have thousands of global classes).
+			static $by_id = null;
+			if ( null === $by_id ) {
+				$by_id = array();
+				foreach ( self::global_classes() as $class ) {
+					if ( is_array( $class ) && isset( $class['id'] ) && is_scalar( $class['id'] ) && ! empty( $class['settings'] ) && is_array( $class['settings'] ) ) {
+						$by_id[ $class['id'] ] = $class['settings'];
+					}
+				}
+			}
+			foreach ( $settings['_cssGlobalClasses'] as $id ) {
+				if ( is_scalar( $id ) && isset( $by_id[ $id ] ) ) {
+					$sets[] = $by_id[ $id ];
 				}
 			}
 		}
@@ -1151,6 +1168,19 @@ class Bricks_Integration {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * Bricks global classes as Bricks itself reads them (on multisite, possibly the main site's).
+	 *
+	 * @return array
+	 */
+	public static function global_classes() {
+		$classes = class_exists( '\Bricks\Database' ) ? ( \Bricks\Database::$global_data['globalClasses'] ?? null ) : null;
+		if ( ! is_array( $classes ) ) {
+			$classes = get_option( 'bricks_global_classes', array() );
+		}
+		return is_array( $classes ) ? $classes : array();
 	}
 
 	/**
@@ -1239,7 +1269,7 @@ class Bricks_Integration {
 		$keys   = array();
 		$number = '-?(?:\d+\.?\d*|\.\d+)';
 		$length = $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)?';
-		$colour = 'transparent|currentcolor|[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\(--[A-Za-z0-9_-]+\)'
+		$colour = 'transparent|currentcolor|(?!overflow\b)[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\(--[A-Za-z0-9_-]+\)'
 			. '|rgba?\((?:\d+(?:\.\d+)?%?)(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)'
 			. '|hsla?\(' . $number . '(?:deg|turn)?(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)';
 		switch ( $prop ) {
@@ -1595,7 +1625,7 @@ class Bricks_Integration {
 		if ( ! empty( $settings['_cssGlobalClasses'] ) && is_array( $settings['_cssGlobalClasses'] ) ) {
 			if ( null === $this->class_names ) {
 				$this->class_names = array();
-				foreach ( (array) get_option( 'bricks_global_classes', array() ) as $global_class ) {
+				foreach ( self::global_classes() as $global_class ) {
 					if ( is_array( $global_class ) && isset( $global_class['id'], $global_class['name'] ) && is_scalar( $global_class['id'] ) && is_string( $global_class['name'] ) ) {
 						$this->class_names[ $global_class['id'] ] = $global_class['name'];
 					}

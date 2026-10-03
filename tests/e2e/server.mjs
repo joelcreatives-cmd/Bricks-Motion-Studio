@@ -19,5 +19,15 @@ export function start( port = 8765 ) {
 		res.writeHead( 200, { 'content-type': types[ extname( file ) ] || 'application/octet-stream' } );
 		res.end( readFileSync( file ) );
 	} );
-	return new Promise( ( r ) => server.listen( port, () => r( server ) ) );
+	// Port taken (another run, another tool): any free port instead. run.mjs reads the real one.
+	return new Promise( ( resolve, reject ) => {
+		server.once( 'error', ( e ) => {
+			if ( e.code === 'EADDRINUSE' && port !== 0 ) {
+				server.listen( 0, () => resolve( server ) );
+			} else {
+				reject( e );
+			}
+		} );
+		server.listen( port, () => resolve( server ) );
+	} );
 }
