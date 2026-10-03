@@ -32,7 +32,7 @@ Choose one or several animation libraries. Auto-animate rules apply presets to B
 
 = Licensing note =
 
-GSAP is free (including commercial use) under the GSAP Standard License, which is not GPL and prohibits use in no-code visual animation tools that compete with Webflow without written consent. Use on your own/client sites is permitted; get consent from GSAP before selling or distributing this plugin with GSAP bundled. Anime.js, Motion, Lenis and Three.js are MIT.
+A personal project by JoelCreatives, built for my own and client projects and published as a portfolio piece; it is not sold or offered as a product. The plugin's code is GPLv2 or later. Bundled libraries keep their own licences: GSAP is free (including commercial use) under the GSAP Standard License, which is not GPL; Anime.js, Motion, Lenis and Three.js are MIT. Anyone reusing this code in a distributed product should check the GSAP licence first.
 
 == Installation ==
 

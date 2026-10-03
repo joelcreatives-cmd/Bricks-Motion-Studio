@@ -9,7 +9,9 @@ Multi-library animation engine for **Bricks Builder**. Enable **GSAP**, **Anime.
 
 Tested on WordPress 7.1.2 + Bricks 2.4.2, PHP 8.2. Requires WordPress 6.5+, PHP 7.4+, Bricks 2.x.
 
-> **Licensing:** GSAP ships under the GSAP Standard License (free, including commercial use — but *not* GPL, and it restricts use in no-code visual animation tools that compete with Webflow). Using this plugin on your own/client sites is a permitted use. Before **selling or publicly distributing** this plugin with GSAP bundled, get written consent from GSAP/Webflow, or ship with GSAP disabled/removed (Anime.js, Motion, Lenis and Three.js are MIT). A wordpress.org release cannot include GSAP. See [docs/STUDY.md](docs/STUDY.md#4-libraries-and-licensing).
+> **Personal project.** Bricks Motion Studio is built by JoelCreatives for use on my own and client projects, and published here as a portfolio piece. It is not sold or offered as a product.
+>
+> **Licensing:** the plugin's own code is GPLv2 or later. The bundled libraries keep their own licences: GSAP is under the [GSAP Standard License](https://gsap.com/standard-license) (free, including commercial use, but not GPL), and Anime.js, Motion, Lenis and Three.js are MIT. If you reuse this code in a product you distribute, check the GSAP licence first. See [docs/STUDY.md](docs/STUDY.md#4-libraries-and-licensing).
 
 ---
 
