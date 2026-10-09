@@ -37,7 +37,7 @@ Every element's **Motion Studio** group has a **Timeline** list. Each row animat
 |---|---|
 | Trigger | **Scroll position** (keyframes are % of the element's trip through the screen, so a tall section can choreograph a sticky stage), **Scrolled into view** (once), **Hover** (reverses on leave), **Hover out** (plays on leave instead of reversing), **Loop** |
 | Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour. Width and height re-lay-out the page on every frame: prefer scaleX / scaleY for smooth motion on long pages |
-| Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%` (`25%: 0%` works too). Values must suit the property: x / y / width / height take lengths (px % vw vh vmin vmax svh dvh lvh em rem), rotate takes deg or turn, scale / opacity take plain numbers or % (`80%` = 0.8), colours take `#hex`, `rgb()` / `rgba()` / `hsl()` (comma or space syntax), colour names, `transparent` or `var(--brand)`. Also `auto` (the element's designed value; resting on it hands the property back to the stylesheet) and `-overflow` (slide until the far edge reaches the parent's content edge). If any pair doesn't fit, the whole row is left out, never half-read. Colours blend like CSS transitions (premultiplied alpha). Elements that fade in from their first keyframe start invisible, so they never flash before the script runs. Targets written as `#brxe-…` also work inside query loops and components |
+| Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%` (`25%: 0%` works too). Values must suit the property: x / y / width / height take lengths (px % vw vh vmin vmax svh dvh lvh em rem), rotate takes deg or turn, scale / opacity take plain numbers or % (`80%` = 0.8), colours take `#hex`, `rgb()` / `rgba()` / `hsl()` (comma or space syntax), `oklch()` / `oklab()` / `lab()` / `lch()` / `hwb()` / `color()`, colour names, `transparent`, `var(--brand)` or `var(--brand, #333)`. Also `auto` (the element's designed value; resting on it hands the property back to the stylesheet) and `-overflow` (slide until the far edge reaches the parent's content edge). If any pair doesn't fit, the whole row is left out, never half-read. Colours blend like CSS transitions (premultiplied alpha). Elements that fade in from their first keyframe start invisible, so they never flash before the script runs. Targets written as `#brxe-…` also work inside query loops and components |
 | Duration / delay / easing | timed triggers; easing includes exact quad/cubic/quart/quint/expo/sine/circ/back curves (GSAP power1-4 …) |
 | Scroll range | optional ScrollTrigger-style `"<element edge> <screen line>"`, e.g. `top 15%` → `bottom bottom`, measured on this element or another |
 | Screen sizes | all, desktop (992px+), or tablet and phone (991px and below) |
@@ -59,7 +59,7 @@ Rows replace the part of the designed transform they animate (like GSAP's x / y 
 Unsaved changes are tracked in the top bar; save with the button or Ctrl/⌘ + S.
 
 ### Performance and page weight
-- **Nothing loads on pages without animations.** Libraries load per page, only when an element on that page needs them.
+- **No scripts load on pages without animations.** Libraries load per page, only when an element on that page needs them. (A 2 KB stylesheet and a tiny inline boot snippet are printed in `<head>`, before Bricks has rendered the content.)
 - **Lightweight engine (on by default).** Reveals, loops and word/character text run on the browser's built-in Web Animations engine: no library download, and transform/opacity animations run off the main thread. GSAP / Anime.js / Motion load only for what needs them (scroll-linked, pinning, horizontal scroll, SVG drawing, scramble, line splitting) or where an element or rule picks an engine explicitly. Switch: Libraries → *Lightweight engine for simple effects*.
 - **Minified builds.** `runtime.min.js` (≈17 KB gzipped, preset catalog included and cached with it), minified adapters and CSS; slim bundled builds of Motion (≈23 KB gz) and Anime.js (≈19 KB gz) with only the functions the adapters use. `SCRIPT_DEBUG` loads the readable sources.
 - **Three.js is lazy**: downloaded only when a 3D element approaches the viewport.
@@ -116,6 +116,8 @@ Motion Studio → Timing & feel → **My presets**: give a built-in preset your 
 | Hover | lift, grow, magnetic, 3D tilt (separate "Hover effect" setting, combinable with any preset) | built-in |
 
 If a preset isn't supported by the chosen engine, the next enabled engine that supports it takes over (e.g. *scramble* → GSAP), or its fallback preset is used (*scramble* → *split-chars*).
+
+**Long text:** word and character cascades finish within 3 seconds (typewriter: 6 seconds) however long the text is; shorter text keeps the preset's stagger.
 
 **Horizontal scroll:** apply it to the wrapper (e.g. a section); its first child is the track (a row that does not wrap), or set *Animate → Custom selector* to point at the track.
 

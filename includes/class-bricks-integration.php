@@ -1269,9 +1269,13 @@ class Bricks_Integration {
 		$keys   = array();
 		$number = '-?(?:\d+\.?\d*|\.\d+)';
 		$length = $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)?';
-		$colour = 'transparent|currentcolor|(?!overflow\b)[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\(--[A-Za-z0-9_-]+\)'
+		$plain  = 'transparent|currentcolor|(?!overflow\b)[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})'
 			. '|rgba?\((?:\d+(?:\.\d+)?%?)(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)'
-			. '|hsla?\(' . $number . '(?:deg|turn)?(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)';
+			. '|hsla?\(' . $number . '(?:deg|turn)?(?:[, ]\d+(?:\.\d+)?%?){2}(?:[,\/](?:\d*\.?\d+%?))?\)'
+			// Modern colour functions (oklch, oklab, lab, lch, hwb and color with a colour space): the browser converts them.
+			. '|(?:oklch|oklab|lab|lch|hwb)\((?:[-+.\d%a-z]+(?:deg|turn)?)(?: [-+.\d%a-z]+){2}(?:\/[-+.\d%]+)?\)'
+			. '|color\([a-z0-9-]+(?: [-+.\d%]+){3}(?:\/[-+.\d%]+)?\)';
+		$colour = $plain . '|var\(--[A-Za-z0-9_-]+(?:,(?:' . $plain . '))?\)'; // var(--brand) or var(--brand,#333)
 		switch ( $prop ) {
 			case 'x':
 			case 'y':
@@ -1295,8 +1299,8 @@ class Bricks_Integration {
 			default:
 				$allowed = 'auto|-?overflow|' . $colour . '|' . $number . '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem|deg|turn)?';
 		}
-		// Pairs are separated by commas outside parentheses (rgba() has its own commas).
-		foreach ( array_slice( preg_split( '/,(?![^()]*\))/', (string) $text ), 0, 50 ) as $pair ) {
+		// Pairs are separated by commas outside parentheses (rgba() and var(--x, rgb()) have their own).
+		foreach ( array_slice( self::split_top_level( (string) $text ), 0, 50 ) as $pair ) {
 			if ( '' === trim( $pair ) ) {
 				continue; // a trailing comma
 			}
@@ -1306,7 +1310,7 @@ class Bricks_Integration {
 			}
 			// Lower case, except custom property names (var(--Brand) and var(--brand) differ).
 			$value = preg_replace_callback(
-				'/var\(\s*--[A-Za-z0-9_-]+\s*\)|[^v]+|v/',
+				'/var\(\s*--[A-Za-z0-9_-]+|[^v]+|v/', // the name only: a fallback after it is lower-cased too
 				static function ( $part ) {
 					return 0 === strpos( $part[0], 'var(' ) ? preg_replace( '/\s+/', '', $part[0] ) : strtolower( $part[0] );
 				},
@@ -1321,6 +1325,32 @@ class Bricks_Integration {
 			$keys[] = array( round( min( 100, max( 0, (float) $m[1] ) ), 3 ), $value );
 		}
 		return $keys;
+	}
+
+	/**
+	 * Split on commas that are not inside parentheses, however deeply nested.
+	 *
+	 * @param string $text Text.
+	 * @return string[]
+	 */
+	private static function split_top_level( $text ) {
+		$parts = array();
+		$depth = 0;
+		$start = 0;
+		$len   = strlen( $text );
+		for ( $i = 0; $i < $len; $i++ ) {
+			$ch = $text[ $i ];
+			if ( '(' === $ch ) {
+				++$depth;
+			} elseif ( ')' === $ch && $depth > 0 ) {
+				--$depth;
+			} elseif ( ',' === $ch && 0 === $depth ) {
+				$parts[] = substr( $text, $start, $i - $start );
+				$start   = $i + 1;
+			}
+		}
+		$parts[] = substr( $text, $start );
+		return $parts;
 	}
 
 	private static function str( array $s, $key ) {

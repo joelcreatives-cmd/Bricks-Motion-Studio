@@ -166,9 +166,12 @@
 	// Mirrors Bricks_Integration::timeline_keys(): what the live page accepts for each property.
 	var NUM = '-?(?:\\d+\\.?\\d*|\\.\\d+)';
 	var LEN = NUM + '(?:px|%|vw|vh|vmin|vmax|svh|dvh|lvh|svw|dvw|lvw|em|rem)?';
-	var COLOUR = 'transparent|currentcolor|(?!overflow\\b)[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})|var\\(--[a-z0-9_-]+\\)' +
+	var PLAIN = 'transparent|currentcolor|(?!overflow\\b)[a-z]{3,20}|#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})' +
 		'|rgba?\\((?:\\d+(?:\\.\\d+)?%?)(?:[, ]\\d+(?:\\.\\d+)?%?){2}(?:[,/](?:\\d*\\.?\\d+%?))?\\)' +
-		'|hsla?\\(' + NUM + '(?:deg|turn)?(?:[, ]\\d+(?:\\.\\d+)?%?){2}(?:[,/](?:\\d*\\.?\\d+%?))?\\)';
+		'|hsla?\\(' + NUM + '(?:deg|turn)?(?:[, ]\\d+(?:\\.\\d+)?%?){2}(?:[,/](?:\\d*\\.?\\d+%?))?\\)' +
+		'|(?:oklch|oklab|lab|lch|hwb)\\((?:[-+.\\d%a-z]+(?:deg|turn)?)(?: [-+.\\d%a-z]+){2}(?:/[-+.\\d%]+)?\\)' +
+		'|color\\([a-z0-9-]+(?: [-+.\\d%]+){3}(?:/[-+.\\d%]+)?\\)';
+	var COLOUR = PLAIN + '|var\\(--[a-z0-9_-]+(?:,(?:' + PLAIN + '))?\\)';
 	function allowed( prop ) {
 		switch ( prop ) {
 			case 'rotate':
@@ -186,10 +189,30 @@
 		}
 	}
 
+	// Commas outside parentheses, however deeply nested: var(--x, rgb(1, 2, 3)) is one value.
+	function splitTop( text ) {
+		var parts = [];
+		var depth = 0;
+		var start = 0;
+		for ( var i = 0; i < text.length; i++ ) {
+			var ch = text.charAt( i );
+			if ( ch === '(' ) {
+				depth++;
+			} else if ( ch === ')' && depth > 0 ) {
+				depth--;
+			} else if ( ch === ',' && ! depth ) {
+				parts.push( text.slice( start, i ) );
+				start = i + 1;
+			}
+		}
+		parts.push( text.slice( start ) );
+		return parts;
+	}
+
 	// "0: 40px, 50%: 0" → { pairs: [[0,'40px'],[50,'0']], error }
 	function parseKeys( text, prop ) {
 		var pairs = [];
-		var parts = String( text || '' ).split( /,(?![^()]*\))/ ).slice( 0, 50 ); // the server reads 50
+		var parts = splitTop( String( text || '' ) ).slice( 0, 50 ); // the server reads 50
 		var re = new RegExp( '^(?:' + allowed( prop ) + ')$', 'i' );
 		for ( var i = 0; i < parts.length; i++ ) {
 			var part = parts[ i ];

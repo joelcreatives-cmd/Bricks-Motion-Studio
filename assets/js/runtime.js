@@ -389,6 +389,23 @@
 		return Array.from( str );
 	}
 
+	// Is this element a flex or grid container (its text nodes are laid out as items)?
+	function itemsOf( node ) {
+		return node && node.nodeType === 1 && /flex|grid/.test( getComputedStyle( node ).display );
+	}
+
+	// Do two text parents share one run of inline text (same block, no flex / grid items between)?
+	function sameRun( a, b ) {
+		var blockOf = function ( n ) {
+			while ( n && n.nodeType === 1 && n.parentNode && /^(inline|contents)$/.test( getComputedStyle( n ).display ) ) {
+				n = n.parentNode;
+			}
+			return n;
+		};
+		var ba = blockOf( a );
+		return ba === blockOf( b ) && ! itemsOf( ba );
+	}
+
 	/**
 	 * Split an element's text into words (+ chars), preserving nested inline markup.
 	 * Lines are derived by grouping words by their vertical position.
@@ -413,7 +430,9 @@
 		var n;
 
 		while ( ( n = walker.nextNode() ) ) {
-			if ( n.nodeValue && n.nodeValue.trim() && ! ( n.parentNode && n.parentNode.closest && n.parentNode.closest( 'script,style,svg,textarea,.bme-sr-only' ) ) ) {
+			// Skip text another splitter already owns (a split heading inside a split template) and
+			// its word joiners: splitting them again would leave stray joiners behind on revert.
+			if ( n.nodeValue && n.nodeValue.replace( /\u2060/g, '' ).trim() && ! ( n.parentNode && n.parentNode.closest && n.parentNode.closest( 'script,style,svg,textarea,.bme-sr-only,.bme-word,.bme-char' ) ) ) {
 				nodes.push( n );
 			}
 		}
@@ -453,15 +472,28 @@
 				frag.appendChild( out );
 				created.push( out );
 			} );
-			groups.push( { text: node.nodeValue, nodes: created, endsMid: ! /\s$/.test( node.nodeValue ), startsMid: ! /^\s/.test( node.nodeValue ) } );
-			node.parentNode.replaceChild( frag, node );
+			var parent = node.parentNode;
+			// In a flex or grid parent (Bricks buttons, links, nav items…) a text node is one item.
+			// Loose word spans would each become an item, spaced by the gap instead of the spaces:
+			// keep them together in one inline wrapper.
+			if ( itemsOf( parent ) ) {
+				var wrap = document.createElement( 'span' );
+				wrap.className = 'bme-split-wrap';
+				wrap.style.display = 'inline'; // theme rules such as `.brxe-text-link span { display: flex }` must not reach it
+				wrap.appendChild( frag );
+				frag = wrap;
+				created = [ wrap ];
+			}
+			groups.push( { text: node.nodeValue, nodes: created, parent: parent, endsMid: ! /\s$/.test( node.nodeValue ), startsMid: ! /^\s/.test( node.nodeValue ) } );
+			parent.replaceChild( frag, node );
 		} );
 
 		// A word that runs across an inline tag (bbb<em>bbb</em>bbb) became several inline-blocks,
-		// and the browser may wrap between them. A word joiner (U+2060) forbids that break.
+		// and the browser may wrap between them. A word joiner (U+2060) forbids that break. Only
+		// within one run of inline text: never between blocks (a list item's title and price).
 		for ( var gi = 1; gi < groups.length; gi++ ) {
 			var prev = groups[ gi - 1 ];
-			if ( prev.endsMid && groups[ gi ].startsMid && prev.nodes.length ) {
+			if ( prev.endsMid && groups[ gi ].startsMid && prev.nodes.length && sameRun( prev.parent, groups[ gi ].parent ) ) {
 				var last = prev.nodes[ prev.nodes.length - 1 ];
 				var joiner = document.createTextNode( '\u2060' );
 				last.parentNode.insertBefore( joiner, last.nextSibling );
@@ -957,6 +989,13 @@
 		return typeof y === 'number' && isFinite( y ) ? y : 0;
 	}
 
+	/** Horizontal entrance offset (fade-left / right): a small element near the screen edge starts
+	 * outside the screen, where IntersectionObserver never sees it. */
+	function restOffsetX( rec ) {
+		var x = rec.from && rec.targets && rec.targets[ 0 ] === rec.el ? rec.from.x : 0;
+		return typeof x === 'number' && isFinite( x ) ? x : 0;
+	}
+
 	/** Inside a position:fixed container (back-to-top, fixed bars): it never scrolls into view. */
 	function inFixed( rec ) {
 		if ( rec.fixed === undefined ) {
@@ -996,7 +1035,8 @@
 			var line = vh * ( 1 - rec.cfg.offset / 100 );
 			// Measure where the element rests, not where its entrance offset pushed it.
 			var top = r.top - restOffsetY( rec );
-			if ( r.right < 0 || r.left > vw ) {
+			var dx = restOffsetX( rec );
+			if ( r.right - dx < 0 || r.left - dx > vw ) {
 				return; // off to the side (a slider or horizontal track): its own scroll reveals it
 			}
 			if ( r.bottom < 0 ) {
@@ -1290,6 +1330,7 @@
 			if ( ! rec.paths.length ) {
 				unhide( el );
 				rec.inert = true;
+				el.setAttribute( 'data-bme-state', 'done' ); // nothing to draw: shown as designed
 				return;
 			}
 			// Hidden-stroke start state (engine plugins such as DrawSVG take over from here).
@@ -1506,6 +1547,15 @@
 		}
 		var stagger = c.stagger;
 
+		// Long text: a per-word / per-character stagger adds up (500 characters x 0.02s = 10s with
+		// the last lines invisible all along). Cap the whole cascade; short text keeps its timing.
+		if ( split && type !== 'lines' && typeof stagger === 'number' && targets.length > 1 ) {
+			var cap = c.slug === 'typewriter' ? 6 : 3;
+			if ( stagger * ( targets.length - 1 ) > cap ) {
+				stagger = cap / ( targets.length - 1 );
+			}
+		}
+
 		// Line reveals with the core splitter: every word of a line shares the line's delay.
 		if ( split && ! split.native && type === 'lines' ) {
 			stagger = function ( i ) {
@@ -1658,9 +1708,91 @@
 	}
 
 	/**
-	 * Marquee: the element becomes one horizontal strip holding its content twice (the copy is
-	 * aria-hidden and inert), so sliding it by -50% lands the copy exactly where the original
-	 * started: seamless. A trailing pad equal to the gap keeps the spacing even at the seam, the
+	 * Bricks writes each element's own styles against its id (#brxe-abc123 { color: … }), and
+	 * copies (marquee) lose the id. Repeat those rules for the copies' data-bme-cid, wrapped in
+	 * :is() with an id that never exists so they keep id specificity and the same cascade order.
+	 */
+	var clonedIds = {};
+	var cloneSheet = null;
+	function cloneIdStyles( ids ) {
+		ids = ids.filter( function ( id ) {
+			return ! clonedIds[ id ];
+		} );
+		if ( ! ids.length || ! document.styleSheets ) {
+			return;
+		}
+		var res = ids.map( function ( id ) {
+			clonedIds[ id ] = true;
+			return [ id, new RegExp( '#' + id.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) + '(?![\\w-])', 'g' ) ];
+		} );
+		var out = [];
+		var walk = function ( rules, depth ) {
+			var text = '';
+			for ( var i = 0; i < rules.length; i++ ) {
+				var r = rules[ i ];
+				if ( r.selectorText !== undefined ) {
+					var sel = r.selectorText;
+					var hit = false;
+					res.forEach( function ( pair ) {
+						if ( sel.indexOf( '#' + pair[ 0 ] ) !== -1 ) {
+							pair[ 1 ].lastIndex = 0;
+							var next = sel.replace( pair[ 1 ], ':is([data-bme-cid="' + pair[ 0 ].replace( /"/g, '' ) + '"],#bme-none)' );
+							hit = hit || next !== sel;
+							sel = next;
+						}
+					} );
+					if ( hit ) {
+						text += sel + '{' + r.style.cssText + '}';
+					}
+				} else if ( r.cssRules && r.cssRules.length && depth < 4 && r.cssText ) {
+					var inner = walk( r.cssRules, depth + 1 );
+					if ( inner ) {
+						text += r.cssText.slice( 0, r.cssText.indexOf( '{' ) ) + '{' + inner + '}';
+					}
+				}
+			}
+			return text;
+		};
+		toArray( document.styleSheets ).forEach( function ( sheet ) {
+			var rules;
+			try {
+				rules = sheet.cssRules; // cross-origin sheets throw: Bricks' own are same-origin
+			} catch ( e ) {
+				return;
+			}
+			if ( rules && sheet.ownerNode !== cloneSheet ) {
+				var t = walk( rules, 0 );
+				if ( t ) {
+					out.push( t );
+				}
+			}
+		} );
+		if ( ! out.length ) {
+			return;
+		}
+		if ( ! cloneSheet ) {
+			cloneSheet = document.createElement( 'style' );
+			cloneSheet.id = 'bme-clone-css';
+			document.head.appendChild( cloneSheet );
+		}
+		cloneSheet.appendChild( document.createTextNode( out.join( '' ) ) );
+	}
+
+	// How many times a marquee's content goes into each half of its strip: enough to cover the
+	// visible area (its clipping parent, at most the window). Measured before any copy is added.
+	function marqueeReps( el, parent ) {
+		var unit = el.getBoundingClientRect().width;
+		var visible = Math.min( parent ? parent.getBoundingClientRect().width : window.innerWidth, window.innerWidth || Infinity );
+		if ( ! ( unit > 0 ) || ! ( visible > 0 ) ) {
+			return 1;
+		}
+		return Math.max( 1, Math.min( 20, Math.ceil( visible / unit ) ) );
+	}
+
+	/**
+	 * Marquee: the element becomes one horizontal strip made of two equal halves (the copies are
+	 * aria-hidden and inert; short content is repeated within each half to fill the width), so
+	 * sliding it by -50% lands the second half exactly where the first started: seamless. A trailing pad equal to the gap keeps the spacing even at the seam, the
 	 * parent clips the overflow, and the strip pauses on hover / keyboard focus (WCAG 2.2.2).
 	 */
 	function prepareMarquee( rec ) {
@@ -1673,7 +1805,7 @@
 		var wasDirection = cs.flexDirection;
 		var parent = el.parentElement;
 		var m = {
-			style: [ 'display', 'width', 'flex-wrap', 'flex-direction', 'column-gap', 'padding-inline-end', 'translate' ].map( function ( prop ) {
+			style: [ 'display', 'width', 'max-width', 'flex-wrap', 'flex-direction', 'column-gap', 'padding-inline-end', 'translate' ].map( function ( prop ) {
 				return [ prop, el.style.getPropertyValue( prop ) ];
 			} ),
 			parent: parent,
@@ -1681,23 +1813,7 @@
 			clones: [],
 		};
 		el.__bmeMarquee = m;
-		toArray( el.children ).forEach( function ( child ) {
-			var copy = child.cloneNode( true );
-			copy.setAttribute( 'aria-hidden', 'true' );
-			copy.setAttribute( 'inert', '' );
-			copy.setAttribute( 'data-bme-clone', '' );
-			toArray( copy.querySelectorAll( 'a[href], button, input, select, textarea, [tabindex]' ) ).forEach( function ( f ) {
-				f.setAttribute( 'tabindex', '-1' );
-			} );
-			toArray( copy.querySelectorAll( '*' ) ).concat( [ copy ] ).forEach( function ( n ) {
-				// No duplicate ids, and the copy is never picked up as an animation of its own.
-				[ 'id', 'data-bme', 'data-bme-hide', 'data-bme-state', 'data-bme-opts', 'data-bme-tl', 'data-bme-tl-hide', INLINE_ATTR ].forEach( function ( a ) {
-					n.removeAttribute( a );
-				} );
-			} );
-			el.appendChild( copy );
-			m.clones.push( copy );
-		} );
+		var originals = toArray( el.children );
 		// One row: Bricks containers and blocks are column flexboxes, and a grid with set columns
 		// would wrap the copies onto new rows.
 		if ( ! /flex/.test( wasDisplay ) ) {
@@ -1709,6 +1825,7 @@
 		}
 		el.style.flexWrap = 'nowrap';
 		el.style.width = 'max-content';
+		el.style.maxWidth = 'none'; // Bricks caps elements at 100%: the strip must keep both halves equal
 		// A column layout spaced its items with row-gap: in one row that spacing is the column gap.
 		var gap = parseFloat( cs.columnGap );
 		if ( column && ! ( gap > 0 ) && parseFloat( cs.rowGap ) > 0 ) {
@@ -1718,6 +1835,35 @@
 		if ( gap > 0 ) {
 			el.style.paddingInlineEnd = gap + 'px';
 		}
+		// Each half of the strip must be at least as wide as the visible area, or a gap slides
+		// through after the last item: short content is repeated within each half.
+		m.reps = marqueeReps( el, parent );
+		var cloneIds = {};
+		for ( var r = 1; r < m.reps * 2; r++ ) {
+			originals.forEach( function ( child ) {
+				var copy = child.cloneNode( true );
+				copy.setAttribute( 'aria-hidden', 'true' );
+				copy.setAttribute( 'inert', '' );
+				copy.setAttribute( 'data-bme-clone', '' );
+				toArray( copy.querySelectorAll( 'a[href], button, input, select, textarea, [tabindex]' ) ).forEach( function ( f ) {
+					f.setAttribute( 'tabindex', '-1' );
+				} );
+				toArray( copy.querySelectorAll( '*' ) ).concat( [ copy ] ).forEach( function ( n ) {
+					// No duplicate ids, and the copy is never picked up as an animation of its own. Bricks
+					// styles each element by its id: the copy keeps it as data-bme-cid (see cloneIdStyles).
+					if ( n.id ) {
+						n.setAttribute( 'data-bme-cid', n.id );
+						cloneIds[ n.id ] = true;
+					}
+					[ 'id', 'data-bme', 'data-bme-hide', 'data-bme-state', 'data-bme-opts', 'data-bme-tl', 'data-bme-tl-hide', INLINE_ATTR ].forEach( function ( a ) {
+						n.removeAttribute( a );
+					} );
+				} );
+				el.appendChild( copy );
+				m.clones.push( copy );
+			} );
+		}
+		cloneIdStyles( Object.keys( cloneIds ) );
 		if ( parent && getComputedStyle( parent ).overflowX === 'visible' ) {
 			parent.style.overflowX = window.CSS && CSS.supports && CSS.supports( 'overflow-x', 'clip' ) ? 'clip' : 'hidden'; // Safari < 16
 		}
@@ -1960,6 +2106,7 @@
 		if ( ! node ) {
 			rec.inert = true;
 			unhide( rec.el );
+			rec.el.setAttribute( 'data-bme-state', 'done' ); // no number to count: shown as designed
 			return;
 		}
 		if ( ! rec.numberNode ) {
@@ -1971,6 +2118,7 @@
 			if ( /[/:]/.test( before + after ) || ( /^\d{4}$/.test( raw ) && +raw >= 1800 && +raw <= 2200 ) ) {
 				rec.inert = true;
 				unhide( rec.el );
+				rec.el.setAttribute( 'data-bme-state', 'done' );
 				return;
 			}
 			rec.numberNode = node;
@@ -3010,6 +3158,16 @@
 		document.addEventListener( 'scroll', sweepWhileScrolling, { passive: true, capture: true } );
 		window.addEventListener( 'load', sweep );
 		setTimeout( sweep, 400 );
+		// A marquee that the wider window would show a gap in needs more copies.
+		var marqueeShort = function ( rec ) {
+			var m = rec.el.__bmeMarquee;
+			if ( ! m || ! m.reps ) {
+				return false;
+			}
+			var half = rec.el.getBoundingClientRect().width / 2;
+			var visible = Math.min( m.parent ? m.parent.getBoundingClientRect().width : window.innerWidth, window.innerWidth );
+			return half > 0 && half < visible - 1;
+		};
 		// The built-in engine stores the designed transform as pixels (translate(-50%) → a matrix):
 		// after fonts load or the width changes, set its running loops up again from the new design.
 		var relayLoops = function () {
@@ -3017,7 +3175,7 @@
 			records.forEach( function ( rec ) {
 				// Anime.js turns a marquee's -50% into pixels once, too.
 				var anime = rec.engine && rec.engine === adapters.anime && rec.cfg.preset && rec.cfg.preset.marquee;
-				if ( rec.kind === 'loop' && ! rec.inert && ( anime || ( rec.engine === nativeAdapter && rec.targets.some( function ( t ) {
+				if ( rec.kind === 'loop' && ! rec.inert && ( anime || marqueeShort( rec ) || ( rec.engine === nativeAdapter && rec.targets.some( function ( t ) {
 					return restOf( t ) && restOf( t ).t;
 				} ) ) ) ) {
 					redo.push( rec );

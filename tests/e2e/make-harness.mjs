@@ -95,6 +95,10 @@ body += `<style>.tl-stage{height:2000px;position:relative}.tl-stage .pin{positio
 <section class="c5-st" data-case5="tl-sticky" ${tl([{ on: 'scroll', s: '.t', p: 'x', k: [[0, '0px'], [100, '1000px']], rs: 'top top', re: 'bottom bottom', rse: '.t' }])}><div class="pin"><div class="t" data-case5="tl-sticky-t">sticky target</div></div></section>
 <div data-case5="tl-auto" data-bme="fade-up" data-bme-opts='{"auto":true}' data-bme-hide ${tl([{ on: 'view', p: 'x', k: [[0, '0px'], [100, '5px']], d: 0, o: 0 }])}>timeline + auto rule</div>
 <div class="c5-col" data-bme="marquee" data-bme-engine="native" data-case5="mq-col"><div>A</div><div>B</div></div>
+<style>#brxe-c5kid{color:rgb(255, 0, 0)}.c5-flex{display:inline-flex;gap:30px}</style>
+<div data-bme="marquee" data-bme-engine="native" data-case5="mq-id"><div id="brxe-c5kid">styled by id</div></div>
+<a href="#f" class="c5-flex" data-bme="split-words" data-bme-engine="native" data-bme-opts='{"duration":2,"trigger":"manual"}' data-case5="split-flex">Two words here</a>
+<ul data-bme="scroll-highlight" data-bme-engine="native" data-case5="hl-blocks"><li>Alpha</li><li>Beta</li></ul>
 <p data-bme="counter" data-bme-engine="native" data-bme-opts='{"duration":2}' data-case5="counter-dec">0.125</p>
 <div data-bme="fade-up" data-bme-engine="native" data-bme-replay="true" data-case5="replay-attr">replay true</div>
 <h2 data-bme="split-lines" data-bme-engine="gsap" data-bme-hide data-case5="lines-link">Read the <a href="#x" class="c5-link">guide here</a> before you start</h2>

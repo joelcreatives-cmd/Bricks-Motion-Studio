@@ -284,6 +284,34 @@
 	}
 
 	if ( ST ) {
+		/**
+		 * Call before pinning an element. ScrollTrigger fixes it at its measured width, a fraction of a
+		 * pixel under a fit-content element's natural width, so its content (breadcrumbs, a short
+		 * heading) would wrap: round the width up. And the spacer it is moved into is not the Bricks
+		 * flex parent that made an image or icon block-level: keep the display it has. Returns undo.
+		 */
+		function keepFit( el ) {
+			var minWidth = el.style.minWidth;
+			var display = el.style.display;
+			if ( el.parentElement && /flex|grid/.test( window.getComputedStyle( el.parentElement ).display ) ) {
+				el.style.display = window.getComputedStyle( el ).display; // no change in place
+			}
+			var fit = function () {
+				el.style.minWidth = minWidth;
+				var w = el.getBoundingClientRect().width;
+				if ( w % 1 > 0.01 ) {
+					el.style.minWidth = Math.ceil( w ) + 'px';
+				}
+			};
+			fit();
+			ST.addEventListener( 'refreshInit', fit );
+			return function () {
+				ST.removeEventListener( 'refreshInit', fit );
+				el.style.minWidth = minWidth;
+				el.style.display = display;
+			};
+		}
+
 		/** Pin the element and slide its track (first child, or the "Animate" selector) horizontally. */
 		adapter.special[ 'horizontal-scroll' ] = function ( el, c ) {
 			var track = null;
@@ -302,6 +330,21 @@
 			// clip (not hidden): a hidden box can still be scrolled by focus, which would stack
 			// with the tween's x and misalign the track.
 			el.style.overflow = window.CSS && CSS.supports && CSS.supports( 'overflow', 'clip' ) ? 'clip' : 'hidden';
+			// Bricks caps every element at max-width: 100% and flex rows shrink their items to fit,
+			// so a track of fixed-width cards would be squeezed into the screen and never move.
+			// Let the track overflow (its cards keep their designed width) while the effect runs.
+			var trackStyle = { maxWidth: track.style.maxWidth, flexWrap: track.style.flexWrap };
+			var isFlex = /flex/.test( window.getComputedStyle( track ).display );
+			var shrinks = [];
+			track.style.maxWidth = 'none';
+			if ( isFlex ) {
+				track.style.flexWrap = 'nowrap';
+				Array.prototype.forEach.call( track.children, function ( card ) {
+					shrinks.push( [ card, card.style.flexShrink ] );
+					card.style.flexShrink = '0';
+				} );
+			}
+			var unfit = keepFit( el );
 			var distance = function () {
 				return Math.max( 0, track.scrollWidth - el.clientWidth );
 			};
@@ -317,6 +360,7 @@
 						return '+=' + distance();
 					},
 					pin: true,
+					pinSpacing: true, // off by default inside flex parents, which every Bricks layout element is
 					scrub: 0.8,
 					anticipatePin: 1,
 					invalidateOnRefresh: true,
@@ -345,16 +389,26 @@
 			return control( tween, function () {
 				el.removeEventListener( 'focusin', onFocus );
 				el.style.overflow = overflow;
+				unfit();
+				track.style.maxWidth = trackStyle.maxWidth;
+				track.style.flexWrap = trackStyle.flexWrap;
+				shrinks.forEach( function ( s ) {
+					s[ 0 ].style.flexShrink = s[ 1 ];
+				} );
 			} );
 		};
 
 		adapter.special.pin = function ( el ) {
-			var st = ST.create( { trigger: el, start: 'top top', end: '+=100%', pin: true, markers: debug } );
+			var unfit = keepFit( el );
+			// pinSpacing: ScrollTrigger turns it off inside flex parents (every Bricks layout element), and
+			// the content below would then scroll over the pinned element instead of waiting for it.
+			var st = ST.create( { trigger: el, start: 'top top', end: '+=100%', pin: true, pinSpacing: true, markers: debug } );
 			return {
 				pause: function () {},
 				play: function () {},
 				revert: function () {
 					st.kill( true );
+					unfit();
 				},
 			};
 		};

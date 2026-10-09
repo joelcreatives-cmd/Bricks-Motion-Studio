@@ -293,7 +293,20 @@ async function run( mode ) {
 		if ( mode === 'default' ) {
 			const mc = q( 'mq-col' ); await into( mc, 200 );
 			const kids = [ ...mc.children ];
-			if ( kids.length !== 4 || kids.some( ( k ) => k.offsetTop !== kids[ 0 ].offsetTop ) ) fail.push( 'marquee in a column flexbox is not one row' );
+			if ( kids.length < 4 || kids.length % 2 || kids.some( ( k ) => k.offsetTop !== kids[ 0 ].offsetTop ) ) fail.push( 'marquee in a column flexbox is not one row' );
+			// short content is repeated so each half covers the visible width (no gap slides through)
+			if ( mc.getBoundingClientRect().width / 2 < mc.parentElement.getBoundingClientRect().width - 1 ) fail.push( 'marquee half narrower than its visible area' );
+			// copies keep the styles Bricks writes against the original's id
+			const mi = q( 'mq-id' ); await into( mi, 200 );
+			const copy = mi.querySelector( '[data-bme-clone]' );
+			if ( ! copy || copy.id || getComputedStyle( copy ).color !== 'rgb(255, 0, 0)' ) fail.push( 'marquee copy lost its id styles: ' + ( copy && getComputedStyle( copy ).color ) );
+			// split text in a flex element keeps its spacing (one item, not one per word)
+			const sf = q( 'split-flex' ); await into( sf, 50 );
+			const w0 = sf.getBoundingClientRect().width; window.BricksMotion.play( sf ); await wait( 300 );
+			near( sf.getBoundingClientRect().width, w0, 1, 'split text in a flex element keeps its width' );
+			// no word joiners between separate blocks
+			const hb = q( 'hl-blocks' ); await into( hb, 300 );
+			if ( /\u2060/.test( hb.textContent ) ) fail.push( 'word joiner inserted between blocks' );
 		}
 		// counter: 0.125 counts as a decimal (never shows 125)
 		if ( mode === 'default' ) {

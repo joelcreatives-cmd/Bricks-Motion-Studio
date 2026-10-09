@@ -133,15 +133,34 @@
 	}
 
 
-	// "Enter" ranges end where the page can scroll to (enterEnd): when the page gets shorter or
-	// longer later (filters, accordions, lazy content), refresh() builds those scrubs again.
-	var enterScrubs = [];
-	function liveScrub( trigger, o, make ) {
-		var entry = { trigger: trigger, end: enterEnd( trigger ), make: make, cur: make(), dead: false };
-		if ( o.range !== 'enter' ) {
-			return entry.cur;
+	// Motion measures the trigger with offsetTop, which leaves out a margin on <html> (WordPress
+	// adds 32 / 46px for the admin bar): its scroll ranges would run that much early. Shift the
+	// trigger edges back by it, in pixels (Motion has no "end + px", so the full range's end edge
+	// is the trigger's layout height plus the shift).
+	function htmlShift() {
+		var r = document.documentElement.getBoundingClientRect();
+		return Math.round( r.top + ( window.scrollY || 0 ) );
+	}
+	function scrubOffset( trigger, o, end, shift ) {
+		if ( ! shift ) {
+			return o.range === 'enter' ? [ 'start end', 'start ' + end ] : [ 'start end', 'end start' ];
 		}
-		enterScrubs.push( entry );
+		var h = typeof trigger.offsetHeight === 'number' ? trigger.offsetHeight : trigger.getBoundingClientRect().height;
+		return o.range === 'enter' ? [ shift + 'px end', shift + 'px ' + end ] : [ shift + 'px end', h + shift + 'px start' ];
+	}
+	// What the scroll range depends on: when it changes (the page got shorter or longer, the
+	// admin bar changed height, the trigger was resized), refresh() builds the scrub again.
+	function scrubKey( trigger, o ) {
+		var shift = htmlShift();
+		return [ o.range === 'enter' ? +enterEnd( trigger ).toFixed( 2 ) : 0, shift, shift ? trigger.offsetHeight : 0 ].join( '|' );
+	}
+	var liveScrubs = [];
+	function liveScrub( trigger, o, make ) {
+		var entry = { trigger: trigger, o: o, key: scrubKey( trigger, o ), make: make, cur: make(), dead: false };
+		if ( o.range !== 'enter' && entry.key === '0|0|0' ) {
+			return entry.cur; // nothing that can move: Motion keeps it up to date by itself
+		}
+		liveScrubs.push( entry );
 		return {
 			finished: entry.cur.finished,
 			pause: function () {
@@ -156,14 +175,14 @@
 			},
 		};
 	}
-	function refreshEnterScrubs() {
-		enterScrubs = enterScrubs.filter( function ( e ) {
+	function refreshScrubs() {
+		liveScrubs = liveScrubs.filter( function ( e ) {
 			return ! e.dead && e.trigger.isConnected;
 		} );
-		enterScrubs.forEach( function ( e ) {
-			var end = enterEnd( e.trigger );
-			if ( Math.abs( end - e.end ) > 0.01 ) {
-				e.end = end;
+		liveScrubs.forEach( function ( e ) {
+			var key = scrubKey( e.trigger, e.o );
+			if ( key !== e.key ) {
+				e.key = key;
 				e.cur.revert();
 				e.cur = e.make();
 			}
@@ -196,13 +215,13 @@
 				var anim = M.animate( targets, keyframes( from, to ), opts );
 				var cancel = M.scroll( anim, {
 					target: trigger,
-					offset: o.range === 'enter' ? [ 'start end', 'start ' + +enterEnd( trigger ).toFixed( 3 ) ] : [ 'start end', 'end start' ],
+					offset: scrubOffset( trigger, o, +enterEnd( trigger ).toFixed( 3 ), htmlShift() ),
 				} );
 				return control( anim, cancel );
 			} );
 		},
 
-		refresh: refreshEnterScrubs,
+		refresh: refreshScrubs,
 
 		special: {},
 	} );
