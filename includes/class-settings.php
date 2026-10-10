@@ -28,6 +28,9 @@ class Settings {
 				'anime'  => 0,
 				'motion' => 0,
 			),
+			// live: everyone sees animations; editors: only logged-in editors (build and review
+			// before launch); off: no Motion Studio output anywhere on the frontend.
+			'status'         => 'live',
 			'default_engine' => 'gsap',
 			'source'         => 'local',
 			'level'          => 'moderate',
@@ -50,6 +53,7 @@ class Settings {
 				'batch'    => 0.08,
 				'speed'    => 0.3,
 				'replay'   => 0,
+				'pace'     => 1, // site-wide speed: 2 plays every animation twice as fast
 			),
 			'lenis'          => array(
 				'lerp'    => 0.1,
@@ -66,12 +70,14 @@ class Settings {
 				'min_width' => 0,
 			),
 			'perf'           => array(
-				'fouc'     => 1,
-				'failsafe' => 3000,
-				'always'   => 0,
-				'native'   => 1,
-				'clip_x'   => 1, // animations never make the page scroll sideways
+				'fouc'      => 1,
+				'failsafe'  => 3000,
+				'always'    => 0,
+				'native'    => 1,
+				'clip_x'    => 1, // animations never make the page scroll sideways
+				'off_paths' => '', // one URL path per line: no Motion Studio output there
 			),
+			'admin_bar'      => 1, // Motion Studio menu in the admin bar on the frontend
 			'debug'          => 0,
 			// "My presets": a built-in preset with your own timing, picked like any other preset.
 			'custom_presets' => array(),
@@ -311,6 +317,7 @@ class Settings {
 			$out['libraries'][ $lib ] = empty( $in['libraries'][ $lib ] ) ? 0 : 1;
 		}
 
+		$out['status']         = self::pick( $in['status'] ?? '', array( 'live', 'editors', 'off' ), 'live' );
 		$out['default_engine'] = self::pick( $in['default_engine'] ?? '', Presets::TWEEN_ENGINES, $d['default_engine'] );
 		$out['source']         = self::pick( $in['source'] ?? '', array( 'local', 'cdn' ), 'local' );
 		$out['level']          = self::pick( $in['level'] ?? '', array_keys( Levels::SCALE ), $d['level'] );
@@ -337,6 +344,7 @@ class Settings {
 		$out['defaults']['batch']    = self::num( $df['batch'] ?? null, 0, 1, $d['defaults']['batch'] );
 		$out['defaults']['speed']    = self::num( $df['speed'] ?? null, -2, 2, $d['defaults']['speed'] );
 		$out['defaults']['replay']   = empty( $df['replay'] ) ? 0 : 1;
+		$out['defaults']['pace']     = self::num( $df['pace'] ?? null, 0.25, 4, $d['defaults']['pace'] );
 
 		// Lenis.
 		$ln                      = $in['lenis'] ?? array();
@@ -364,12 +372,70 @@ class Settings {
 		// Older exports don't have it: keep the default instead of reading "missing" as off.
 		$out['perf']['clip_x'] = array_key_exists( 'clip_x', $p ) ? ( empty( $p['clip_x'] ) ? 0 : 1 ) : (int) $d['perf']['clip_x'];
 
-		$out['debug'] = empty( $in['debug'] ) ? 0 : 1;
+		$out['perf']['off_paths'] = self::sanitize_paths( $p['off_paths'] ?? '' );
+
+		$out['debug']     = empty( $in['debug'] ) ? 0 : 1;
+		$out['admin_bar'] = empty( $in['admin_bar'] ) ? 0 : 1;
 
 		$out['custom_presets'] = self::sanitize_custom_presets( $in['custom_presets'] ?? array() );
 
 		self::flush();
 		return $out;
+	}
+
+	/**
+	 * "Turn off on these pages": one URL path per line, e.g. /checkout/ or /shop/*. Full URLs
+	 * are reduced to their path; anything else is dropped.
+	 *
+	 * @param mixed $value Raw textarea value.
+	 * @return string
+	 */
+	public static function sanitize_paths( $value ) {
+		$out = array();
+		foreach ( preg_split( '/[\r\n,]+/', is_scalar( $value ) ? (string) $value : '' ) as $line ) {
+			$line = trim( wp_strip_all_tags( $line ) );
+			if ( '' === $line ) {
+				continue;
+			}
+			if ( preg_match( '#^https?://#i', $line ) ) {
+				$line = (string) wp_parse_url( $line, PHP_URL_PATH );
+			}
+			$wild                                = '*' === substr( $line, -1 );
+			$path                                = '/' . trim( (string) preg_replace( '#[^A-Za-z0-9\-._~/%@]#', '', rtrim( $line, '*' ) ), '/' );
+			$path                                = '/' === $path ? '/' : $path . '/';
+			$out[ $path . ( $wild ? '*' : '' ) ] = true;
+			if ( count( $out ) >= 100 ) {
+				break;
+			}
+		}
+		return implode( "\n", array_keys( $out ) );
+	}
+
+	/**
+	 * Is this request's URL on the "Turn off on these pages" list?
+	 *
+	 * @return bool
+	 */
+	public static function path_is_off() {
+		$list = (string) self::get( 'perf.off_paths', '' );
+		if ( '' === $list || empty( $_SERVER['REQUEST_URI'] ) ) {
+			return false;
+		}
+		$path = (string) wp_parse_url( esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) ), PHP_URL_PATH ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+		// Relative to the site address, so WordPress in a subfolder matches /checkout/ too.
+		$home = untrailingslashit( (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH ) );
+		if ( '' !== $home && 0 === strpos( $path, $home . '/' ) ) {
+			$path = substr( $path, strlen( $home ) );
+		}
+		$path = '/' . trim( rawurldecode( $path ), '/' );
+		$path = '/' === $path ? '/' : $path . '/';
+		foreach ( explode( "\n", $list ) as $rule ) {
+			$rule = rawurldecode( $rule );
+			if ( '*' === substr( $rule, -1 ) ? 0 === strpos( $path, substr( $rule, 0, -1 ) ) : $rule === $path ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**

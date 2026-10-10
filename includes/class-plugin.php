@@ -45,6 +45,8 @@ class Plugin {
 			20
 		);
 
+		// Frontend admin bar menu (status, view without animations, settings).
+		add_action( 'admin_bar_menu', array( Admin::class, 'admin_bar' ), 90 );
 		if ( is_admin() ) {
 			new Admin();
 		}

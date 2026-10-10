@@ -749,6 +749,8 @@
 
 	var CLASS_PREFIX = 'bme-';
 
+	var PACE = Math.max( 0.25, Math.min( 4, num( D.pace, 1 ) ) ) || 1;
+
 	/** distance, duration, stagger multipliers per level (mirrors Levels::SCALE in PHP). */
 	var LEVEL_SCALE = {
 		basic: [ 0.5, 0.8, 0.7 ],
@@ -789,9 +791,10 @@
 			slug: slug,
 			preset: p,
 			engine: el.getAttribute( 'data-bme-engine' ) || o.engine || '',
-			duration: num( o.duration, num( p.duration, D.duration ) * lv[ 1 ] ),
-			delay: num( o.delay, num( p.delay, D.delay ) ),
-			stagger: num( o.stagger, num( p.stagger, D.stagger ) * lv[ 2 ] ),
+			// Site-wide animation speed (Timing & feel): 2 plays everything twice as fast.
+			duration: num( o.duration, num( p.duration, D.duration ) * lv[ 1 ] ) / PACE,
+			delay: num( o.delay, num( p.delay, D.delay ) ) / PACE,
+			stagger: num( o.stagger, num( p.stagger, D.stagger ) * lv[ 2 ] ) / PACE,
 			distance: Math.max( -1000, Math.min( 1000, num( o.distance, num( p.distance, D.distance ) * lv[ 0 ] ) ) ),
 			offset: Math.max( 0, Math.min( 50, num( o.offset, D.offset ) ) ),
 			speed: num( o.speed, D.speed ),
@@ -927,7 +930,7 @@
 			return pa[ 0 ] - pb[ 0 ] || pa[ 1 ] - pb[ 1 ];
 		} );
 		items.forEach( function ( rec, i ) {
-			safePlay( rec, Math.min( i, 8 ) * D.batch );
+			safePlay( rec, ( Math.min( i, 8 ) * D.batch ) / PACE );
 		} );
 	}
 

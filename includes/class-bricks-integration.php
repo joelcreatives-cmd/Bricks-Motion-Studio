@@ -766,6 +766,24 @@ class Bricks_Integration {
 			}
 			return true;
 		}
+		// Site status (Motion Studio → Overview): off for everyone, or only for visitors who are
+		// not logged in as editors while the site is being built.
+		$status = (string) Settings::get( 'status', 'live' );
+		if ( 'off' === $status ) {
+			return true;
+		}
+		if ( 'editors' === $status ) {
+			if ( ! current_user_can( 'edit_posts' ) ) {
+				return true;
+			}
+			if ( ! headers_sent() ) {
+				nocache_headers(); // the animated version must never be cached for visitors
+			}
+		}
+		// "Turn off on these pages".
+		if ( Settings::path_is_off() ) {
+			return true;
+		}
 		/**
 		 * Force-disable all motion markup for the current request.
 		 *
@@ -1275,7 +1293,8 @@ class Bricks_Integration {
 			// Modern colour functions (oklch, oklab, lab, lch, hwb and color with a colour space): the browser converts them.
 			. '|(?:oklch|oklab|lab|lch|hwb)\((?:[-+.\d%a-z]+(?:deg|turn)?)(?: [-+.\d%a-z]+){2}(?:\/[-+.\d%]+)?\)'
 			. '|color\([a-z0-9-]+(?: [-+.\d%]+){3}(?:\/[-+.\d%]+)?\)';
-		$colour = $plain . '|var\(--[A-Za-z0-9_-]+(?:,(?:' . $plain . '))?\)'; // var(--brand) or var(--brand,#333)
+		// A custom property, optionally with a plain colour as its fallback.
+		$colour = $plain . '|var\(--[A-Za-z0-9_-]+(?:,(?:' . $plain . '))?\)';
 		switch ( $prop ) {
 			case 'x':
 			case 'y':

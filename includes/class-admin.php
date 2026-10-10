@@ -17,6 +17,15 @@ class Admin {
 	/** Brand mark: a motion wave with a leading dot. */
 	const WAVE_PATH = 'M2 14c3-8 6-8 8-4s5 4 8-4v3c-3 7-6 7-8 3s-5-4-8 4z';
 
+	/** Library badges on the Libraries cards. */
+	const LIB_MONOGRAMS = array(
+		'gsap'   => 'GS',
+		'anime'  => 'A',
+		'motion' => 'M',
+		'three'  => '3D',
+		'lenis'  => 'L',
+	);
+
 	/** @var string */
 	private $hook = '';
 
@@ -28,6 +37,108 @@ class Admin {
 		add_action( 'admin_post_bme_import', array( $this, 'handle_import' ) );
 		add_action( 'admin_post_bme_reset', array( $this, 'handle_reset' ) );
 		add_action( 'admin_notices', array( $this, 'notices' ) );
+		add_action( 'wp_ajax_bme_settings_rev', array( $this, 'ajax_rev' ) );
+	}
+
+	/**
+	 * Motion Studio menu in the admin bar on the frontend: site status, this page's state, a
+	 * link to view the page without animations, and the settings.
+	 *
+	 * @param \WP_Admin_Bar $bar Admin bar.
+	 */
+	public static function admin_bar( $bar ) {
+		if ( is_admin() || ! is_admin_bar_showing() || ! current_user_can( 'manage_options' ) || ! Settings::get( 'admin_bar', 1 ) ) {
+			return;
+		}
+		if ( function_exists( 'bricks_is_builder' ) && ( bricks_is_builder() || bricks_is_builder_iframe() ) ) {
+			return;
+		}
+		$status = (string) Settings::get( 'status', 'live' );
+		$labels = self::status_labels();
+		$state  = 'off' === $status ? 'off' : ( Settings::path_is_off() ? 'page-off' : $status );
+		$dot    = array(
+			'live'     => '#22c55e',
+			'editors'  => '#f59e0b',
+			'off'      => '#ef4444',
+			'page-off' => '#ef4444',
+		);
+		$bar->add_node(
+			array(
+				'id'    => 'bme',
+				'title' => '<span class="ab-icon" aria-hidden="true" style="top:2px"><svg viewBox="0 0 20 20" width="18" height="18" style="fill:currentColor"><path d="' . esc_attr( self::WAVE_PATH ) . '"/><circle cx="4" cy="5" r="2"/></svg></span><span class="ab-label">' . esc_html__( 'Motion', 'bricks-motion-studio' ) . '</span><span aria-hidden="true" style="display:inline-block;width:7px;height:7px;margin-left:6px;border-radius:50%;vertical-align:middle;background:' . esc_attr( $dot[ $state ] ) . '"></span>',
+				'href'  => self::page_url(),
+				'meta'  => array( 'title' => $labels[ $status ][0] ),
+			)
+		);
+		$bar->add_node(
+			array(
+				'parent' => 'bme',
+				'id'     => 'bme-status',
+				/* translators: %s: site status, e.g. Live */
+				'title'  => esc_html( sprintf( __( 'Status: %s', 'bricks-motion-studio' ), 'page-off' === $state ? __( 'Off on this page', 'bricks-motion-studio' ) : $labels[ $status ][0] ) ),
+				'href'   => self::page_url() . '#overview',
+			)
+		);
+		if ( isset( $_GET['bme-disable'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$bar->add_node(
+				array(
+					'parent' => 'bme',
+					'id'     => 'bme-disable',
+					'title'  => esc_html__( 'Show animations again', 'bricks-motion-studio' ),
+					'href'   => esc_url( remove_query_arg( 'bme-disable' ) ),
+				)
+			);
+		} elseif ( 'off' !== $state && 'page-off' !== $state ) {
+			$bar->add_node(
+				array(
+					'parent' => 'bme',
+					'id'     => 'bme-disable',
+					'title'  => esc_html__( 'View this page without animations', 'bricks-motion-studio' ),
+					'href'   => esc_url( add_query_arg( 'bme-disable', '1' ) ),
+				)
+			);
+		}
+		$bar->add_node(
+			array(
+				'parent' => 'bme',
+				'id'     => 'bme-settings',
+				'title'  => esc_html__( 'Settings', 'bricks-motion-studio' ),
+				'href'   => self::page_url(),
+			)
+		);
+	}
+
+	/**
+	 * Site status choices: label, description.
+	 *
+	 * @return array[]
+	 */
+	public static function status_labels() {
+		return array(
+			'live'    => array( __( 'Live', 'bricks-motion-studio' ), __( 'Everyone sees your animations.', 'bricks-motion-studio' ) ),
+			'editors' => array( __( 'Editors only', 'bricks-motion-studio' ), __( 'Only logged-in editors see them. Visitors get the page as designed, without motion: build and review before launch.', 'bricks-motion-studio' ) ),
+			'off'     => array( __( 'Off', 'bricks-motion-studio' ), __( 'No Motion Studio output on the frontend for anyone. Your rules and element settings are kept.', 'bricks-motion-studio' ) ),
+		);
+	}
+
+	/**
+	 * Fingerprint of the saved settings. The screen keeps the one it was opened with, so a save
+	 * from a tab opened before the settings changed elsewhere (another tab, an import, WP-CLI)
+	 * asks before overwriting them.
+	 *
+	 * @return string
+	 */
+	public static function settings_rev() {
+		return md5( (string) wp_json_encode( get_option( BME_OPTION, array() ) ) );
+	}
+
+	/** Current fingerprint, for the check before saving (admin.js). */
+	public function ajax_rev() {
+		check_ajax_referer( 'bme_settings_rev', 'nonce' );
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( null, 403 );
+		}
+		wp_send_json_success( array( 'rev' => self::settings_rev() ) );
 	}
 
 	/** Bookmarks from before the rename (Bricks Motion Engine) still open the settings screen. */
@@ -78,23 +189,53 @@ class Admin {
 			'window.BME_ADMIN=' . wp_json_encode(
 				array(
 					'presets' => Presets::all(),
+					'rev'     => self::settings_rev(),
+					'ajax'    => admin_url( 'admin-ajax.php' ),
+					'nonce'   => wp_create_nonce( 'bme_settings_rev' ),
 					'i18n'    => array(
-						'unsaved' => __( 'Unsaved changes', 'bricks-motion-studio' ),
-						'saved'   => __( 'All changes saved', 'bricks-motion-studio' ),
-						'copied'  => __( 'Copied', 'bricks-motion-studio' ),
-						'ctrlS'   => _x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ),
+						'changed'            => __( 'The Motion Studio settings were changed somewhere else (another tab, an import or an update) after you opened this page. Save anyway and replace those changes with yours?', 'bricks-motion-studio' ),
+						/* translators: 1: rules switched on, 2: all rules */
+						'ruleCount'          => __( '%1$d of %2$d on', 'bricks-motion-studio' ),
+						/* translators: 1: rules shown by the filter, 2: all rules */
+						'ruleShown'          => __( '%1$d of %2$d shown', 'bricks-motion-studio' ),
+						'unknownEl'          => __( 'Not a Bricks element on this site', 'bricks-motion-studio' ),
+						'jsonOk'             => __( 'Valid settings file. Click Import to apply it.', 'bricks-motion-studio' ),
+						'jsonBad'            => __( 'This is not a Motion Studio settings export (invalid JSON).', 'bricks-motion-studio' ),
+						/* translators: %s: preset slug, e.g. fade-up */
+						'copySlug'           => __( 'Copied %s', 'bricks-motion-studio' ),
+						'unsaved'            => __( 'Unsaved changes', 'bricks-motion-studio' ),
+						'saved'              => __( 'All changes saved', 'bricks-motion-studio' ),
+						'saving'             => __( 'Saving…', 'bricks-motion-studio' ),
+						'section'            => __( 'Section', 'bricks-motion-studio' ),
+						'preset'             => __( 'Preset', 'bricks-motion-studio' ),
+						'paletteLabel'       => __( 'Search settings', 'bricks-motion-studio' ),
+						'palettePlaceholder' => __( 'Search settings, sections and presets…', 'bricks-motion-studio' ),
+						'paletteNone'        => __( 'Nothing found. Try another word.', 'bricks-motion-studio' ),
+						'copied'             => __( 'Copied', 'bricks-motion-studio' ),
+						'ctrlS'              => _x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ),
 						/* translators: 1: button name, e.g. "Remove rule", 2: rule number */
-						'ruleBtn' => __( '%1$s (rule %2$d)', 'bricks-motion-studio' ),
-						'leave'   => __( 'You have unsaved changes.', 'bricks-motion-studio' ),
-						'libOff'  => __( '(library off)', 'bricks-motion-studio' ),
-						'sample'  => __( 'Hello there', 'bricks-motion-studio' ),
+						'ruleBtn'            => __( '%1$s (rule %2$d)', 'bricks-motion-studio' ),
+						'leave'              => __( 'You have unsaved changes.', 'bricks-motion-studio' ),
+						'libOff'             => __( '(library off)', 'bricks-motion-studio' ),
+						'sample'             => __( 'Hello there', 'bricks-motion-studio' ),
 						/* translators: %s: a number, e.g. 1,250 */
-						'counter' => __( '%s+ launches', 'bricks-motion-studio' ),
-						'noLibs'  => __( 'No libraries', 'bricks-motion-studio' ),
+						'counter'            => __( '%s+ launches', 'bricks-motion-studio' ),
+						'noLibs'             => __( 'No libraries', 'bricks-motion-studio' ),
 						/* translators: 1: number of active rules (no plural form needed), 2: animation level name */
-						'autoOn'  => __( 'auto-animate on, %2$s level, active rules: %1$s', 'bricks-motion-studio' ),
-						'autoOff' => __( 'auto-animate off', 'bricks-motion-studio' ),
-						'levels'  => array_map(
+						'autoOn'             => __( 'auto-animate on, %2$s level, active rules: %1$s', 'bricks-motion-studio' ),
+						'autoOff'            => __( 'auto-animate off', 'bricks-motion-studio' ),
+						/* translators: 1: active rules, 2: all rules */
+						'ofRules'            => __( 'of %2$d rules on', 'bricks-motion-studio' ),
+						/* translators: %1$d: number of "My presets" */
+						'mineCount'          => __( 'including %1$d of your own', 'bricks-motion-studio' ),
+						'builtIn'            => __( 'Built in, ready to use', 'bricks-motion-studio' ),
+						'status'             => array_map(
+							static function ( $t ) {
+								return $t[0];
+							},
+							self::status_labels()
+						),
+						'levels'             => array_map(
 							static function ( $t ) {
 								return $t[0];
 							},
@@ -117,7 +258,7 @@ class Admin {
 		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
 		// options.php redirects back with settings-updated=true; top-level pages don't get the core notice.
 		if ( $screen && $screen->id === $this->hook && ! empty( $_GET['settings-updated'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'Settings saved.', 'bricks-motion-studio' ) . '</p></div>';
+			echo '<div class="notice notice-success is-dismissible bme-notice"><p>' . esc_html__( 'Settings saved.', 'bricks-motion-studio' ) . '</p></div>';
 		}
 		if ( $screen && $screen->id === $this->hook && isset( $_GET['bme_notice'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$code = sanitize_key( wp_unslash( $_GET['bme_notice'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -127,7 +268,7 @@ class Admin {
 				'reset'         => array( 'success', __( 'Settings reset to defaults.', 'bricks-motion-studio' ) ),
 			);
 			if ( isset( $map[ $code ] ) ) {
-				printf( '<div class="notice notice-%1$s is-dismissible"><p>%2$s</p></div>', esc_attr( $map[ $code ][0] ), esc_html( $map[ $code ][1] ) );
+				printf( '<div class="notice notice-%1$s is-dismissible bme-notice"><p>%2$s</p></div>', esc_attr( $map[ $code ][0] ), esc_html( $map[ $code ][1] ) );
 			}
 		}
 	}
@@ -224,6 +365,26 @@ class Admin {
 			self::$icons = is_array( self::$icons ) ? self::$icons : array();
 		}
 		return self::$icons[ $name ] ?? '';
+	}
+
+	/**
+	 * Panel heading: icon tile, title and intro.
+	 *
+	 * @param string $id    Panel id.
+	 * @param string $title Title.
+	 * @param string $intro Intro text.
+	 * @param string $icon  Icon key.
+	 */
+	private function panel_head( $id, $title, $intro, $icon ) {
+		?>
+		<header class="bme-panel__head">
+			<span class="bme-panel__icon" aria-hidden="true"><?php echo self::icon( $icon ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+			<div>
+				<h2 id="bme-h-<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $title ); ?></h2>
+				<p><?php echo esc_html( $intro ); ?></p>
+			</div>
+		</header>
+		<?php
 	}
 
 	private function name( $path ) {
@@ -439,6 +600,7 @@ class Admin {
 					<option value="class" <?php selected( $rule['type'] ?? '', 'class' ); ?>><?php esc_html_e( 'Class', 'bricks-motion-studio' ); ?></option>
 				</select>
 				<input type="text" class="bme-text bme-mono" list="bme-element-list" name="<?php echo esc_attr( $base . '[target]' ); ?>" value="<?php echo esc_attr( (string) ( $rule['target'] ?? '' ) ); ?>" placeholder="heading" aria-label="<?php esc_attr_e( 'Element name or class', 'bricks-motion-studio' ); ?>" spellcheck="false">
+				<span class="bme-rule__name" data-bme-target-name aria-hidden="true"></span>
 			</span>
 			<span role="cell">
 				<span class="bme-cap" aria-hidden="true"><?php esc_html_e( 'Preset', 'bricks-motion-studio' ); ?></span>
@@ -551,11 +713,11 @@ class Admin {
 			return;
 		}
 
-		$s       = Settings::all();
-		$meta    = Libraries::meta();
-		$eases   = Settings::eases();
-		$checks  = self::system_checks();
-		$issues  = count(
+		$s      = Settings::all();
+		$meta   = Libraries::meta();
+		$eases  = Settings::eases();
+		$checks = self::system_checks();
+		$issues = count(
 			array_filter(
 				$checks,
 				static function ( $c ) {
@@ -563,15 +725,28 @@ class Admin {
 				}
 			)
 		);
-		$panels  = array(
-			'libraries' => array( __( 'Libraries', 'bricks-motion-studio' ), 'libraries' ),
-			'auto'      => array( __( 'Auto-animate', 'bricks-motion-studio' ), 'auto' ),
-			'defaults'  => array( __( 'Timing & feel', 'bricks-motion-studio' ), 'defaults' ),
-			'scroll3d'  => array( __( 'Scroll & 3D', 'bricks-motion-studio' ), 'scroll3d' ),
-			'a11y'      => array( __( 'Accessibility', 'bricks-motion-studio' ), 'a11y' ),
-			'system'    => array( __( 'System', 'bricks-motion-studio' ), 'tools' ),
-			'help'      => array( __( 'Reference', 'bricks-motion-studio' ), 'help' ),
+		// Navigation, in groups: group label => panel id => [ label, icon ].
+		$nav     = array(
+			''                                        => array(
+				'overview' => array( __( 'Overview', 'bricks-motion-studio' ), 'overview' ),
+			),
+			__( 'Set up', 'bricks-motion-studio' )    => array(
+				'libraries' => array( __( 'Libraries', 'bricks-motion-studio' ), 'libraries' ),
+				'auto'      => array( __( 'Auto-animate', 'bricks-motion-studio' ), 'auto' ),
+			),
+			__( 'Fine-tune', 'bricks-motion-studio' ) => array(
+				'defaults' => array( __( 'Timing & feel', 'bricks-motion-studio' ), 'defaults' ),
+				'scroll3d' => array( __( 'Scroll & 3D', 'bricks-motion-studio' ), 'scroll3d' ),
+				'a11y'     => array( __( 'Accessibility', 'bricks-motion-studio' ), 'a11y' ),
+			),
+			__( 'Resources', 'bricks-motion-studio' ) => array(
+				'system' => array( __( 'System', 'bricks-motion-studio' ), 'tools' ),
+				'help'   => array( __( 'Reference', 'bricks-motion-studio' ), 'help' ),
+			),
 		);
+		$passed  = count( $checks ) - $issues;
+		$status  = self::status_labels();
+		$builtin = count( Presets::builtin() );
 		$engines = array(
 			'gsap'   => 'GSAP',
 			'anime'  => 'Anime.js',
@@ -589,8 +764,14 @@ class Admin {
 						<span class="bme-brand__name"><?php esc_html_e( 'Motion Studio', 'bricks-motion-studio' ); ?></span>
 						<span class="bme-brand__ver">v<?php echo esc_html( BME_VERSION ); ?></span>
 					</div>
+					<span class="bme-pill" data-bme-status-pill data-status="<?php echo esc_attr( (string) $s['status'] ); ?>"><i aria-hidden="true"></i><span><?php echo esc_html( $status[ $s['status'] ][0] ?? '' ); ?></span></span>
 					<p class="bme-bar__summary" data-bme-summary></p>
 					<div class="bme-bar__actions">
+						<button type="button" class="bme-btn bme-btn--search" data-bme-palette aria-haspopup="dialog" aria-keyshortcuts="/">
+							<?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<span><?php esc_html_e( 'Search', 'bricks-motion-studio' ); ?></span>
+							<kbd class="bme-kbd" aria-hidden="true">/</kbd>
+						</button>
 						<span class="bme-bar__state" data-bme-state role="status"><?php esc_html_e( 'All changes saved', 'bricks-motion-studio' ); ?></span>
 						<button type="submit" form="bme-form" class="bme-btn bme-btn--primary" data-bme-save>
 							<?php esc_html_e( 'Save', 'bricks-motion-studio' ); ?>
@@ -601,51 +782,157 @@ class Admin {
 
 				<div class="bme-shell">
 					<nav class="bme-nav" aria-label="<?php esc_attr_e( 'Motion Studio settings', 'bricks-motion-studio' ); ?>">
-						<?php foreach ( $panels as $id => $panel ) : ?>
-							<a class="bme-nav__item" href="#<?php echo esc_attr( $id ); ?>" data-bme-nav="<?php echo esc_attr( $id ); ?>">
-								<?php echo self::icon( $panel[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-								<span><?php echo esc_html( $panel[0] ); ?></span>
-								<?php if ( 'system' === $id && $issues ) : ?>
-									<span class="bme-nav__badge"><span aria-hidden="true"><?php echo esc_html( (string) $issues ); ?></span><span class="screen-reader-text">
-										<?php
-										/* translators: %d: number of system checks that need attention */
-										echo esc_html( sprintf( _n( '%d issue', '%d issues', (int) $issues, 'bricks-motion-studio' ), (int) $issues ) );
-										?>
-									</span></span>
-								<?php endif; ?>
-							</a>
+						<?php foreach ( $nav as $group => $items ) : ?>
+							<?php if ( '' !== $group ) : ?>
+								<span class="bme-nav__group" aria-hidden="true"><?php echo esc_html( $group ); ?></span>
+							<?php endif; ?>
+							<?php foreach ( $items as $id => $panel ) : ?>
+								<a class="bme-nav__item" href="#<?php echo esc_attr( $id ); ?>" data-bme-nav="<?php echo esc_attr( $id ); ?>">
+									<?php echo self::icon( $panel[1] ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									<span><?php echo esc_html( $panel[0] ); ?></span>
+									<?php if ( 'system' === $id && $issues ) : ?>
+										<span class="bme-nav__badge"><span aria-hidden="true"><?php echo esc_html( (string) $issues ); ?></span><span class="screen-reader-text">
+											<?php
+											/* translators: %d: number of system checks that need attention */
+											echo esc_html( sprintf( _n( '%d issue', '%d issues', (int) $issues, 'bricks-motion-studio' ), (int) $issues ) );
+											?>
+										</span></span>
+									<?php endif; ?>
+								</a>
+							<?php endforeach; ?>
 						<?php endforeach; ?>
+						<a class="bme-nav__site" href="<?php echo esc_url( home_url( '/' ) ); ?>" target="_blank" rel="noopener">
+							<?php echo self::icon( 'eye' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+							<span><?php esc_html_e( 'View site', 'bricks-motion-studio' ); ?><span class="screen-reader-text"> <?php esc_html_e( '(opens in a new tab)', 'bricks-motion-studio' ); ?></span></span>
+						</a>
 					</nav>
 
 					<main class="bme-main">
 						<form id="bme-form" method="post" action="options.php" novalidate>
 							<?php settings_fields( self::GROUP ); ?>
 
+							<!-- Overview -->
+							<section class="bme-panel bme-panel--overview" id="bme-panel-overview" data-bme-panel="overview" aria-labelledby="bme-h-overview">
+								<div class="bme-hero">
+									<div class="bme-hero__text">
+										<span class="bme-eyebrow"><?php esc_html_e( 'Overview', 'bricks-motion-studio' ); ?></span>
+										<h2 id="bme-h-overview"><?php esc_html_e( 'Motion for every Bricks element', 'bricks-motion-studio' ); ?></h2>
+										<p><?php esc_html_e( 'Pick your engines, let rules animate the whole site, and fine-tune any element in the builder under Motion Studio.', 'bricks-motion-studio' ); ?></p>
+										<div class="bme-hero__actions">
+											<a class="bme-btn bme-btn--light" href="#auto" data-bme-go="auto"><?php echo self::icon( 'auto' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Auto-animate rules', 'bricks-motion-studio' ); ?></a>
+											<a class="bme-btn bme-btn--glass" href="#help" data-bme-go="help"><?php esc_html_e( 'Browse presets', 'bricks-motion-studio' ); ?><?php echo self::icon( 'arrow' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
+										</div>
+									</div>
+									<div class="bme-hero__art" aria-hidden="true">
+										<span class="bme-hero__card"><i></i><i></i><i></i></span>
+										<span class="bme-hero__card"><i></i><i></i><i></i></span>
+										<span class="bme-hero__card"><i></i><i></i><i></i></span>
+									</div>
+								</div>
+
+								<div class="bme-stats">
+									<a class="bme-stat" href="#libraries" data-bme-go="libraries">
+										<span class="bme-stat__icon" aria-hidden="true"><?php echo self::icon( 'libraries' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="bme-stat__label"><?php esc_html_e( 'Libraries on', 'bricks-motion-studio' ); ?></span>
+										<strong class="bme-stat__value" data-bme-stat="libs">0</strong>
+										<span class="bme-stat__note" data-bme-stat-note="libs"></span>
+									</a>
+									<a class="bme-stat" href="#auto" data-bme-go="auto">
+										<span class="bme-stat__icon" aria-hidden="true"><?php echo self::icon( 'auto' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="bme-stat__label"><?php esc_html_e( 'Active rules', 'bricks-motion-studio' ); ?></span>
+										<strong class="bme-stat__value" data-bme-stat="rules">0</strong>
+										<span class="bme-stat__note" data-bme-stat-note="rules"></span>
+									</a>
+									<a class="bme-stat" href="#help" data-bme-go="help">
+										<span class="bme-stat__icon" aria-hidden="true"><?php echo self::icon( 'sparkles' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="bme-stat__label"><?php esc_html_e( 'Presets', 'bricks-motion-studio' ); ?></span>
+										<strong class="bme-stat__value" data-bme-stat="presets" data-builtin="<?php echo esc_attr( (string) $builtin ); ?>"><?php echo esc_html( (string) $builtin ); ?></strong>
+										<span class="bme-stat__note" data-bme-stat-note="presets"></span>
+									</a>
+									<a class="bme-stat" href="#system" data-bme-go="system">
+										<span class="bme-stat__icon" aria-hidden="true"><?php echo self::icon( 'shield' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+										<span class="bme-stat__label"><?php esc_html_e( 'System checks', 'bricks-motion-studio' ); ?></span>
+										<strong class="bme-stat__value"><?php echo esc_html( $passed . '/' . count( $checks ) ); ?></strong>
+										<span class="bme-stat__note <?php echo $issues ? 'is-warn' : 'is-ok'; ?>"><?php echo $issues ? esc_html( sprintf( /* translators: %d: number of checks */ _n( '%d needs attention', '%d need attention', (int) $issues, 'bricks-motion-studio' ), (int) $issues ) ) : esc_html__( 'All passed', 'bricks-motion-studio' ); ?></span>
+									</a>
+								</div>
+
+								<div class="bme-overview">
+									<div class="bme-card">
+										<h3 class="bme-card__title"><?php echo self::icon( 'gauge' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Site status', 'bricks-motion-studio' ); ?></h3>
+										<fieldset class="bme-status">
+											<legend class="screen-reader-text"><?php esc_html_e( 'Who sees animations', 'bricks-motion-studio' ); ?></legend>
+											<?php foreach ( $status as $value => $text ) : ?>
+												<label class="bme-status__opt" data-status="<?php echo esc_attr( $value ); ?>">
+													<input type="radio" name="<?php echo esc_attr( $this->name( 'status' ) ); ?>" value="<?php echo esc_attr( $value ); ?>" <?php checked( $s['status'], $value ); ?>>
+													<span class="bme-status__dot" aria-hidden="true"></span>
+													<span class="bme-status__text"><strong><?php echo esc_html( $text[0] ); ?></strong><span><?php echo esc_html( $text[1] ); ?></span></span>
+												</label>
+											<?php endforeach; ?>
+										</fieldset>
+										<div class="bme-card__field">
+											<label class="bme-row__label" for="bme-perf-off_paths"><?php esc_html_e( 'Turn off on these pages', 'bricks-motion-studio' ); ?></label>
+											<p class="bme-row__help" id="bme-off-paths-help"><?php esc_html_e( 'One URL path per line. End with * for a whole section, e.g. /checkout/ or /shop/*. These pages load no Motion Studio scripts at all.', 'bricks-motion-studio' ); ?></p>
+											<textarea id="bme-perf-off_paths" class="bme-textarea bme-mono" name="<?php echo esc_attr( $this->name( 'perf.off_paths' ) ); ?>" rows="3" spellcheck="false" aria-describedby="bme-off-paths-help" placeholder="/checkout/&#10;/my-account/*"><?php echo esc_textarea( (string) $s['perf']['off_paths'] ); ?></textarea>
+										</div>
+										<div class="bme-card__switch">
+											<?php $this->switch_row( 'admin_bar', __( 'Motion Studio in the admin bar', 'bricks-motion-studio' ), __( 'On the frontend: the page\'s status, a link to view it without animations, and these settings.', 'bricks-motion-studio' ) ); ?>
+										</div>
+									</div>
+
+									<div class="bme-card">
+										<h3 class="bme-card__title"><?php echo self::icon( 'bolt' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Quick start', 'bricks-motion-studio' ); ?></h3>
+										<ol class="bme-steps">
+											<li data-bme-step="libs">
+												<span class="bme-steps__num" aria-hidden="true"></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Choose your engines', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'GSAP covers every effect. Add Anime.js or Motion for variety.', 'bricks-motion-studio' ); ?></span>
+												<a href="#libraries" data-bme-go="libraries" class="bme-steps__go"><?php esc_html_e( 'Libraries', 'bricks-motion-studio' ); ?></a>
+											</li>
+											<li data-bme-step="auto">
+												<span class="bme-steps__num" aria-hidden="true"></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Let rules do the work', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'Headings, images and text animate across the site, with no clicks per element.', 'bricks-motion-studio' ); ?></span>
+												<a href="#auto" data-bme-go="auto" class="bme-steps__go"><?php esc_html_e( 'Rules', 'bricks-motion-studio' ); ?></a>
+											</li>
+											<li>
+												<span class="bme-steps__num" aria-hidden="true"></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Fine-tune in Bricks', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'Select any element and open its Motion Studio controls: presets, scroll effects, hover and 3D.', 'bricks-motion-studio' ); ?></span>
+											</li>
+											<li>
+												<span class="bme-steps__num" aria-hidden="true"></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Set the feel', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'Speed, easing and distance for the whole site, with a live preview.', 'bricks-motion-studio' ); ?></span>
+												<a href="#defaults" data-bme-go="defaults" class="bme-steps__go"><?php esc_html_e( 'Timing', 'bricks-motion-studio' ); ?></a>
+											</li>
+										</ol>
+									</div>
+								</div>
+							</section>
+
 							<!-- Libraries -->
-							<section class="bme-panel" id="bme-panel-libraries" data-bme-panel="libraries" aria-labelledby="bme-h-libraries">
-								<header class="bme-panel__head">
-									<h2 id="bme-h-libraries"><?php esc_html_e( 'Libraries', 'bricks-motion-studio' ); ?></h2>
-									<p><?php esc_html_e( 'Turn on any combination. Each element is animated by one engine, and a page only downloads the libraries it uses.', 'bricks-motion-studio' ); ?></p>
-								</header>
+							<section class="bme-panel" id="bme-panel-libraries" data-bme-panel="libraries" aria-labelledby="bme-h-libraries" hidden>
+								<?php $this->panel_head( 'libraries', __( 'Libraries', 'bricks-motion-studio' ), __( 'Turn on any combination. Each element is animated by one engine, and a page only downloads the libraries it uses.', 'bricks-motion-studio' ), 'libraries' ); ?>
 
 								<ul class="bme-libs">
 									<?php foreach ( $meta as $lib => $info ) : ?>
 										<li class="bme-lib" data-bme-lib="<?php echo esc_attr( $lib ); ?>">
-											<?php $this->switch_input( 'libraries.' . $lib, $info['label'] ); ?>
-											<div class="bme-lib__body">
+											<div class="bme-lib__head">
+												<span class="bme-lib__logo bme-lib__logo--<?php echo esc_attr( $lib ); ?>" aria-hidden="true"><?php echo esc_html( self::LIB_MONOGRAMS[ $lib ] ?? strtoupper( substr( $lib, 0, 1 ) ) ); ?></span>
 												<p class="bme-lib__title">
 													<label for="<?php echo esc_attr( $this->id( 'libraries.' . $lib ) ); ?>"><?php echo esc_html( $info['label'] ); ?></label>
-													<span class="bme-mono bme-lib__ver"><?php echo esc_html( Libraries::VERSIONS[ $lib ] ); ?></span>
+													<span class="bme-lib__sub">
+														<span class="bme-mono bme-lib__ver"><?php echo esc_html( Libraries::VERSIONS[ $lib ] ); ?></span>
+														<span class="bme-lib__badge" data-bme-default-badge hidden><?php esc_html_e( 'Default engine', 'bricks-motion-studio' ); ?></span>
+													</span>
 												</p>
-												<p class="bme-lib__role"><?php echo esc_html( $info['role'] ); ?></p>
-												<p class="bme-lib__meta">
-													<span><?php echo esc_html( $info['size'] ); ?></span>
-													<a href="<?php echo esc_url( $info['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo 'gsap' === $lib ? esc_html__( 'GSAP Standard License', 'bricks-motion-studio' ) : esc_html( $info['license'] ); ?></a>
-												</p>
-												<?php if ( 'gsap' === $lib ) : ?>
-													<p class="bme-note"><?php echo self::icon( 'info' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><span><?php esc_html_e( 'Free for your own and client sites, including commercial work. It is not GPL, and selling or publicly distributing a plugin that bundles it needs written consent from GSAP.', 'bricks-motion-studio' ); ?></span></p>
-												<?php endif; ?>
+												<?php $this->switch_input( 'libraries.' . $lib, $info['label'] ); ?>
 											</div>
+											<p class="bme-lib__role"><?php echo esc_html( $info['role'] ); ?></p>
+											<?php if ( 'gsap' === $lib ) : ?>
+												<p class="bme-note"><?php echo self::icon( 'info' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><span><?php esc_html_e( 'Free for your own and client sites, including commercial work. It is not GPL, and selling or publicly distributing a plugin that bundles it needs written consent from GSAP.', 'bricks-motion-studio' ); ?></span></p>
+											<?php endif; ?>
+											<p class="bme-lib__meta">
+												<span><?php echo esc_html( $info['size'] ); ?></span>
+												<a href="<?php echo esc_url( $info['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo 'gsap' === $lib ? esc_html__( 'GSAP Standard License', 'bricks-motion-studio' ) : esc_html( $info['license'] ); ?></a>
+											</p>
 										</li>
 									<?php endforeach; ?>
 								</ul>
@@ -683,10 +970,7 @@ class Admin {
 
 							<!-- Auto-animate -->
 							<section class="bme-panel" id="bme-panel-auto" data-bme-panel="auto" aria-labelledby="bme-h-auto" hidden>
-								<header class="bme-panel__head">
-									<h2 id="bme-h-auto"><?php esc_html_e( 'Auto-animate', 'bricks-motion-studio' ); ?></h2>
-									<p><?php esc_html_e( 'Rules apply presets to Bricks elements across the whole site. Settings on an element in the builder always win.', 'bricks-motion-studio' ); ?></p>
-								</header>
+								<?php $this->panel_head( 'auto', __( 'Auto-animate', 'bricks-motion-studio' ), __( 'Rules apply presets to Bricks elements across the whole site. Settings on an element in the builder always win.', 'bricks-motion-studio' ), 'auto' ); ?>
 
 								<div class="bme-group">
 									<?php $this->switch_row( 'auto.enabled', __( 'Animate elements automatically', 'bricks-motion-studio' ), __( 'Class rules are checked before element rules. Set an element to Disabled in the builder to opt it out.', 'bricks-motion-studio' ) ); ?>
@@ -712,6 +996,16 @@ class Admin {
 
 								<?php // Marks the rule list as submitted, so removing every rule really clears it. ?>
 								<input type="hidden" name="<?php echo esc_attr( BME_OPTION . '[auto][rules]' ); ?>" value="">
+								<div class="bme-rules__tools">
+									<h3 class="bme-subhead" id="bme-h-rules"><?php esc_html_e( 'Rules', 'bricks-motion-studio' ); ?></h3>
+									<span class="bme-rules__count" data-bme-rule-count aria-live="polite"></span>
+									<label class="bme-search">
+										<span class="screen-reader-text"><?php esc_html_e( 'Filter rules', 'bricks-motion-studio' ); ?></span>
+										<?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+										<input type="search" class="bme-text" data-bme-rule-filter placeholder="<?php esc_attr_e( 'Filter rules', 'bricks-motion-studio' ); ?>" autocomplete="off">
+									</label>
+								</div>
+								<p class="bme-row__help bme-rules__order"><?php esc_html_e( 'Which rule wins: an element\'s own Motion Studio settings in the builder, then class rules, then element rules, then the * rule for any other content element.', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-rules">
 									<div role="table" aria-label="<?php esc_attr_e( 'Auto-animate rules', 'bricks-motion-studio' ); ?>">
 									<div role="rowgroup">
@@ -735,6 +1029,7 @@ class Admin {
 									</div>
 									</div>
 									<p class="bme-empty" data-bme-empty <?php echo $rules ? 'hidden' : ''; ?>><?php esc_html_e( 'No rules yet. Add one to animate an element type or class everywhere.', 'bricks-motion-studio' ); ?></p>
+									<p class="bme-empty" data-bme-filter-empty hidden><?php esc_html_e( 'No rules match the filter.', 'bricks-motion-studio' ); ?></p>
 									<div class="bme-rules__foot">
 										<button type="button" class="bme-btn" data-bme-add-rule><?php echo self::icon( 'plus' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Add rule', 'bricks-motion-studio' ); ?></button>
 										<span class="bme-rules__hint"><?php esc_html_e( 'Animate accepts self, children, or a CSS selector inside the element.', 'bricks-motion-studio' ); ?></span>
@@ -766,7 +1061,8 @@ class Admin {
 									<option value=".bricks-layout-item"></option>
 								</datalist>
 
-								<h3 class="bme-subhead"><?php esc_html_e( 'Leave these alone', 'bricks-motion-studio' ); ?></h3>
+								<h3 class="bme-subhead"><?php esc_html_e( 'Exclusions', 'bricks-motion-studio' ); ?></h3>
+								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Auto rules never animate these. Elements set to Custom in the builder still animate.', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-group">
 									<?php
 									$this->switch_row( 'auto.skip_header', __( 'Header template', 'bricks-motion-studio' ), __( 'Sticky headers and menus should never be transformed.', 'bricks-motion-studio' ) );
@@ -786,15 +1082,13 @@ class Admin {
 
 							<!-- Timing & feel -->
 							<section class="bme-panel" id="bme-panel-defaults" data-bme-panel="defaults" aria-labelledby="bme-h-defaults" hidden>
-								<header class="bme-panel__head">
-									<h2 id="bme-h-defaults"><?php esc_html_e( 'Timing & feel', 'bricks-motion-studio' ); ?></h2>
-									<p><?php esc_html_e( 'Site-wide defaults. Presets and elements can override them. Changes play in the preview as you type.', 'bricks-motion-studio' ); ?></p>
-								</header>
+								<?php $this->panel_head( 'defaults', __( 'Timing & feel', 'bricks-motion-studio' ), __( 'Site-wide defaults. Presets and elements can override them. Changes play in the preview as you type.', 'bricks-motion-studio' ), 'defaults' ); ?>
 
 								<div class="bme-split">
 									<div>
 										<div class="bme-group">
 											<?php
+											$this->number_row( 'defaults.pace', __( 'Animation speed', 'bricks-motion-studio' ), 0.25, 4, 0.05, 'x', __( 'Plays every preset faster or slower across the whole site: 2 is twice as fast, 0.5 half speed. Scroll-linked effects follow the scrollbar either way.', 'bricks-motion-studio' ) );
 											$this->number_row( 'defaults.duration', __( 'Duration', 'bricks-motion-studio' ), 0, 10, 0.05, 's' );
 											$this->number_row( 'defaults.delay', __( 'Delay', 'bricks-motion-studio' ), 0, 10, 0.05, 's' );
 											$this->select_row( 'defaults.ease', __( 'Easing', 'bricks-motion-studio' ), $eases );
@@ -806,7 +1100,7 @@ class Admin {
 											$this->number_row( 'defaults.stagger', __( 'Stagger', 'bricks-motion-studio' ), 0, 2, 0.01, 's', __( 'Between children and between words or letters.', 'bricks-motion-studio' ) );
 											$this->number_row( 'defaults.batch', __( 'Cascade', 'bricks-motion-studio' ), 0, 1, 0.01, 's', __( 'Between elements that enter the screen together, like grid items.', 'bricks-motion-studio' ) );
 											$this->number_row( 'defaults.offset', __( 'Start line', 'bricks-motion-studio' ), 0, 50, 1, '%', __( 'How far above the bottom of the screen an element starts.', 'bricks-motion-studio' ) );
-											$this->number_row( 'defaults.speed', __( 'Speed / intensity', 'bricks-motion-studio' ), -2, 2, 0.05 );
+											$this->number_row( 'defaults.speed', __( 'Parallax strength', 'bricks-motion-studio' ), -2, 2, 0.05, '', __( 'How far parallax elements drift while you scroll. Negative values drift the other way.', 'bricks-motion-studio' ) );
 											$this->switch_row( 'defaults.replay', __( 'Replay when scrolled back into view', 'bricks-motion-studio' ) );
 											?>
 										</div>
@@ -846,10 +1140,7 @@ class Admin {
 
 							<!-- Scroll & 3D -->
 							<section class="bme-panel" id="bme-panel-scroll3d" data-bme-panel="scroll3d" aria-labelledby="bme-h-scroll3d" hidden>
-								<header class="bme-panel__head">
-									<h2 id="bme-h-scroll3d"><?php esc_html_e( 'Scroll & 3D', 'bricks-motion-studio' ); ?></h2>
-									<p><?php esc_html_e( 'Smooth scrolling with Lenis and rendering limits for Three.js scenes.', 'bricks-motion-studio' ); ?></p>
-								</header>
+								<?php $this->panel_head( 'scroll3d', __( 'Scroll & 3D', 'bricks-motion-studio' ), __( 'Smooth scrolling with Lenis and rendering limits for Three.js scenes.', 'bricks-motion-studio' ), 'scroll3d' ); ?>
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Smooth scroll', 'bricks-motion-studio' ); ?></h3>
 								<p class="bme-inline-note" data-bme-when-off="libraries.lenis"><?php esc_html_e( 'Lenis is off. Turn it on under Libraries to use these settings.', 'bricks-motion-studio' ); ?></p>
@@ -874,13 +1165,10 @@ class Admin {
 
 							<!-- Accessibility & performance -->
 							<section class="bme-panel" id="bme-panel-a11y" data-bme-panel="a11y" aria-labelledby="bme-h-a11y" hidden>
-								<header class="bme-panel__head">
-									<h2 id="bme-h-a11y"><?php esc_html_e( 'Accessibility', 'bricks-motion-studio' ); ?></h2>
-									<p><?php esc_html_e( 'How the site behaves for visitors who ask for less motion, and when scripts are slow or blocked.', 'bricks-motion-studio' ); ?></p>
-								</header>
+								<?php $this->panel_head( 'a11y', __( 'Accessibility', 'bricks-motion-studio' ), __( 'Reduced motion, screen sizes, and what happens when scripts are slow or blocked.', 'bricks-motion-studio' ), 'a11y' ); ?>
 
 								<fieldset class="bme-choices">
-									<legend class="bme-row__label"><?php esc_html_e( 'Visitors who prefer reduced motion', 'bricks-motion-studio' ); ?></legend>
+									<legend class="bme-row__label bme-legend"><?php esc_html_e( 'Visitors who prefer reduced motion', 'bricks-motion-studio' ); ?></legend>
 									<?php
 									$reduced = array(
 										'respect' => array( __( 'No animation', 'bricks-motion-studio' ), __( 'Content appears instantly; scroll-driven timelines still follow the scrollbar. Recommended.', 'bricks-motion-studio' ) ),
@@ -896,25 +1184,33 @@ class Admin {
 									<?php endforeach; ?>
 								</fieldset>
 
+								<h3 class="bme-subhead"><?php esc_html_e( 'Screen sizes', 'bricks-motion-studio' ); ?></h3>
 								<div class="bme-group">
 									<?php
-									$this->number_row( 'a11y.min_width', __( 'Turn animations off below', 'bricks-motion-studio' ), 0, 4000, 1, 'px', __( '0 keeps animations on every screen size.', 'bricks-motion-studio' ) );
+									$this->number_row( 'a11y.min_width', __( 'Turn animations off below', 'bricks-motion-studio' ), 0, 4000, 1, 'px', __( '0 keeps animations on every screen size. Single elements can also be turned off for phone, tablet or desktop in the builder.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'perf.clip_x', __( 'No sideways scrolling', 'bricks-motion-studio' ), __( 'Elements sliding, zooming or rotating in near the edge of the screen can make the page wider than the window for a moment, so it wobbles sideways on phones. This clips the page at the window edge on pages with animations (sticky and pinned sections keep working). Turn off only if your page is meant to scroll sideways.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Loading and safety', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php
 									$this->switch_row( 'perf.fouc', __( 'Hide elements until they animate', 'bricks-motion-studio' ), __( 'Prevents a flash of the final state. Content stays readable by screen readers and search engines.', 'bricks-motion-studio' ) );
 									$this->number_row( 'perf.failsafe', __( 'Show everything after', 'bricks-motion-studio' ), 500, 15000, 100, 'ms', __( 'If scripts are blocked or delayed by an optimization plugin, content appears anyway.', 'bricks-motion-studio' ) );
-									$this->switch_row( 'perf.clip_x', __( 'No sideways scrolling', 'bricks-motion-studio' ), __( 'Elements sliding, zooming or rotating in near the edge of the screen can make the page wider than the window for a moment, so it wobbles sideways on phones. This clips the page at the window edge on pages with animations (sticky and pinned sections keep working). Turn off only if your page is meant to scroll sideways.', 'bricks-motion-studio' ) );
 									$this->switch_row( 'perf.always', __( 'Load engines on every page', 'bricks-motion-studio' ), __( 'Only needed for content added by custom code or other plugins after the page loads.', 'bricks-motion-studio' ) );
-									$this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'Logs decisions to the browser console and shows scroll trigger markers.', 'bricks-motion-studio' ) );
 									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Developer', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php $this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'Logs decisions to the browser console and shows scroll trigger markers. Turn off on live sites.', 'bricks-motion-studio' ) ); ?>
 								</div>
 							</section>
 						</form>
 
 						<!-- System (separate forms: import / reset) -->
 						<section class="bme-panel" id="bme-panel-system" data-bme-panel="system" aria-labelledby="bme-h-system" hidden>
-							<header class="bme-panel__head">
-								<h2 id="bme-h-system"><?php esc_html_e( 'System', 'bricks-motion-studio' ); ?></h2>
-								<p><?php esc_html_e( 'Compatibility checks, backup and restore.', 'bricks-motion-studio' ); ?></p>
-							</header>
+							<?php $this->panel_head( 'system', __( 'System', 'bricks-motion-studio' ), __( 'Compatibility checks, backup and restore.', 'bricks-motion-studio' ), 'tools' ); ?>
 
 							<ul class="bme-checks">
 								<?php foreach ( $checks as $check ) : ?>
@@ -931,16 +1227,26 @@ class Admin {
 							<h3 class="bme-subhead"><?php esc_html_e( 'Export', 'bricks-motion-studio' ); ?></h3>
 							<div class="bme-code">
 								<textarea class="bme-textarea bme-mono" rows="6" readonly data-bme-export aria-label="<?php esc_attr_e( 'Settings JSON', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( (string) wp_json_encode( $s, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></textarea>
-								<button type="button" class="bme-btn" data-bme-copy><?php esc_html_e( 'Copy', 'bricks-motion-studio' ); ?></button>
+								<span class="bme-code__actions">
+									<button type="button" class="bme-btn" data-bme-copy><?php esc_html_e( 'Copy', 'bricks-motion-studio' ); ?></button>
+									<button type="button" class="bme-btn" data-bme-download="<?php echo esc_attr( 'motion-studio-settings-' . sanitize_title( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) . '.json' ); ?>"><?php echo self::icon( 'download' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Download', 'bricks-motion-studio' ); ?></button>
+								</span>
 							</div>
 
 							<h3 class="bme-subhead"><?php esc_html_e( 'Import', 'bricks-motion-studio' ); ?></h3>
 							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bme-code">
 								<input type="hidden" name="action" value="bme_import">
 								<?php wp_nonce_field( 'bme_import' ); ?>
-								<textarea class="bme-textarea bme-mono" name="bme_import" rows="5" placeholder="{ }" aria-label="<?php esc_attr_e( 'Paste exported JSON', 'bricks-motion-studio' ); ?>" spellcheck="false"></textarea>
-								<button class="bme-btn"><?php esc_html_e( 'Import', 'bricks-motion-studio' ); ?></button>
-							</form>
+								<textarea class="bme-textarea bme-mono" name="bme_import" rows="5" placeholder="{ }" aria-label="<?php esc_attr_e( 'Paste exported JSON', 'bricks-motion-studio' ); ?>" aria-describedby="bme-import-msg" spellcheck="false" data-bme-import></textarea>
+								<span class="bme-code__actions">
+									<button class="bme-btn" data-bme-import-submit><?php esc_html_e( 'Import', 'bricks-motion-studio' ); ?></button>
+									<label class="bme-btn bme-file">
+										<?php echo self::icon( 'upload' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'From file', 'bricks-motion-studio' ); ?>
+										<input type="file" accept=".json,application/json" data-bme-import-file>
+									</label>
+								</span>
+								</form>
+								<p class="bme-field-msg" id="bme-import-msg" data-bme-import-msg role="status"></p>
 
 							<div class="bme-danger">
 								<div>
@@ -957,21 +1263,25 @@ class Admin {
 
 						<!-- Reference -->
 						<section class="bme-panel" id="bme-panel-help" data-bme-panel="help" aria-labelledby="bme-h-help" hidden>
-							<header class="bme-panel__head">
-								<h2 id="bme-h-help"><?php esc_html_e( 'Reference', 'bricks-motion-studio' ); ?></h2>
-								<p><?php esc_html_e( 'Hover a preset to watch it. Use the slug in attributes and rules.', 'bricks-motion-studio' ); ?></p>
-							</header>
+							<?php $this->panel_head( 'help', __( 'Reference', 'bricks-motion-studio' ), __( 'Hover, focus or tap a preset to watch it. Use the slug in attributes and rules: click it to copy.', 'bricks-motion-studio' ), 'help' ); ?>
+
+								<label class="bme-search bme-search--wide">
+									<span class="screen-reader-text"><?php esc_html_e( 'Search presets', 'bricks-motion-studio' ); ?></span>
+									<?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+									<input type="search" class="bme-text" data-bme-preset-filter placeholder="<?php esc_attr_e( 'Search presets: fade, text, scroll, GSAP…', 'bricks-motion-studio' ); ?>" autocomplete="off">
+								</label>
+								<p class="bme-empty" data-bme-preset-empty hidden><?php esc_html_e( 'No presets match.', 'bricks-motion-studio' ); ?></p>
 
 							<?php foreach ( Presets::group_labels() as $group => $group_label ) : ?>
-								<h3 class="bme-subhead"><?php echo esc_html( $group_label ); ?></h3>
-								<div class="bme-presets">
+								<h3 class="bme-subhead" data-bme-preset-group="<?php echo esc_attr( $group ); ?>"><?php echo esc_html( $group_label ); ?></h3>
+								<div class="bme-presets" data-bme-preset-grid="<?php echo esc_attr( $group ); ?>">
 									<?php
 									foreach ( Presets::all() as $slug => $p ) :
 										if ( ( $p['group'] ?? '' ) !== $group ) {
 											continue;
 										}
 										?>
-										<button type="button" class="bme-preset" data-bme-demo="<?php echo esc_attr( $slug ); ?>">
+										<button type="button" class="bme-preset" data-bme-demo="<?php echo esc_attr( $slug ); ?>" data-bme-search="<?php echo esc_attr( strtolower( $slug . ' ' . $p['label'] . ' ' . $group_label . ' ' . self::engine_list( $slug, $p ) ) ); ?>">
 											<span class="bme-preset__stage" aria-hidden="true"><span class="bme-preset__shape">Aa</span></span>
 											<span class="bme-preset__name"><?php echo esc_html( $p['label'] ); ?></span>
 											<code class="bme-preset__slug"><?php echo esc_html( $slug ); ?></code>

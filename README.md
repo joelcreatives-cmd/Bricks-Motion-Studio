@@ -48,9 +48,10 @@ Rows replace the part of the designed transform they animate (like GSAP's x / y 
 
 | Section | What it controls |
 |---|---|
+| **Overview** | Site status (**Live** / **Editors only**: logged-in editors see animations while visitors get the static page, for building before launch / **Off**), **Turn off on these pages** (URL paths, `*` for a whole section: no Motion Studio output there), the frontend admin-bar menu, live stats and a quick start. |
 | **Libraries** | Toggle GSAP / Anime.js / Motion / Three.js / Lenis (any combination). Default engine (only enabled engines selectable). Bundled files (default) or jsDelivr with integrity checks. |
 | **Auto-animate** | Master switch, **animation level** (Basic / Moderate / Advanced), rules (element type, CSS class, or `*` = any other content element → preset, scope, engine) with live preview per rule, and exclusions. |
-| **Timing & feel** | Duration, delay, easing, distance, stagger, cascade, start line, parallax speed, replay, with a live preview that plays as you type. |
+| **Timing & feel** | **Animation speed** (site-wide multiplier: 2 = twice as fast, 0.5 = half speed, every engine), duration, delay, easing, distance, stagger, cascade, start line, parallax speed, replay, with a live preview that plays as you type. |
 | **Scroll & 3D** | Lenis smoothness, wheel speed, anchors, touch. Three.js pixel ratio and phones on/off. |
 | **Accessibility** | Reduced-motion behavior (none / fades / full), minimum width, anti-flash, fail-safe timeout, no sideways scrolling, load everywhere, debug mode. |
 | **System** | Compatibility checks (WordPress, PHP, Bricks, element coverage, bundled files, form size limit, script loading), export / import, reset. |
@@ -169,7 +170,7 @@ document.addEventListener( 'bme:3d-ready', e => {} ); // { element, scene }
 document.addEventListener( 'bme:reduced',  e => {} ); // visitor turned on reduced motion: everything was shown
 ```
 
-Debug: enable **Debug mode** (console log + ScrollTrigger markers). Logged-in editors can load any page with `?bme-disable=1` to see it without the plugin (never cached; ignored for visitors unless `WP_DEBUG` is on).
+Debug: enable **Debug mode** (console log + ScrollTrigger markers). On the frontend, the **Motion** admin-bar menu shows the page's status and links to view it without animations. Logged-in editors can load any page with `?bme-disable=1` to see it without the plugin (never cached; ignored for visitors unless `WP_DEBUG` is on).
 
 ## Security
 
