@@ -122,9 +122,24 @@ class Presets {
 					$p[ $key ] = $row[ $key ];
 				}
 			}
+			// Preset builder: its own start values over the base's.
+			if ( ! empty( $row['from'] ) && is_array( $row['from'] ) && self::shapeable( $p ) ) {
+				$p['from'] = array_merge( $p['from'], $row['from'] );
+			}
 			$out[ (string) $row['slug'] ] = $p;
 		}
 		return $out;
+	}
+
+	/**
+	 * Whether the preset builder can change this preset's start values: entrances (reveal and
+	 * text) with a start state. Scroll-linked and looping presets keep theirs.
+	 *
+	 * @param mixed $p Preset.
+	 * @return bool
+	 */
+	public static function shapeable( $p ) {
+		return is_array( $p ) && ! empty( $p['from'] ) && is_array( $p['from'] ) && in_array( $p['group'] ?? '', array( 'reveal', 'text' ), true );
 	}
 
 	/** Forget the cached catalog (after "My presets" were saved). */

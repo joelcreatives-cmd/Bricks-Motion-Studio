@@ -28,8 +28,14 @@ class Usage {
 		}
 	}
 
+	/** @var array<string,int> Elements per preset on this page (the usage report). */
+	private static $presets = array();
+
 	public static function preset( $preset, $engine ) {
 		self::engine( $engine );
+		if ( is_string( $preset ) && '' !== $preset ) {
+			self::$presets[ $preset ] = ( self::$presets[ $preset ] ?? 0 ) + 1;
+		}
 		if ( 'gsap' === $engine ) {
 			foreach ( Presets::gsap_plugins_for( $preset ) as $plugin ) {
 				self::$gsap_plugins[ $plugin ] = true;
@@ -44,6 +50,11 @@ class Usage {
 
 	public static function engines() {
 		return array_keys( self::$engines );
+	}
+
+	/** @return array<string,int> */
+	public static function presets() {
+		return self::$presets;
 	}
 
 	public static function gsap_plugins() {

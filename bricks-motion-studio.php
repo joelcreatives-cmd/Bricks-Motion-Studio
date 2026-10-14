@@ -28,6 +28,8 @@ require_once BME_PATH . 'includes/class-presets.php';
 require_once BME_PATH . 'includes/class-levels.php';
 require_once BME_PATH . 'includes/class-libraries.php';
 require_once BME_PATH . 'includes/class-usage.php';
+require_once BME_PATH . 'includes/class-usage-log.php';
+require_once BME_PATH . 'includes/class-history.php';
 require_once BME_PATH . 'includes/class-bricks-integration.php';
 require_once BME_PATH . 'includes/class-assets.php';
 require_once BME_PATH . 'includes/class-builder.php';

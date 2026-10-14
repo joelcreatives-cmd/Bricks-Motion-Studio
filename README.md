@@ -50,11 +50,12 @@ Rows replace the part of the designed transform they animate (like GSAP's x / y 
 |---|---|
 | **Overview** | Site status (**Live** / **Editors only**: logged-in editors see animations while visitors get the static page, for building before launch / **Off**), **Turn off on these pages** (URL paths, `*` for a whole section: no Motion Studio output there), the frontend admin-bar menu, live stats and a quick start. |
 | **Libraries** | Toggle GSAP / Anime.js / Motion / Three.js / Lenis (any combination). Default engine (only enabled engines selectable). Bundled files (default) or jsDelivr with integrity checks. |
-| **Auto-animate** | Master switch, **animation level** (Basic / Moderate / Advanced), rules (element type, CSS class, or `*` = any other content element → preset, scope, engine) with live preview per rule, and exclusions. |
+| **Auto-animate** | Master switch, **animation level** (Basic / Moderate / Advanced), rules (element type, CSS class, or `*` = any other content element → preset, scope, engine) with live preview per rule, **conditions** per rule (where: front page, blog, single posts of a type, archives, search, 404, or everywhere except one of them; screens: desktop only, tablet and up, phone and tablet, phone only), and exclusions. |
 | **Timing & feel** | **Animation speed** (site-wide multiplier: 2 = twice as fast, 0.5 = half speed, every engine), duration, delay, easing, distance, stagger, cascade, start line, parallax speed, replay, with a live preview that plays as you type. |
 | **Scroll & 3D** | Lenis smoothness, wheel speed, anchors, touch. Three.js pixel ratio and phones on/off. |
 | **Accessibility** | Reduced-motion behavior (none / fades / full), minimum width, anti-flash, fail-safe timeout, no sideways scrolling, load everywhere, debug mode. |
-| **System** | Compatibility checks (WordPress, PHP, Bricks, element coverage, bundled files, form size limit, script loading), export / import, reset. |
+| **Usage** | **Usage & weight**: which pages use which engines and presets, animations per page and how much Motion Studio script each page loads (heaviest first), with notes on unused engines and settings that load more. Pages are recorded as they are viewed; **Scan site** visits the published pages, recent posts and an archive once. |
+| **System** | Compatibility checks (WordPress, PHP, Bricks, element coverage, bundled files, form size limit, script loading), **Recent changes** (the last 10 versions of the settings, with who changed them and what; restore any of them, and undo a restore the same way), export / import, reset. |
 | **Reference** | Every preset as a hover-to-play card, attribute and JS API. |
 
 Unsaved changes are tracked in the top bar; save with the button or Ctrl/⌘ + S.
@@ -81,6 +82,7 @@ The level can be overridden per page (Bricks → Settings → Page settings → 
 Bricks → Settings → Page settings → **Motion Studio** (pages and templates):
 - **Animations**: Site settings / Only elements set to Custom / Disabled (no Motion Studio output at all).
 - **Animation level**: overrides the site level on this page.
+- **Animation speed**: this page's own speed multiplier (2 = twice as fast); empty follows Timing & feel.
 
 ### Animations started by Bricks Interactions
 Set an element to **Custom → Start: By a Bricks interaction**. Then on any element add an interaction with the action **JavaScript (Function)**, function name `BricksMotion.play` (or `BricksMotion.reset`), target the animated element with a CSS selector (its class, or a custom attribute such as `[data-reveal="hero"]`; elements inside query loops and components have no CSS ID), and under **Arguments** click **Add item** (Bricks fills in `%brx%`). Click, hover, popup open, form submit… all work.
@@ -93,6 +95,8 @@ Set an element to **Custom → Start: By a Bricks interaction**. Then on any ele
 5. **Element-type rule**.
 6. **`*` catch-all rule** (fade-up by default): every other content element. Never applied to wrappers (section, container, block, div) or nestable elements (accordions, tabs, sliders), so nothing animates twice.
 
+A rule whose **Where** condition doesn't hold on the page steps aside, so the next rule for the same target applies there (e.g. a "headings: words blur in, only on single posts" rule above the general heading rule). A rule's **Screens** condition only switches off that rule's animation on other screen sizes; the element shows as designed there.
+
 Auto rules never touch: sticky/fixed elements, sliders/carousels, nav menus, off-canvas, counters (they animate themselves), code/HTML/template elements, anything inside the "never animate inside" selectors, and (by default) the header template and elements that already use Bricks' own entrance interactions.
 
 ## In the builder
@@ -104,6 +108,8 @@ Auto rules never touch: sticky/fixed elements, sliders/carousels, nav menus, off
 ## My presets
 
 Motion Studio → Timing & feel → **My presets**: give a built-in preset your own duration, delay, distance, stagger and easing, under your own name (shown with ★). It appears in every preset list — rules and the builder panel — and keeps working when you rename it (its id is fixed when you create it). Empty fields follow the base preset and the site defaults. Exported and imported with the rest of the settings.
+
+**Shape the motion** (entrance presets: reveals and text): set where the element starts — opacity, move X / Y, scale, rotate, blur — with a live preview that replays as you type. Empty fields keep the base preset's value (shown in grey). Scroll-linked and looping presets keep their own motion.
 
 ## Presets
 
@@ -140,7 +146,7 @@ Eases: `smooth`, `soft`, `strong`, `in-out`, `back`, `elastic`, `bounce`, `sine`
 
 ## Pause button (WCAG 2.2.2)
 
-Motion that lasts longer than five seconds (loops, marquees, timeline loops, 3D backgrounds) needs a way to stop it. Drop the **Pause animations button** element (Bricks → General) anywhere, e.g. in the footer: a real `<button>` with a pause / play icon, an editable label (or icon only, the label kept for screen readers). Or add `data-bme-pause-toggle` to any button of your own (Bricks: **Attributes**), e.g. a "Pause animations" button in the footer: it pauses and resumes all of it, sets `aria-pressed`, and the choice is kept for the rest of the visit. Marquees also pause on hover, on keyboard focus (a focused link that slid out of view is moved back into view) and on tap.
+Motion that lasts longer than five seconds (loops, marquees, timeline loops, 3D backgrounds) needs a way to stop it. While paused, entrance animations (reveals, text, timeline view rows) are skipped too: content shows as designed until the visitor resumes. Drop the **Pause animations button** element (Bricks → General) anywhere, e.g. in the footer: a real `<button>` with a pause / play icon, an editable label (or icon only, the label kept for screen readers). Or add `data-bme-pause-toggle` to any button of your own (Bricks: **Attributes**), e.g. a "Pause animations" button in the footer: it pauses and resumes all of it, sets `aria-pressed`, and the choice is kept for the rest of the visit. Marquees also pause on hover, on keyboard focus (a focused link that slid out of view is moved back into view) and on tap.
 
 ## No sideways scrolling
 
@@ -157,6 +163,7 @@ BricksMotion.pauseAll();         // pause everything that keeps moving: loops, m
 BricksMotion.resumeAll();        // …and start it again (remembered for the visit)
 BricksMotion.lenis;              // Lenis instance when smooth scroll is enabled
 BricksMotion.adapters;           // { native, gsap, anime, motion } registered engines
+BricksMotion.inspect();          // { animated: [{ el, preset, engine, kind, trigger, auto, … }], skipped, pace }
 BricksMotion.registerAdapter( 'name', adapter ); // add your own engine (see runtime.js)
 
 BricksMotionTimeline.refresh();       // re-measure timelines (after a layout change of your own)
@@ -170,7 +177,7 @@ document.addEventListener( 'bme:3d-ready', e => {} ); // { element, scene }
 document.addEventListener( 'bme:reduced',  e => {} ); // visitor turned on reduced motion: everything was shown
 ```
 
-Debug: enable **Debug mode** (console log + ScrollTrigger markers). On the frontend, the **Motion** admin-bar menu shows the page's status and links to view it without animations. Logged-in editors can load any page with `?bme-disable=1` to see it without the plugin (never cached; ignored for visitors unless `WP_DEBUG` is on).
+Debug: enable **Debug mode** (console log + ScrollTrigger markers). On the frontend, the **Motion** admin-bar menu shows the page's status and links to view it without animations, and **Inspect animations** (`?bme-debug`, for people who can edit posts) labels every animation on the page with its preset, engine and source (rule or element), outlines what was skipped and why, draws the start line, and replays an animation when its label is clicked. Logged-in editors can load any page with `?bme-disable=1` to see it without the plugin (never cached; ignored for visitors unless `WP_DEBUG` is on).
 
 ## Security
 
@@ -225,7 +232,7 @@ Full design rationale, research and test log: **[docs/STUDY.md](docs/STUDY.md)**
 
 ```
 bricks-motion-studio.php          bootstrap
-uninstall.php                     removes the option
+uninstall.php                     removes the options (settings, history, usage report)
 includes/
   class-plugin.php                wiring, activation
   class-settings.php              schema, defaults, sanitization
@@ -233,6 +240,8 @@ includes/
   class-levels.php                animation levels (Basic / Moderate / Advanced)
   class-libraries.php             library registry (versions, local/CDN, handles)
   class-usage.php                 per-request usage tracker
+  class-usage-log.php             usage report: what each rendered page loaded (Usage panel)
+  class-history.php               settings history and restore (System → Recent changes)
   class-bricks-integration.php    builder controls, render attributes, auto rules, engine resolution
   class-assets.php                boot snippet, conditional enqueue, optimizer exclusions
   class-admin.php                 settings screen
@@ -252,6 +261,7 @@ assets/
   js/three/                       built Three.js scenes (ES modules, lazy)
   js/builder-panel.js             builder: live preview trigger + timeline keyframe track
   js/builder-canvas.js            builder canvas: plays the previewed animation
+  js/inspector.js                 frontend animation inspector (?bme-debug, editors only)
   js/admin.js, css/*.css
   vendor/{gsap,anime,motion,lenis}/  bundled libraries + licenses (Anime.js / Motion as slim builds)
 src/three/                        Three.js scene sources (bundled by esbuild)

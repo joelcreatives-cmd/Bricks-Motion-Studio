@@ -162,6 +162,8 @@
 		};
 	}
 
+	var refreshOnLoad = false; // a refresh asked for before the page finished loading
+
 	var adapter = {
 		tween: function ( targets, from, to, o ) {
 			var fromV = vars( from );
@@ -201,9 +203,24 @@
 		},
 
 		refresh: function () {
-			if ( ST ) {
-				ST.refresh();
+			if ( ! ST ) {
+				return;
 			}
+			// Before the page has finished loading, an iframe inside a pinned element (a map, a video)
+			// may still be loading: a refresh takes the pinned element out of its spacer and puts it
+			// back, Chrome can reject moving a loading iframe, and every pin on the page is left
+			// unwrapped. ScrollTrigger refreshes on "load" itself; refresh again only after it.
+			if ( document.readyState !== 'complete' ) {
+				if ( ! refreshOnLoad ) {
+					refreshOnLoad = true;
+					window.addEventListener( 'load', function () {
+						refreshOnLoad = false;
+						ST.refresh();
+					}, { once: true } );
+				}
+				return;
+			}
+			ST.refresh();
 		},
 
 		special: {},

@@ -293,7 +293,7 @@
 		ruleInfo();
 		// Rule buttons say which rule they act on ("Remove rule 3"), for screen-reader users.
 		$$( '#bme-rules-body .bme-rule' ).forEach( function ( row, i ) {
-			$$( '[data-bme-remove-rule], [data-bme-preview-rule]', row ).forEach( function ( btn ) {
+			$$( '[data-bme-remove-rule], [data-bme-preview-rule], [data-bme-rule-cond]', row ).forEach( function ( btn ) {
 				btn.__bmeLabel = btn.__bmeLabel || btn.getAttribute( 'aria-label' );
 				btn.setAttribute( 'aria-label', ( i18n.ruleBtn || '%1$s (rule %2$d)' ).replace( '%1$s', btn.__bmeLabel ).replace( '%2$d', String( i + 1 ) ) );
 			} );
@@ -593,6 +593,16 @@
 			if ( e.target.matches && e.target.matches( 'select[name$="[type]"]' ) ) {
 				syncTargetList( e.target.closest( '.bme-rule' ) );
 			}
+			// The conditions button carries a dot while the rule has a condition.
+			if ( e.target.matches && e.target.matches( '[data-bme-rule-where], [data-bme-rule-screens]' ) ) {
+				var row = e.target.closest( '.bme-rule' );
+				var btn = $( '[data-bme-rule-cond]', row );
+				if ( btn ) {
+					btn.classList.toggle( 'has-cond', $$( '[data-bme-rule-where], [data-bme-rule-screens]', row ).some( function ( sel ) {
+						return sel.value !== '';
+					} ) );
+				}
+			}
 		} );
 	}
 
@@ -692,6 +702,7 @@
 			if ( name ) {
 				name.focus();
 			}
+			mineMotion( row );
 			mineCount();
 			checkDirty();
 		} );
@@ -711,8 +722,118 @@
 		if ( ease && ease.value ) {
 			p.ease = ease.value;
 		}
+		// Preset builder: its own start values over the base's.
+		if ( p.from ) {
+			p.from = Object.assign( {}, p.from );
+			$$( '[data-bme-from]', row ).forEach( function ( f ) {
+				var v = parseFloat( f.value );
+				if ( f.value.trim() !== '' && isFinite( v ) ) {
+					p.from[ f.getAttribute( 'data-bme-from' ) ] = v;
+				}
+			} );
+		}
 		return p;
 	}
+
+	// Preset builder ("Shape the motion"): the base's start values as placeholders, how many
+	// values are changed, and a live preview that replays as the values change.
+	var FROM_IDENTITY = { opacity: 1, x: 0, y: 0, scale: 1, rotate: 0, blur: 0 };
+	function mineMotion( row ) {
+		var box = $( '[data-bme-mine-motion]', row );
+		if ( ! box ) {
+			return;
+		}
+		var base = presets[ $( '[data-bme-mine-base]', row ).value ] || {};
+		var shapeable = !! base.from && /^(reveal|text)$/.test( base.group || '' );
+		$( '.bme-mine__builder', box ).hidden = ! shapeable;
+		$( '[data-bme-mine-nomotion]', box ).hidden = shapeable;
+		var o = opts();
+		var dist = parseFloat( ( $( 'input[name$="[distance]"]', row ) || {} ).value );
+		if ( isFinite( dist ) ) {
+			o.distance = dist;
+		}
+		var changed = 0;
+		$$( '[data-bme-from]', box ).forEach( function ( f ) {
+			var k = f.getAttribute( 'data-bme-from' );
+			var v = base.from && k in base.from ? token( base.from[ k ], o ) : FROM_IDENTITY[ k ];
+			f.placeholder = String( typeof v === 'number' ? Math.round( v * 100 ) / 100 : v );
+			f.disabled = ! shapeable;
+			if ( f.value.trim() !== '' ) {
+				changed++;
+			}
+		} );
+		var count = $( '[data-bme-mine-motion-count]', box );
+		count.textContent = changed ? String( changed ) : '';
+		var text = $( '.bme-mine__text', box );
+		var card = $( '.bme-mine__card', box );
+		var isText = base.group === 'text';
+		text.hidden = ! isText;
+		card.hidden = isText;
+		if ( isText && ! text.textContent ) {
+			text.textContent = i18n.sample || 'Hello there';
+		}
+	}
+	function mineStage( row ) {
+		var box = $( '[data-bme-mine-motion]', row );
+		if ( ! box || ! box.open || $( '.bme-mine__builder', box ).hidden ) {
+			return;
+		}
+		presets.__mine = mineFromRow( row );
+		var text = $( '.bme-mine__text', box );
+		// A new value replaces the preview still running (they would stack up while typing).
+		$$( '.bme-mine__card, .bme-mine__text, .bme-mine__text span', box ).forEach( function ( n ) {
+			( n.getAnimations ? n.getAnimations() : [] ).forEach( function ( a ) {
+				a.cancel();
+			} );
+		} );
+		if ( presets.__mine.group === 'text' ) {
+			if ( text.__bmeText ) {
+				text.textContent = text.__bmeText;
+			}
+			playPreset( '__mine', [ text ], text );
+		} else {
+			playPreset( '__mine', [ $( '.bme-mine__card', box ) ], null );
+		}
+	}
+	var mineTimer = 0;
+	$$( '[data-bme-mine]' ).forEach( mineMotion );
+	document.addEventListener( 'input', function ( e ) {
+		var row = e.target.closest && e.target.closest( '[data-bme-mine]' );
+		if ( row ) {
+			mineMotion( row );
+			clearTimeout( mineTimer );
+			mineTimer = setTimeout( function () {
+				mineStage( row );
+			}, 300 );
+		}
+	} );
+	document.addEventListener( 'change', function ( e ) {
+		var row = e.target.closest && e.target.closest( '[data-bme-mine]' );
+		if ( row ) {
+			mineMotion( row );
+			mineStage( row );
+		}
+	} );
+	document.addEventListener( 'toggle', function ( e ) {
+		if ( e.target.matches && e.target.matches( '[data-bme-mine-motion]' ) && e.target.open ) {
+			mineStage( e.target.closest( '[data-bme-mine]' ) );
+		}
+	}, true );
+	document.addEventListener( 'click', function ( e ) {
+		var replay = e.target.closest && e.target.closest( '[data-bme-mine-replay]' );
+		var clear = e.target.closest && e.target.closest( '[data-bme-mine-reset-motion]' );
+		if ( replay ) {
+			mineStage( replay.closest( '[data-bme-mine]' ) );
+		} else if ( clear ) {
+			var row = clear.closest( '[data-bme-mine]' );
+			$$( '[data-bme-from]', row ).forEach( function ( f ) {
+				f.value = '';
+			} );
+			mineMotion( row );
+			mineStage( row );
+			checkDirty();
+		}
+	} );
 	document.addEventListener( 'click', function ( e ) {
 		var rm = e.target.closest && e.target.closest( '[data-bme-remove-mine]' );
 		if ( rm ) {
@@ -777,6 +898,23 @@
 				checkDirty();
 				sync();
 			} );
+			return;
+		}
+		// Conditions: show / hide the rule's Where and Screens fields.
+		var cond = e.target.closest( '[data-bme-rule-cond]' );
+		if ( cond ) {
+			var when = $( '[data-bme-rule-when]', cond.closest( '.bme-rule' ) );
+			if ( when ) {
+				var open = when.hidden;
+				when.hidden = ! open;
+				cond.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+				if ( open ) {
+					var first = $( 'select', when );
+					if ( first ) {
+						first.focus();
+					}
+				}
+			}
 			return;
 		}
 		var prev = e.target.closest( '[data-bme-preview-rule]' );
@@ -1534,6 +1672,213 @@
 				k.textContent = '/';
 			}
 		} );
+	} )();
+
+	/* Usage & weight ----------------------------------------------------------- */
+
+	( function () {
+		var box = $( '[data-bme-usage]' );
+		var U = data.usage;
+		if ( ! box || ! U ) {
+			return;
+		}
+		var scanBtn = $( '[data-bme-usage-scan]' );
+		var clearBtn = $( '[data-bme-usage-clear]' );
+		var progress = $( '[data-bme-usage-progress]' );
+		var NAMES = { gsap: 'GSAP', anime: 'Anime.js', motion: 'Motion' };
+		var showAll = false;
+		var lang = document.documentElement.lang || undefined;
+
+		function esc( v ) {
+			var d = document.createElement( 'div' );
+			d.textContent = v == null ? '' : String( v );
+			return d.innerHTML;
+		}
+		function kb( bytes ) {
+			return ( bytes / 1024 ).toFixed( bytes < 10240 ? 1 : 0 ) + ' KB';
+		}
+		function ago( t ) {
+			var s = Math.round( Date.now() / 1000 - t );
+			var rtf = window.Intl && Intl.RelativeTimeFormat ? new Intl.RelativeTimeFormat( lang, { numeric: 'auto' } ) : null;
+			var steps = [ [ 60, 'second', 1 ], [ 3600, 'minute', 60 ], [ 86400, 'hour', 3600 ], [ 2592000, 'day', 86400 ], [ Infinity, 'month', 2592000 ] ];
+			for ( var i = 0; i < steps.length; i++ ) {
+				if ( s < steps[ i ][ 0 ] ) {
+					var n = -Math.max( 0, Math.round( s / steps[ i ][ 2 ] ) );
+					return rtf ? rtf.format( n, steps[ i ][ 1 ] ) : new Date( t * 1000 ).toLocaleString();
+				}
+			}
+			return '';
+		}
+		function path( url ) {
+			try {
+				var u = new URL( url );
+				return u.pathname + u.search;
+			} catch ( e ) {
+				return url;
+			}
+		}
+
+		function render( r ) {
+			var pages = r.pages || [];
+			if ( ! pages.length ) {
+				box.innerHTML = '<p class="bme-empty">' + esc( i18n.usageEmpty ) + '</p>';
+				return;
+			}
+			var total = pages.length;
+			var sum = pages.reduce( function ( a, p ) {
+				return a + ( p.bytes || 0 );
+			}, 0 );
+			var max = pages[ 0 ];
+			var top = Object.keys( r.presets || {} )[ 0 ];
+			var html = '<div class="bme-usage__stats">' +
+				'<div class="bme-usage__stat"><span>' + esc( i18n.usagePages ) + '</span><strong>' + total + '</strong></div>' +
+				'<div class="bme-usage__stat"><span>' + esc( i18n.usageAvg ) + '</span><strong>' + esc( kb( sum / total ) ) + '</strong></div>' +
+				'<div class="bme-usage__stat"><span>' + esc( i18n.usageMax ) + '</span><strong>' + esc( kb( max.bytes || 0 ) ) + '</strong><a href="' + esc( max.url ) + '" target="_blank" rel="noopener">' + esc( max.title || path( max.url ) ) + '</a></div>' +
+				'<div class="bme-usage__stat"><span>' + esc( i18n.usageTop ) + '</span><strong>' + esc( top ? ( r.labels[ top ] || top ) : '–' ) + '</strong>' + ( top ? '<code>' + esc( top ) + '</code>' : '' ) + '</div>' +
+				'</div>';
+
+			// Insights.
+			var notes = [];
+			if ( r.always ) {
+				notes.push( [ 'warn', i18n.usageAlways ] );
+			}
+			Object.keys( NAMES ).forEach( function ( k ) {
+				if ( r.enabled[ k ] && ! r.engines[ k ] && ! r.always ) {
+					notes.push( [ 'info', String( i18n.usageUnused ).replace( '%s', NAMES[ k ] ) ] );
+				}
+			} );
+			if ( r.enabled.lenis ) {
+				notes.push( [ 'info', i18n.usageLenis ] );
+			}
+			if ( r.external ) {
+				notes.push( [ 'info', i18n.usageCdn ] );
+			}
+			if ( notes.length ) {
+				html += '<ul class="bme-usage__notes">' + notes.map( function ( n ) {
+					return '<li class="is-' + n[ 0 ] + '">' + esc( n[ 1 ] ) + '</li>';
+				} ).join( '' ) + '</ul>';
+			}
+
+			// Engines and presets.
+			html += '<div class="bme-usage__cols"><div class="bme-usage__card"><h3 class="bme-subhead">' + esc( i18n.usageEngines ) + '</h3><ul class="bme-usage__bars">';
+			Object.keys( NAMES ).forEach( function ( k ) {
+				var n = r.engines[ k ] || 0;
+				html += '<li' + ( r.enabled[ k ] ? '' : ' class="is-off"' ) + '><span class="bme-usage__name">' + esc( NAMES[ k ] ) + '</span><span class="bme-usage__track"><i style="width:' + ( 100 * n / total ).toFixed( 1 ) + '%"></i></span><span class="bme-usage__num">' + esc( fmt( i18n.usageOfPages, n, total ) ) + '</span></li>';
+			} );
+			html += '</ul></div><div class="bme-usage__card"><h3 class="bme-subhead">' + esc( i18n.usagePresets ) + '</h3><ul class="bme-usage__bars">';
+			var slugs = Object.keys( r.presets || {} ).slice( 0, 8 );
+			var most = slugs.length ? r.presets[ slugs[ 0 ] ] : 1;
+			slugs.forEach( function ( slug ) {
+				html += '<li><span class="bme-usage__name" title="' + esc( slug ) + '">' + esc( r.labels[ slug ] || slug ) + '</span><span class="bme-usage__track"><i style="width:' + ( 100 * r.presets[ slug ] / most ).toFixed( 1 ) + '%"></i></span><span class="bme-usage__num">' + r.presets[ slug ] + '</span></li>';
+			} );
+			html += '</ul></div></div>';
+
+			// Pages.
+			var list = showAll ? pages : pages.slice( 0, 12 );
+			var heaviest = max.bytes || 1;
+			html += '<h3 class="bme-subhead">' + esc( i18n.usagePageList ) + '</h3><div class="bme-usage__table" role="table"><div class="bme-usage__row bme-usage__row--head" role="row">' +
+				'<span role="columnheader">' + esc( i18n.usageColPage ) + '</span><span role="columnheader">' + esc( i18n.usageColEngines ) + '</span><span role="columnheader">' + esc( i18n.usageColAnims ) + '</span><span role="columnheader">' + esc( i18n.usageColScript ) + '</span><span role="columnheader">' + esc( i18n.usageColSeen ) + '</span></div>';
+			list.forEach( function ( p ) {
+				var engines = ( p.engines || [] ).map( function ( e ) {
+					return '<span class="bme-chip">' + esc( NAMES[ e ] || e ) + '</span>';
+				} ).join( '' ) || '<span class="bme-chip bme-chip--muted">' + esc( i18n.usageBuiltIn ) + '</span>';
+				html += '<div class="bme-usage__row" role="row">' +
+					'<span role="cell" class="bme-usage__page"><a href="' + esc( p.url ) + '" target="_blank" rel="noopener">' + esc( p.title || path( p.url ) ) + '</a><small>' + esc( path( p.url ) ) + '</small></span>' +
+					'<span role="cell" class="bme-usage__chips">' + engines + '</span>' +
+					'<span role="cell" class="bme-usage__count" data-label="' + esc( i18n.usageColAnims ) + '">' + ( p.count || 0 ) + '</span>' +
+					'<span role="cell" class="bme-usage__weight"><span class="bme-usage__track"><i style="width:' + ( 100 * ( p.bytes || 0 ) / heaviest ).toFixed( 1 ) + '%"></i></span>' + esc( kb( p.bytes || 0 ) ) + '</span>' +
+					'<span role="cell" class="bme-usage__seen">' + esc( ago( p.time ) ) + '</span></div>';
+			} );
+			html += '</div>';
+			if ( ! showAll && pages.length > list.length ) {
+				html += '<button type="button" class="bme-btn bme-usage__more" data-bme-usage-more>' + esc( String( i18n.usageMore ).replace( '%d', pages.length ) ) + '</button>';
+			}
+			box.innerHTML = html;
+		}
+
+		var current = U.data;
+		render( current );
+		box.addEventListener( 'click', function ( e ) {
+			if ( e.target.closest( '[data-bme-usage-more]' ) ) {
+				showAll = true;
+				render( current );
+			}
+		} );
+
+		function ajax( action ) {
+			var body = new URLSearchParams( { action: action, nonce: U.nonce } );
+			return fetch( data.ajax, { method: 'POST', credentials: 'same-origin', body: body } ).then( function ( res ) {
+				return res.json();
+			} ).then( function ( j ) {
+				if ( ! j || ! j.success ) {
+					throw new Error( 'bad response' );
+				}
+				current = j.data;
+				render( current );
+				return current;
+			} );
+		}
+
+		if ( scanBtn ) {
+			scanBtn.addEventListener( 'click', function () {
+				var urls = ( U.urls || [] ).slice();
+				var done = 0;
+				var failed = 0;
+				var total = urls.length;
+				var stamp = Date.now();
+				scanBtn.disabled = clearBtn.disabled = true;
+				scanBtn.setAttribute( 'aria-busy', 'true' );
+				progress.textContent = fmt( i18n.usageScanning, 0, total );
+				function next() {
+					var url = urls.shift();
+					if ( ! url ) {
+						return Promise.resolve();
+					}
+					var u = new URL( url, location.href );
+					u.searchParams.set( 'bme-scan', String( stamp ) ); // past page caches
+					var ctrl = window.AbortController ? new AbortController() : null;
+					var timer = ctrl ? setTimeout( function () {
+						ctrl.abort();
+					}, 20000 ) : 0;
+					return fetch( u.toString(), { credentials: 'same-origin', signal: ctrl ? ctrl.signal : undefined } ).then( function ( res ) {
+						if ( ! res.ok ) {
+							failed++;
+						}
+						return res.text();
+					} ).catch( function () {
+						failed++;
+					} ).then( function () {
+						clearTimeout( timer );
+						done++;
+						progress.textContent = fmt( i18n.usageScanning, done, total );
+						return next();
+					} );
+				}
+				Promise.all( [ next(), next(), next() ] ).then( function () {
+					return ajax( 'bme_usage' );
+				} ).then( function () {
+					progress.textContent = String( i18n.usageDone ).replace( '%d', done ) + ( failed ? ' ' + String( i18n.usageFailedN ).replace( '%d', failed ) : '' );
+				} ).catch( function () {
+					progress.textContent = i18n.usageError;
+				} ).then( function () {
+					scanBtn.disabled = clearBtn.disabled = false;
+					scanBtn.removeAttribute( 'aria-busy' );
+				} );
+			} );
+		}
+		if ( clearBtn ) {
+			clearBtn.addEventListener( 'click', function () {
+				if ( ! window.confirm( i18n.usageConfirmClear ) ) {
+					return;
+				}
+				ajax( 'bme_usage_clear' ).then( function () {
+					progress.textContent = '';
+					toast( i18n.usageCleared );
+				} ).catch( function () {
+					toast( i18n.usageError, 'error' );
+				} );
+			} );
+		}
 	} )();
 
 	initialCounts.rules = body ? $$( '.bme-rule', body ).length : null;

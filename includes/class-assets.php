@@ -397,9 +397,25 @@ class Assets {
 		wp_enqueue_script( 'bme-runtime' );
 		wp_add_inline_script( 'bme-runtime', 'window.BME_CONFIG=' . wp_json_encode( $this->config( $engines, $needs_three, $needs_tl ) ) . ';', 'before' );
 
+		// The inspector (?bme-debug, people who can edit): labels every animation on the page.
+		if ( self::inspecting() ) {
+			nocache_headers();
+			wp_enqueue_script( 'bme-inspector', BME_URL . 'assets/js/inspector.js', array( 'bme-runtime' ), self::asset_version(), true );
+		}
+
 		if ( $canvas ) {
 			wp_enqueue_script( 'bme-builder-canvas', BME_URL . 'assets/js/builder-canvas.js', array( 'bme-runtime', 'bme-timeline' ), self::asset_version(), true );
 		}
+	}
+
+	/**
+	 * The animation inspector is on: ?bme-debug on the frontend, for someone who can edit posts.
+	 *
+	 * @return bool
+	 */
+	public static function inspecting() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only display switch.
+		return isset( $_GET['bme-debug'] ) && ! is_admin() && is_user_logged_in() && current_user_can( 'edit_posts' ) && ! Bricks_Integration::in_builder();
 	}
 
 	/** Settings timeline.js reads (window.BME_TL). */
@@ -421,9 +437,16 @@ class Assets {
 	private function config( array $engines, $needs_three, $has_tl = true ) {
 		$s = Settings::all();
 
+		// A page can set its own animation speed (Page settings → Motion Studio).
+		$pace = Bricks_Integration::page_pace();
+		if ( null !== $pace ) {
+			$s['defaults']['pace'] = $pace;
+		}
+
 		$config = array(
 			'version'          => BME_VERSION,
 			'debug'            => (bool) $s['debug'],
+			'inspect'          => self::inspecting(),
 			'engine'           => Settings::default_engine(),
 			'engines'          => $engines,
 			'native'           => (bool) $s['perf']['native'],

@@ -4,7 +4,8 @@
  *
  * Pauses and resumes everything on the page that keeps moving (loops, marquees, timeline loops,
  * 3D backgrounds): the pause control WCAG 2.2.2 asks for when motion lasts longer than five
- * seconds. The choice is remembered for the rest of the visit. The runtime (or timeline.js on
+ * seconds. While paused, entrance animations are skipped too: content shows as designed. The
+ * choice is remembered for the rest of the visit. The runtime (or timeline.js on
  * timeline-only pages) handles the click through the data-bme-pause-toggle attribute.
  *
  * @package BricksMotionStudio
@@ -34,7 +35,7 @@ class BME_Element_Pause_Toggle extends \Bricks\Element {
 			'type'        => 'text',
 			'default'     => __( 'Pause animations', 'bricks-motion-studio' ), // saved as text, escaped on output
 			'placeholder' => __( 'Pause animations', 'bricks-motion-studio' ),
-			'description' => esc_html__( 'Screen readers announce it as a toggle that is pressed while animations are paused. The icon switches between pause and play.', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'Stops loops, marquees and 3D, and while paused shows content as designed instead of animating it in. Remembered for the visit. Screen readers announce it as a toggle that is pressed while animations are paused.', 'bricks-motion-studio' ),
 		);
 
 		$this->controls['showIcon'] = array(

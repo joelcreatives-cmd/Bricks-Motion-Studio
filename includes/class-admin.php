@@ -53,7 +53,7 @@ class Admin {
 		if ( function_exists( 'bricks_is_builder' ) && ( bricks_is_builder() || bricks_is_builder_iframe() ) ) {
 			return;
 		}
-		$status = (string) Settings::get( 'status', 'live' );
+		$status = Settings::status();
 		$labels = self::status_labels();
 		$state  = 'off' === $status ? 'off' : ( Settings::path_is_off() ? 'page-off' : $status );
 		$dot    = array(
@@ -95,6 +95,16 @@ class Admin {
 					'id'     => 'bme-disable',
 					'title'  => esc_html__( 'View this page without animations', 'bricks-motion-studio' ),
 					'href'   => esc_url( add_query_arg( 'bme-disable', '1' ) ),
+				)
+			);
+			$inspecting = isset( $_GET['bme-debug'] ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$bar->add_node(
+				array(
+					'parent' => 'bme',
+					'id'     => 'bme-inspect',
+					'title'  => $inspecting ? esc_html__( 'Stop inspecting', 'bricks-motion-studio' ) : esc_html__( 'Inspect animations', 'bricks-motion-studio' ),
+					'href'   => esc_url( $inspecting ? remove_query_arg( 'bme-debug' ) : add_query_arg( 'bme-debug', '1' ) ),
+					'meta'   => array( 'title' => __( 'Label every animation on this page with its preset, engine and source, and show why other elements are skipped.', 'bricks-motion-studio' ) ),
 				)
 			);
 		}
@@ -192,6 +202,12 @@ class Admin {
 					'rev'     => self::settings_rev(),
 					'ajax'    => admin_url( 'admin-ajax.php' ),
 					'nonce'   => wp_create_nonce( 'bme_settings_rev' ),
+					'usage'   => array(
+						'nonce' => wp_create_nonce( 'bme_usage' ),
+						'urls'  => Usage_Log::scan_urls(),
+						'data'  => Usage_Log::report(),
+						'page'  => self::page_url(),
+					),
 					'i18n'    => array(
 						'changed'            => __( 'The Motion Studio settings were changed somewhere else (another tab, an import or an update) after you opened this page. Save anyway and replace those changes with yours?', 'bricks-motion-studio' ),
 						/* translators: 1: rules switched on, 2: all rules */
@@ -211,6 +227,38 @@ class Admin {
 						'paletteLabel'       => __( 'Search settings', 'bricks-motion-studio' ),
 						'palettePlaceholder' => __( 'Search settings, sections and presets…', 'bricks-motion-studio' ),
 						'paletteNone'        => __( 'Nothing found. Try another word.', 'bricks-motion-studio' ),
+						'usageEmpty'         => __( 'Nothing recorded yet. Click Scan site, or open a few pages of your site.', 'bricks-motion-studio' ),
+						'usagePages'         => __( 'Pages recorded', 'bricks-motion-studio' ),
+						'usageAvg'           => __( 'Average per page', 'bricks-motion-studio' ),
+						'usageMax'           => __( 'Heaviest page', 'bricks-motion-studio' ),
+						'usageTop'           => __( 'Most used preset', 'bricks-motion-studio' ),
+						'usageEngines'       => __( 'Engines', 'bricks-motion-studio' ),
+						'usagePresets'       => __( 'Presets in use', 'bricks-motion-studio' ),
+						'usagePageList'      => __( 'Pages, heaviest first', 'bricks-motion-studio' ),
+						'usageColPage'       => __( 'Page', 'bricks-motion-studio' ),
+						'usageColEngines'    => __( 'Engines', 'bricks-motion-studio' ),
+						'usageColAnims'      => __( 'Animations', 'bricks-motion-studio' ),
+						'usageColScript'     => __( 'Script', 'bricks-motion-studio' ),
+						'usageColSeen'       => __( 'Last seen', 'bricks-motion-studio' ),
+						/* translators: 1: pages using it, 2: pages recorded */
+						'usageOfPages'       => __( '%1$d of %2$d pages', 'bricks-motion-studio' ),
+						/* translators: %s: library name, e.g. Anime.js */
+						'usageUnused'        => __( '%s is on, but no recorded page uses it. Pages only download the engines they use, so it costs nothing; switch it off if you don\'t plan to use it.', 'bricks-motion-studio' ),
+						'usageAlways'        => __( '"Load engines on every page" is on (Scroll & 3D): every page downloads all enabled engines, used or not.', 'bricks-motion-studio' ),
+						'usageLenis'         => __( 'Smooth scrolling is on, so every page loads Lenis.', 'bricks-motion-studio' ),
+						'usageCdn'           => __( 'Libraries load from the CDN: their sizes are those of the bundled copies of the same version.', 'bricks-motion-studio' ),
+						/* translators: 1: pages done, 2: pages to scan */
+						'usageScanning'      => __( 'Scanning %1$d of %2$d…', 'bricks-motion-studio' ),
+						/* translators: %d: pages scanned */
+						'usageDone'          => __( 'Scanned %d pages.', 'bricks-motion-studio' ),
+						/* translators: %d: pages that failed to load */
+						'usageFailedN'       => __( '%d could not be opened.', 'bricks-motion-studio' ),
+						'usageCleared'       => __( 'Report cleared.', 'bricks-motion-studio' ),
+						'usageConfirmClear'  => __( 'Clear the usage report? Pages are recorded again as they are viewed.', 'bricks-motion-studio' ),
+						'usageError'         => __( 'The report could not be loaded. Reload the page and try again.', 'bricks-motion-studio' ),
+						'usageBuiltIn'       => __( 'Built-in only', 'bricks-motion-studio' ),
+						/* translators: %d: number of pages */
+						'usageMore'          => __( 'Show all %d pages', 'bricks-motion-studio' ),
 						'copied'             => __( 'Copied', 'bricks-motion-studio' ),
 						'ctrlS'              => _x( 'Ctrl S', 'keyboard shortcut', 'bricks-motion-studio' ),
 						/* translators: 1: button name, e.g. "Remove rule", 2: rule number */
@@ -263,9 +311,11 @@ class Admin {
 		if ( $screen && $screen->id === $this->hook && isset( $_GET['bme_notice'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$code = sanitize_key( wp_unslash( $_GET['bme_notice'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$map  = array(
-				'imported'      => array( 'success', __( 'Settings imported.', 'bricks-motion-studio' ) ),
-				'import_failed' => array( 'error', __( 'Import failed: paste a valid Motion Studio JSON export.', 'bricks-motion-studio' ) ),
-				'reset'         => array( 'success', __( 'Settings reset to defaults.', 'bricks-motion-studio' ) ),
+				'imported'       => array( 'success', __( 'Settings imported.', 'bricks-motion-studio' ) ),
+				'import_failed'  => array( 'error', __( 'Import failed: paste a valid Motion Studio JSON export.', 'bricks-motion-studio' ) ),
+				'restored'       => array( 'success', __( 'Earlier settings restored. The version you replaced is in Recent changes, if you want it back.', 'bricks-motion-studio' ) ),
+				'restore_failed' => array( 'error', __( 'That version is no longer in the list (the settings changed meanwhile). Pick it again below.', 'bricks-motion-studio' ) ),
+				'reset'          => array( 'success', __( 'Settings reset to defaults.', 'bricks-motion-studio' ) ),
 			);
 			if ( isset( $map[ $code ] ) ) {
 				printf( '<div class="notice notice-%1$s is-dismissible bme-notice"><p>%2$s</p></div>', esc_attr( $map[ $code ][0] ), esc_html( $map[ $code ][1] ) );
@@ -322,6 +372,71 @@ class Admin {
 	/* ---------------------------------------------------------------------
 	 * Render helpers
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * A version for comparison: every key present, rules in their full current shape.
+	 *
+	 * @param array $v Settings version.
+	 * @return array
+	 */
+	private static function normalized( array $v ) {
+		$v                  = History::complete( $v );
+		$v['auto']['rules'] = Settings::sanitize_rules( $v['auto']['rules'] );
+		return $v;
+	}
+
+	/**
+	 * Recent changes (System): each earlier version, what replaced it, and Restore.
+	 *
+	 * @param array $current Current settings.
+	 */
+	private function history_list( array $current ) {
+		$list = History::all();
+		if ( ! $list ) {
+			echo '<p class="bme-empty bme-history__empty">' . esc_html__( 'No changes yet. After the next save, the version it replaced appears here.', 'bricks-motion-studio' ) . '</p>';
+			return;
+		}
+		$sources = History::source_labels();
+		$newer   = self::normalized( $current );
+		echo '<ol class="bme-history">';
+		foreach ( $list as $i => $entry ) {
+			$version = self::normalized( $entry['settings'] );
+			$changes = History::describe( History::diff( $version, $newer ) );
+			$newer   = $version;
+			$time    = (int) $entry['time'];
+			/* translators: %s: human time difference, e.g. "5 mins" */
+			$ago  = sprintf( __( '%s ago', 'bricks-motion-studio' ), human_time_diff( $time ) );
+			$when = wp_date( get_option( 'date_format' ) . ' ' . get_option( 'time_format' ), $time );
+			$how  = $sources[ $entry['source'] ?? 'other' ] ?? $sources['other'];
+			?>
+			<li class="bme-history__item">
+				<span class="bme-history__icon" aria-hidden="true"><?php echo self::icon( 'history' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
+				<span class="bme-history__text">
+					<strong><?php echo esc_html( $how ); ?></strong>
+					<span class="bme-history__meta"><time datetime="<?php echo esc_attr( gmdate( 'c', $time ) ); ?>" title="<?php echo esc_attr( $when ); ?>"><?php echo esc_html( $ago ); ?></time><?php echo ! empty( $entry['user'] ) ? ' · ' . esc_html( (string) $entry['user'] ) : ''; ?></span>
+					<span class="bme-history__changes">
+						<?php
+						if ( $changes ) {
+							/* translators: %s: list of changed sections, e.g. "Rules, Timing & feel" */
+							echo esc_html( sprintf( __( 'Changed: %s', 'bricks-motion-studio' ), implode( ', ', $changes ) ) );
+						} else {
+							esc_html_e( 'Same as the version after it.', 'bricks-motion-studio' );
+						}
+						?>
+					</span>
+				</span>
+				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" data-bme-confirm="<?php echo esc_attr( sprintf( /* translators: %s: date and time */ __( 'Restore the settings as they were before the change of %s? Your current settings are kept in this list.', 'bricks-motion-studio' ), $when ) ); ?>">
+					<input type="hidden" name="action" value="bme_restore">
+					<input type="hidden" name="version" value="<?php echo esc_attr( (string) $i ); ?>">
+					<input type="hidden" name="time" value="<?php echo esc_attr( (string) $time ); ?>">
+					<?php wp_nonce_field( 'bme_restore' ); ?>
+					<button class="bme-btn bme-btn--sm"><?php esc_html_e( 'Restore', 'bricks-motion-studio' ); ?></button>
+				</form>
+			</li>
+			<?php
+		}
+		echo '</ol>';
+	}
 
 	/**
 	 * Engines that can run a preset, with their real names (for the Reference cards).
@@ -574,13 +689,105 @@ class Admin {
 					</select>
 				</label>
 			</div>
+			<?php
+			$from   = isset( $row['from'] ) && is_array( $row['from'] ) ? $row['from'] : array();
+			$fields = array(
+				'opacity' => array( __( 'Opacity', 'bricks-motion-studio' ), 0.05, '' ),
+				'x'       => array( __( 'Move X', 'bricks-motion-studio' ), 1, 'px' ),
+				'y'       => array( __( 'Move Y', 'bricks-motion-studio' ), 1, 'px' ),
+				'scale'   => array( __( 'Scale', 'bricks-motion-studio' ), 0.01, '×' ),
+				'rotate'  => array( __( 'Rotate', 'bricks-motion-studio' ), 1, '°' ),
+				'blur'    => array( __( 'Blur', 'bricks-motion-studio' ), 0.5, 'px' ),
+			);
+			?>
+			<details class="bme-mine__motion" data-bme-mine-motion <?php echo $from ? 'open' : ''; ?>>
+				<summary>
+					<?php echo self::icon( 'wand' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+					<span><?php esc_html_e( 'Shape the motion', 'bricks-motion-studio' ); ?></span>
+					<span class="bme-mine__motion-count" data-bme-mine-motion-count></span>
+				</summary>
+				<div class="bme-mine__builder">
+					<div class="bme-mine__from">
+						<p class="bme-mine__hint"><?php esc_html_e( 'Where the element starts before it animates into place. Empty fields keep the base preset\'s value, shown in grey.', 'bricks-motion-studio' ); ?></p>
+						<div class="bme-mine__from-grid">
+							<?php foreach ( $fields as $key => $f ) : ?>
+								<?php $range = Settings::MOTION_RANGES[ $key ]; ?>
+								<label class="bme-mine__num">
+									<span><?php echo esc_html( $f[0] ); ?></span>
+									<input type="number" class="bme-text" name="<?php echo esc_attr( $base . '[from][' . $key . ']' ); ?>" value="<?php echo esc_attr( isset( $from[ $key ] ) ? (string) $from[ $key ] : '' ); ?>" min="<?php echo esc_attr( (string) $range[0] ); ?>" max="<?php echo esc_attr( (string) $range[1] ); ?>" step="<?php echo esc_attr( (string) $f[1] ); ?>" inputmode="decimal" data-bme-from="<?php echo esc_attr( $key ); ?>">
+									<em><?php echo esc_html( $f[2] ); ?></em>
+								</label>
+							<?php endforeach; ?>
+						</div>
+						<button type="button" class="bme-btn bme-btn--sm" data-bme-mine-reset-motion><?php esc_html_e( 'Clear motion changes', 'bricks-motion-studio' ); ?></button>
+					</div>
+					<div class="bme-mine__stage" data-bme-mine-stage>
+						<span class="bme-mine__card" aria-hidden="true"><i></i><i></i><i></i></span>
+						<span class="bme-mine__text" aria-hidden="true" hidden></span>
+						<button type="button" class="bme-icon-btn bme-mine__replay" data-bme-mine-replay aria-label="<?php esc_attr_e( 'Play again', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Play again', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+					</div>
+				</div>
+				<p class="bme-mine__nomotion" data-bme-mine-nomotion hidden><?php esc_html_e( 'This base preset moves with scrolling or loops: its motion can\'t be shaped here. Pick an entrance preset (fade, zoom, slide, blur, text) to shape it.', 'bricks-motion-studio' ); ?></p>
+			</details>
 		</div>
 		<?php
 	}
 
+	/**
+	 * Rule "Where" choices: page kinds and single posts of each public post type.
+	 *
+	 * @return array<string,string>
+	 */
+	private static function where_choices() {
+		static $choices = null;
+		if ( null === $choices ) {
+			$choices = array(
+				'front'    => __( 'Front page', 'bricks-motion-studio' ),
+				'blog'     => __( 'Blog (posts page)', 'bricks-motion-studio' ),
+				'singular' => __( 'Any single post or page', 'bricks-motion-studio' ),
+			);
+			foreach ( get_post_types( array( 'public' => true ), 'objects' ) as $type ) {
+				if ( 'attachment' === $type->name || 'bricks_template' === $type->name ) {
+					continue;
+				}
+				/* translators: %s: post type name, e.g. "Posts" */
+				$choices[ 'pt:' . $type->name ] = sprintf( __( 'Single: %s', 'bricks-motion-studio' ), $type->labels->name );
+			}
+			$choices['archive'] = __( 'Archives (categories, tags, authors…)', 'bricks-motion-studio' );
+			$choices['search']  = __( 'Search results', 'bricks-motion-studio' );
+			$choices['404']     = __( '404 page', 'bricks-motion-studio' );
+		}
+		return $choices;
+	}
+
+	/**
+	 * Rule "Screens" choices (keys of Settings::SCREENS).
+	 *
+	 * @return array<string,string>
+	 */
+	private static function screen_choices() {
+		return array(
+			''        => __( 'All screen sizes', 'bricks-motion-studio' ),
+			'desktop' => __( 'Desktop only (992px+)', 'bricks-motion-studio' ),
+			'large'   => __( 'Tablet and up (768px+)', 'bricks-motion-studio' ),
+			'small'   => __( 'Phone and tablet (under 992px)', 'bricks-motion-studio' ),
+			'phone'   => __( 'Phone only (under 768px)', 'bricks-motion-studio' ),
+		);
+	}
+
 	private function rule_row( $index, array $rule ) {
 		$base    = BME_OPTION . '[auto][rules][' . $index . ']';
-		$engines = array(
+		$where   = (string) ( $rule['where'] ?? '' );
+		$screens = (string) ( $rule['screens'] ?? '' );
+		$where_c = self::where_choices();
+		// A condition for a post type that no longer exists keeps its value (and says so).
+		$where_b = 0 === strpos( $where, 'not:' ) ? substr( $where, 4 ) : $where;
+		if ( '' !== $where_b && ! isset( $where_c[ $where_b ] ) ) {
+			/* translators: %s: stored condition, e.g. pt:product */
+			$where_c[ $where_b ] = sprintf( __( '%s (not available)', 'bricks-motion-studio' ), $where_b );
+		}
+		$has_cond = '' !== $where || '' !== $screens;
+		$engines  = array(
 			''       => __( 'Site default', 'bricks-motion-studio' ),
 			'native' => __( 'Built-in', 'bricks-motion-studio' ),
 			'gsap'   => 'GSAP',
@@ -621,8 +828,37 @@ class Admin {
 				</select>
 			</span>
 			<span class="bme-rule__actions" role="cell">
+				<button type="button" class="bme-icon-btn bme-rule__cond-btn<?php echo $has_cond ? ' has-cond' : ''; ?>" data-bme-rule-cond aria-expanded="<?php echo $has_cond ? 'true' : 'false'; ?>" aria-label="<?php esc_attr_e( 'Conditions', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Where and on which screens', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'filter' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 				<button type="button" class="bme-icon-btn" data-bme-preview-rule aria-label="<?php esc_attr_e( 'Preview this preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Preview', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 				<button type="button" class="bme-icon-btn bme-icon-btn--danger" data-bme-remove-rule aria-label="<?php esc_attr_e( 'Remove rule', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Remove', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
+			</span>
+			<span class="bme-rule__when" role="cell" data-bme-rule-when <?php echo $has_cond ? '' : 'hidden'; ?>>
+				<label class="bme-rule__cond">
+					<span class="bme-rule__cond-label"><?php esc_html_e( 'Where', 'bricks-motion-studio' ); ?></span>
+					<select class="bme-select" name="<?php echo esc_attr( $base . '[where]' ); ?>" data-bme-rule-where>
+						<option value="" <?php selected( $where, '' ); ?>><?php esc_html_e( 'Everywhere', 'bricks-motion-studio' ); ?></option>
+						<optgroup label="<?php esc_attr_e( 'Only on', 'bricks-motion-studio' ); ?>">
+							<?php foreach ( $where_c as $value => $label ) : ?>
+								<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $where, $value ); ?>><?php echo esc_html( $label ); ?></option>
+							<?php endforeach; ?>
+						</optgroup>
+						<optgroup label="<?php esc_attr_e( 'Everywhere except', 'bricks-motion-studio' ); ?>">
+							<?php foreach ( $where_c as $value => $label ) : ?>
+								<?php /* translators: %s: page kind, e.g. "Front page" */ ?>
+								<option value="<?php echo esc_attr( 'not:' . $value ); ?>" <?php selected( $where, 'not:' . $value ); ?>><?php echo esc_html( sprintf( __( 'Not: %s', 'bricks-motion-studio' ), $label ) ); ?></option>
+							<?php endforeach; ?>
+						</optgroup>
+					</select>
+				</label>
+				<label class="bme-rule__cond">
+					<span class="bme-rule__cond-label"><?php esc_html_e( 'Screens', 'bricks-motion-studio' ); ?></span>
+					<select class="bme-select" name="<?php echo esc_attr( $base . '[screens]' ); ?>" data-bme-rule-screens>
+						<?php foreach ( self::screen_choices() as $value => $label ) : ?>
+							<option value="<?php echo esc_attr( $value ); ?>" <?php selected( $screens, $value ); ?>><?php echo esc_html( $label ); ?></option>
+						<?php endforeach; ?>
+					</select>
+				</label>
+				<span class="bme-rule__cond-note"><?php esc_html_e( 'Elsewhere the next matching rule applies. On other screens the element shows as designed.', 'bricks-motion-studio' ); ?></span>
 			</span>
 		</div>
 		<?php
@@ -667,14 +903,14 @@ class Admin {
 
 		// PHP drops form fields past max_input_vars: a long rule list could be cut off on save.
 		$max_vars = (int) ini_get( 'max_input_vars' );
-		$needed   = 80 + 8 * count( (array) Settings::get( 'auto.rules', array() ) ) + 8 * count( (array) Settings::get( 'custom_presets', array() ) );
+		$needed   = 80 + 10 * count( (array) Settings::get( 'auto.rules', array() ) ) + 14 * count( (array) Settings::get( 'custom_presets', array() ) );
 		if ( $max_vars > 0 ) {
 			$checks[] = array(
 				'label'  => __( 'Form size limit', 'bricks-motion-studio' ),
 				/* translators: 1: fields the settings form sends, 2: PHP max_input_vars */
 				'value'  => sprintf( __( '%1$d of %2$d fields', 'bricks-motion-studio' ), $needed, $max_vars ),
 				'status' => $needed < $max_vars * 0.8 ? 'ok' : ( $needed < $max_vars ? 'warn' : 'fail' ),
-				'note'   => __( 'PHP max_input_vars. Each rule and each of My presets adds 8 fields; ask your host to raise the limit before adding many more.', 'bricks-motion-studio' ),
+				'note'   => __( 'PHP max_input_vars. Each rule adds 10 fields and each of My presets 14; ask your host to raise the limit before adding many more.', 'bricks-motion-studio' ),
 			);
 		}
 
@@ -740,6 +976,7 @@ class Admin {
 				'a11y'     => array( __( 'Accessibility', 'bricks-motion-studio' ), 'a11y' ),
 			),
 			__( 'Resources', 'bricks-motion-studio' ) => array(
+				'usage'  => array( __( 'Usage', 'bricks-motion-studio' ), 'chart' ),
 				'system' => array( __( 'System', 'bricks-motion-studio' ), 'tools' ),
 				'help'   => array( __( 'Reference', 'bricks-motion-studio' ), 'help' ),
 			),
@@ -753,6 +990,9 @@ class Admin {
 			'motion' => 'Motion',
 		);
 		$rules   = array_values( (array) $s['auto']['rules'] );
+
+		// A damaged status value shows as Live, the value it acts as.
+		$s['status'] = Settings::status();
 		?>
 		<div class="wrap bme-wrap">
 			<h1 class="screen-reader-text"><?php esc_html_e( 'Motion Studio', 'bricks-motion-studio' ); ?></h1>
@@ -1016,6 +1256,7 @@ class Admin {
 										<span role="columnheader"><?php esc_html_e( 'Animate', 'bricks-motion-studio' ); ?></span>
 										<span role="columnheader"><?php esc_html_e( 'Engine', 'bricks-motion-studio' ); ?></span>
 										<span role="columnheader"><span class="screen-reader-text"><?php esc_html_e( 'Actions', 'bricks-motion-studio' ); ?></span></span>
+										<span role="columnheader" class="screen-reader-text"><?php esc_html_e( 'Conditions', 'bricks-motion-studio' ); ?></span>
 									</div>
 									</div>
 									<div id="bme-rules-body" role="rowgroup">
@@ -1203,7 +1444,7 @@ class Admin {
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Developer', 'bricks-motion-studio' ); ?></h3>
 								<div class="bme-group">
-									<?php $this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'Logs decisions to the browser console and shows scroll trigger markers. Turn off on live sites.', 'bricks-motion-studio' ) ); ?>
+									<?php $this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'Logs decisions to the browser console and shows scroll trigger markers. Turn off on live sites. To label every animation on a page (preset, engine, why something is skipped), use Inspect animations in the admin bar\'s Motion menu, or add ?bme-debug to the page address.', 'bricks-motion-studio' ) ); ?>
 								</div>
 							</section>
 						</form>
@@ -1223,6 +1464,10 @@ class Admin {
 									</li>
 								<?php endforeach; ?>
 							</ul>
+
+							<h3 class="bme-subhead" id="bme-h-history"><?php esc_html_e( 'Recent changes', 'bricks-motion-studio' ); ?></h3>
+							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'The settings as they were before each of the last saves, imports and resets. Restore one to undo a change; restoring can be undone the same way.', 'bricks-motion-studio' ); ?></p>
+							<?php $this->history_list( $s ); ?>
 
 							<h3 class="bme-subhead"><?php esc_html_e( 'Export', 'bricks-motion-studio' ); ?></h3>
 							<div class="bme-code">
@@ -1259,6 +1504,19 @@ class Admin {
 									<button class="bme-btn bme-btn--danger"><?php esc_html_e( 'Reset', 'bricks-motion-studio' ); ?></button>
 								</form>
 							</div>
+						</section>
+
+						<!-- Usage -->
+						<section class="bme-panel" id="bme-panel-usage" data-bme-panel="usage" aria-labelledby="bme-h-usage" hidden>
+							<?php $this->panel_head( 'usage', __( 'Usage & weight', 'bricks-motion-studio' ), __( 'Which pages use which engines and presets, and how much Motion Studio script each one loads.', 'bricks-motion-studio' ), 'chart' ); ?>
+
+							<p class="bme-row__help bme-usage__intro"><?php esc_html_e( 'Pages are recorded as they are viewed. Scan site opens your published pages, recent posts and an archive once, so the report covers the whole site. Sizes are minified scripts before compression.', 'bricks-motion-studio' ); ?></p>
+							<div class="bme-usage__bar">
+								<button type="button" class="bme-btn bme-btn--primary" data-bme-usage-scan><?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Scan site', 'bricks-motion-studio' ); ?></button>
+								<button type="button" class="bme-btn" data-bme-usage-clear><?php esc_html_e( 'Clear report', 'bricks-motion-studio' ); ?></button>
+								<span class="bme-usage__progress" data-bme-usage-progress role="status" aria-live="polite"></span>
+							</div>
+							<div class="bme-usage" data-bme-usage aria-live="polite"></div>
 						</section>
 
 						<!-- Reference -->

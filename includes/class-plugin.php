@@ -32,6 +32,7 @@ class Plugin {
 		add_action( 'init', array( __CLASS__, 'maybe_upgrade' ), 5 );
 
 		$this->bricks = new Bricks_Integration();
+		History::init();
 		// Without Bricks nothing on the front end can be animated: load nothing there.
 		// (Checked once the theme is set up; the settings screen still loads.)
 		add_action(
@@ -40,6 +41,7 @@ class Plugin {
 				if ( self::bricks_active() ) {
 					new Assets();
 					new Builder();
+					Usage_Log::init();
 				}
 			},
 			20
@@ -49,6 +51,7 @@ class Plugin {
 		add_action( 'admin_bar_menu', array( Admin::class, 'admin_bar' ), 90 );
 		if ( is_admin() ) {
 			new Admin();
+			Usage_Log::init_admin();
 		}
 		// Update checks run in the dashboard, in background cron and in WP-CLI, never on the front end.
 		if ( is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {

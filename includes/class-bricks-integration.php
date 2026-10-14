@@ -673,7 +673,36 @@ class Bricks_Integration {
 			'required'    => array( 'bmePageMode', '!=', array( 'custom', 'off' ) ),
 			'description' => esc_html__( 'Overrides the site-wide level for element rules on this page. Class rules keep their exact preset.', 'bricks-motion-studio' ),
 		);
+		$data['controls']['bmePagePace']  = array(
+			'group'       => self::GROUP,
+			'label'       => esc_html__( 'Animation speed', 'bricks-motion-studio' ),
+			'type'        => 'number',
+			'min'         => 0.25,
+			'max'         => 4,
+			'step'        => 0.05,
+			'placeholder' => (string) Settings::get( 'defaults.pace', 1 ),
+			'inline'      => true,
+			'required'    => array( 'bmePageMode', '!=', 'off' ),
+			'description' => esc_html__( 'For this page only: 2 plays every animation twice as fast, 0.5 half as fast. Empty follows Timing & feel.', 'bricks-motion-studio' ),
+		);
 		return $data;
+	}
+
+	/**
+	 * The page's own animation speed (Page settings → Motion Studio), or null to follow the site.
+	 *
+	 * @return float|null
+	 */
+	public static function page_pace() {
+		if ( ! class_exists( '\Bricks\Database' ) || ! is_array( \Bricks\Database::$page_settings ) ) {
+			return null;
+		}
+		$page = \Bricks\Database::$page_settings ? \Bricks\Database::$page_settings : self::$request_page_settings;
+		$raw  = $page['bmePagePace'] ?? '';
+		if ( ! is_numeric( $raw ) || (float) $raw <= 0 ) {
+			return null;
+		}
+		return max( 0.25, min( 4, round( (float) $raw, 2 ) ) );
 	}
 
 	/**
@@ -702,7 +731,8 @@ class Bricks_Integration {
 	 * @param array $request_data Bricks request data (postId).
 	 */
 	public static function load_request_page_settings( $request_data ) {
-		$post_id = is_array( $request_data ) && isset( $request_data['postId'] ) ? absint( $request_data['postId'] ) : 0;
+		$post_id            = is_array( $request_data ) && isset( $request_data['postId'] ) ? absint( $request_data['postId'] ) : 0;
+		self::$context_post = $post_id;
 		if ( ! $post_id || ! class_exists( '\Bricks\Database' ) || ! defined( 'BRICKS_DB_PAGE_SETTINGS' ) ) {
 			return;
 		}
@@ -713,6 +743,78 @@ class Bricks_Integration {
 		$source                      = is_array( $templates ) && ! empty( $templates['content'] ) ? (int) $templates['content'] : $post_id;
 		$settings                    = get_post_meta( $source, BRICKS_DB_PAGE_SETTINGS, true );
 		self::$request_page_settings = is_array( $settings ) ? $settings : array();
+	}
+
+	/** @var int The page REST renders and builder previews belong to (they have no main query). */
+	public static $context_post = 0;
+
+	/**
+	 * What kind of page is being rendered, for rule conditions ("Where"): front, blog, singular,
+	 * pt:<post type>, archive, search, 404. Null when it can't be known (a template edited on its
+	 * own): every rule applies then.
+	 *
+	 * @return string[]|null
+	 */
+	public static function page_context() {
+		if ( self::$context_post ) {
+			$id   = self::$context_post;
+			$type = get_post_type( $id );
+			if ( ! $type || 'bricks_template' === $type ) {
+				return null;
+			}
+			if ( (int) get_option( 'page_for_posts' ) === $id ) {
+				return array( 'blog' );
+			}
+			$context = array( 'singular', 'pt:' . $type );
+			if ( 'page' === get_option( 'show_on_front' ) && (int) get_option( 'page_on_front' ) === $id ) {
+				$context[] = 'front';
+			}
+			return $context;
+		}
+		if ( ! did_action( 'wp' ) ) {
+			return null; // no main query yet
+		}
+		$context = array();
+		if ( is_front_page() ) {
+			$context[] = 'front';
+		}
+		if ( is_home() ) {
+			$context[] = 'blog';
+		}
+		if ( is_singular() ) {
+			$type = get_post_type( get_queried_object_id() );
+			if ( 'bricks_template' === $type ) {
+				return null; // a template previewed on its own: no page to judge by
+			}
+			$context[] = 'singular';
+			$context[] = 'pt:' . $type;
+		}
+		if ( is_archive() ) {
+			$context[] = 'archive';
+		}
+		if ( is_search() ) {
+			$context[] = 'search';
+		}
+		if ( is_404() ) {
+			$context[] = '404';
+		}
+		return $context;
+	}
+
+	/**
+	 * Whether a rule's "Where" condition holds on this page.
+	 *
+	 * @param string        $where   '' | kind | pt:<type>, optionally prefixed with not:.
+	 * @param string[]|null $context page_context().
+	 * @return bool
+	 */
+	public static function where_matches( $where, $context ) {
+		if ( '' === $where || null === $context ) {
+			return true;
+		}
+		$not = 0 === strpos( $where, 'not:' );
+		$hit = in_array( $not ? substr( $where, 4 ) : $where, $context, true );
+		return $not ? ! $hit : $hit;
 	}
 
 	/** The Bricks builder (main window, canvas iframe, or its own render requests). */
@@ -768,7 +870,7 @@ class Bricks_Integration {
 		}
 		// Site status (Motion Studio → Overview): off for everyone, or only for visitors who are
 		// not logged in as editors while the site is being built.
-		$status = (string) Settings::get( 'status', 'live' );
+		$status = Settings::status();
 		if ( 'off' === $status ) {
 			return true;
 		}
@@ -1510,10 +1612,15 @@ class Bricks_Integration {
 			$opts['level'] = $level;
 		}
 
+		// "Screens": the sizes this rule doesn't animate on (only its animation; the element's own
+		// hover effect and timeline keep their settings).
+		$screens = isset( $rule['screens'] ) && is_string( $rule['screens'] ) && isset( Settings::SCREENS[ $rule['screens'] ] ) ? Settings::SCREENS[ $rule['screens'] ] : array();
+
 		return array(
-			'preset' => $preset,
-			'engine' => isset( $rule['engine'] ) && is_string( $rule['engine'] ) ? $rule['engine'] : '',
-			'opts'   => $opts,
+			'preset'   => $preset,
+			'engine'   => isset( $rule['engine'] ) && is_string( $rule['engine'] ) ? $rule['engine'] : '',
+			'opts'     => $opts,
+			'auto_off' => $screens,
 		);
 	}
 
@@ -1530,13 +1637,18 @@ class Bricks_Integration {
 
 	private function rule_index() {
 		if ( null === $this->rule_index ) {
-			$index = array(
+			$index   = array(
 				'class'    => array(),
 				'element'  => array(),
 				'wildcard' => null,
 			);
+			$context = self::page_context();
 			foreach ( (array) Settings::get( 'auto.rules', array() ) as $rule ) {
 				if ( ! is_array( $rule ) || empty( $rule['enabled'] ) || ! isset( $rule['target'], $rule['preset'] ) || ! is_string( $rule['target'] ) || ! is_string( $rule['preset'] ) ) {
+					continue;
+				}
+				// "Where": a rule for other pages steps aside, so a later rule for the same target applies.
+				if ( ! self::where_matches( isset( $rule['where'] ) && is_string( $rule['where'] ) ? $rule['where'] : '', $context ) ) {
 					continue;
 				}
 				$type = $rule['type'] ?? 'element';
@@ -1774,6 +1886,9 @@ class Bricks_Integration {
 		}
 		if ( Settings::get( 'perf.fouc' ) && Presets::needs_hide( $res['preset'] ) ) {
 			$attributes['data-bme-hide'] = '';
+		}
+		if ( ! empty( $config['auto_off'] ) ) {
+			$attributes['data-bme-auto-off'] = implode( ' ', $config['auto_off'] );
 		}
 
 		$this->track( 'preset', $res['preset'], $res['engine'] );

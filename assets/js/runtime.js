@@ -38,6 +38,13 @@
 
 	var adapters = {};
 	var records = new Set();
+	// Inspector (?bme-debug): elements left alone, and why.
+	var skips = [];
+	function noteSkip( el, reason ) {
+		if ( cfg.inspect && skips.length < 2000 ) {
+			skips.push( { el: el, reason: reason } );
+		}
+	}
 	var byEl = new WeakMap();
 	// BricksMotion.destroy()ed elements stay as designed through later rescans (AJAX, screen-size
 	// switches) until BricksMotion.refresh() is called on them.
@@ -136,8 +143,10 @@
 		var w = window.innerWidth;
 		return w < 768 ? 'phone' : w < 992 ? 'tablet' : 'desktop';
 	}
-	function offHere( el ) {
-		var list = el.getAttribute && el.getAttribute( 'data-bme-off-on' );
+	// attr: data-bme-off-on (the element's "Turn off on": everything) or data-bme-auto-off (its
+	// auto-animate rule's "Screens": the rule's animation only).
+	function offHere( el, attr ) {
+		var list = el.getAttribute && el.getAttribute( attr || 'data-bme-off-on' );
 		return !! list && ( ' ' + list + ' ' ).indexOf( ' ' + screenBand() + ' ' ) !== -1;
 	}
 
@@ -1126,6 +1135,26 @@
 		return 'reveal';
 	}
 
+	// An ancestor that is pinned (or will be: scanning runs in document order, parents first).
+	function pinnedAncestor( el ) {
+		for ( var a = el.parentElement; a && a !== document.body; a = a.parentElement ) {
+			var rec = byEl.get( a );
+			if ( rec ) {
+				if ( ! rec.skipped && rec.kind === 'pin' ) {
+					return true;
+				}
+				continue;
+			}
+			if ( a.hasAttribute( 'data-bme' ) || ( a.className && /(^|\s)bme-/.test( String( a.className ) ) ) ) {
+				var ac = readConfig( a );
+				if ( ac && ac.preset && ac.preset.pin && ! offHere( a ) && ! pinnedAncestor( a ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	// A timeline row that animates the element itself (no target selector): an auto animation
 	// would write the same transform / opacity. Rows aimed at children leave it free.
 	function ownTimeline( el ) {
@@ -1148,13 +1177,20 @@
 		// Everything inside a marquee travels with the strip (and is copied by it): no own animation.
 		if ( el.closest( '[data-bme-clone]' ) || ( el.parentElement && el.parentElement.closest( '[data-bme="marquee"], .bme-marquee' ) ) ) {
 			log( 'Skipped', el, '(inside a marquee)' );
+			noteSkip( el, 'inside a marquee' );
 			unhide( el );
 			byEl.set( el, { el: el, skipped: true } );
 			return null;
 		}
 
-		if ( claimed.has( el ) || offHere( el ) || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || ownTimeline( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
-			log( 'Skipped', el, claimed.has( el ) ? '(animated by an ancestor)' : offHere( el ) ? '(turned off on this screen size)' : interactionTargets.has( el ) ? '(Bricks interaction animates it)' : ownTimeline( el ) ? '(has its own timeline)' : '(excluded)' );
+		var ruleOff = c.auto && offHere( el, 'data-bme-auto-off' );
+		if ( claimed.has( el ) || offHere( el ) || ruleOff || ( c.auto && ( excluded( el ) || interactionTargets.has( el ) || ownTimeline( el ) ) ) || ( c.minWidth && window.innerWidth < c.minWidth ) ) {
+			var why = claimed.has( el ) ? 'animated by an ancestor' : offHere( el ) ? 'turned off on this screen size' : ruleOff ? 'its rule skips this screen size'
+				: c.auto && excluded( el ) ? 'excluded (Auto-animate: Never animate)' : c.auto && interactionTargets.has( el ) ? 'a Bricks interaction animates it' : c.auto && ownTimeline( el ) ? 'has its own timeline' : 'screen narrower than the minimum width';
+			log( 'Skipped', el, '(' + why + ')' );
+			if ( ! claimed.has( el ) ) {
+				noteSkip( el, why ); // claimed children are drawn with their parent
+			}
 			unhide( el );
 			byEl.set( el, { el: el, skipped: true } );
 			return null;
@@ -1162,6 +1198,7 @@
 
 		if ( restOf( el ) && restOf( el ).o < 0.02 ) {
 			log( 'Skipped', el, '(invisible by design: opacity ' + restOf( el ).o + ')' );
+			noteSkip( el, 'invisible by design (opacity ' + restOf( el ).o + ')' );
 			unhide( el );
 			byEl.set( el, { el: el, skipped: true } );
 			return null;
@@ -1181,7 +1218,19 @@
 
 		if ( ! p.core && ! engineName && kind !== 'draw' && kind !== 'counter' ) {
 			log( 'No engine available for', c.slug, el );
+			noteSkip( el, 'no engine can run ' + c.slug + ' (turn on its library)' );
 			unhide( el );
+			return null;
+		}
+
+		// A pin (pin, horizontal scroll) inside an element that is pinned itself: GSAP can't nest
+		// pins (the outer pin's refresh moves the inner one's spacer and throws), so the inner one
+		// shows as designed and travels with the outer pin.
+		if ( kind === 'pin' && pinnedAncestor( el ) ) {
+			log( 'Skipped', el, '(inside a pinned element)' );
+			noteSkip( el, 'inside a pinned element (pins can\'t be nested)' );
+			unhide( el );
+			byEl.set( el, { el: el, skipped: true } );
 			return null;
 		}
 
@@ -1208,6 +1257,7 @@
 			} );
 			if ( ! visible.length ) {
 				log( 'Skipped', el, '(all animated children are invisible by design)' );
+				noteSkip( el, 'all animated children are invisible by design' );
 				unhide( el );
 				byEl.set( el, { el: el, skipped: true } );
 				return null;
@@ -1387,6 +1437,14 @@
 	function safePlay( rec, extraDelay ) {
 		// Queued in a batch or a font wait, then destroyed (reduced motion switched on, node removed).
 		if ( ! records.has( rec ) ) {
+			return;
+		}
+		// Paused by the visitor (Pause animations button): content arriving now is shown as designed.
+		if ( allPaused && ! rec.persistent && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
+			if ( ! rec.cfg.replay ) {
+				unwatch( rec );
+			}
+			finish( rec );
 			return;
 		}
 		// Line splits are measured on the text as it renders: wait (briefly) for the web fonts, or the
@@ -1996,6 +2054,16 @@
 	function setAllPaused( on ) {
 		allPaused = !! on;
 		records.forEach( function ( rec ) {
+			// Entrances still running finish at once; the ones further down show as designed when
+			// they arrive (safePlay), until the visitor resumes.
+			if ( allPaused && rec.busy && ! rec.persistent && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
+				try {
+					finish( rec );
+				} catch ( e ) {
+					log( 'Finish failed', rec.el, e );
+				}
+				return;
+			}
 			if ( rec.kind !== 'loop' ) {
 				return;
 			}
@@ -2928,6 +2996,10 @@
 				claimed.delete( t );
 			} );
 			records.delete( rec );
+			// Shown as designed now: no stale "ready" (CSS hooks, BricksMotion users and the
+			// inspector read it), even when it was destroyed before it was ever set up.
+			el.removeAttribute( 'data-bme-state' );
+			el.removeAttribute( 'data-bme-owner' );
 		}
 		byEl.delete( el );
 		if ( ! keepThree ) {
@@ -3219,6 +3291,21 @@
 					}
 				}
 			} );
+			// Rules limited to some screen sizes: the same, for the rule's animation only.
+			toArray( document.querySelectorAll( '[data-bme-auto-off]' ) ).forEach( function ( el ) {
+				if ( offHere( el ) ) {
+					return; // handled above
+				}
+				var rec = byEl.get( el );
+				if ( offHere( el, 'data-bme-auto-off' ) ) {
+					if ( rec && ! rec.skipped ) {
+						destroy( el );
+					}
+				} else if ( ! rec || rec.skipped ) {
+					byEl.delete( el );
+					rescan( el );
+				}
+			} );
 		}, 200 ) );
 		var loopWidth = window.innerWidth;
 		window.addEventListener( 'resize', debounce( function () {
@@ -3436,6 +3523,37 @@
 		},
 		on: function ( name, fn ) {
 			( listeners[ name ] = listeners[ name ] || [] ).push( fn );
+		},
+		/**
+		 * What runs on this page (the ?bme-debug inspector): every animation with its preset,
+		 * engine and start line, and (inspector only) every element left alone with the reason.
+		 */
+		inspect: function () {
+			var animated = [];
+			records.forEach( function ( rec ) {
+				if ( ! rec.el.isConnected ) {
+					return;
+				}
+				animated.push( {
+					el: rec.el,
+					preset: rec.cfg.slug,
+					label: rec.cfg.preset.label || rec.cfg.slug,
+					engine: rec.engine ? rec.engine.name : 'core',
+					kind: rec.kind,
+					trigger: rec.cfg.trigger || 'view',
+					offset: rec.cfg.offset,
+					auto: !! rec.cfg.auto,
+					targets: rec.targets.length,
+					played: !! rec.played,
+				} );
+			} );
+			return {
+				animated: animated,
+				skipped: skips.filter( function ( s ) {
+					return s.el.isConnected && ! records.has( byEl.get( s.el ) );
+				} ),
+				pace: PACE,
+			};
 		},
 		util: {
 			splitText: splitText,

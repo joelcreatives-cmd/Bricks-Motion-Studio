@@ -98,6 +98,8 @@ class Settings {
 				'preset'  => $preset,
 				'scope'   => $scope,
 				'engine'  => '',
+				'where'   => '',
+				'screens' => '',
 			);
 		};
 
@@ -274,10 +276,44 @@ class Settings {
 			if ( isset( self::eases()[ $ease ] ) ) {
 				$item['ease'] = $ease;
 			}
+			// The motion itself (preset builder): where the element starts. Empty = as the base.
+			$from = array();
+			if ( isset( $row['from'] ) && is_array( $row['from'] ) && Presets::shapeable( $base[ $item['base'] ] ) ) {
+				foreach ( self::MOTION_RANGES as $key => $range ) {
+					$v = $row['from'][ $key ] ?? null;
+					if ( is_scalar( $v ) && '' !== trim( (string) $v ) && is_numeric( $v ) ) {
+						$from[ $key ] = round( min( $range[1], max( $range[0], (float) $v ) ), 3 );
+					}
+				}
+			}
+			if ( $from ) {
+				$item['from'] = $from;
+			}
 			$out[ $slug ] = $item;
 		}
 		return array_values( $out );
 	}
+
+	/**
+	 * Site status (live / editors / off), checked: a value that isn't one of them (a damaged or
+	 * hand-edited option) reads as live instead of reaching code that looks it up.
+	 *
+	 * @return string
+	 */
+	public static function status() {
+		$status = self::get( 'status', 'live' );
+		return in_array( $status, array( 'live', 'editors', 'off' ), true ) ? $status : 'live';
+	}
+
+	/** Preset builder: start values a preset of your own can set (min, max). */
+	const MOTION_RANGES = array(
+		'opacity' => array( 0, 1 ),
+		'x'       => array( -1000, 1000 ),
+		'y'       => array( -1000, 1000 ),
+		'scale'   => array( 0, 3 ),
+		'rotate'  => array( -360, 360 ),
+		'blur'    => array( 0, 50 ),
+	);
 
 	public static function eases() {
 		return array(
@@ -471,9 +507,47 @@ class Settings {
 				'preset'  => $preset,
 				'scope'   => self::sanitize_scope( $rule['scope'] ?? 'self' ),
 				'engine'  => self::pick( $rule['engine'] ?? '', array_merge( array( 'native' ), Presets::TWEEN_ENGINES ), '' ),
+				'where'   => self::sanitize_where( $rule['where'] ?? '' ),
+				'screens' => self::pick( $rule['screens'] ?? '', array_keys( self::SCREENS ), '' ),
 			);
 		}
 		return $out;
+	}
+
+	/**
+	 * Rule "Screens" choices → the screen sizes the rule does NOT animate on (phone < 768px,
+	 * tablet 768–991px, desktop 992px and up, as in the builder's "Turn off on").
+	 */
+	const SCREENS = array(
+		''        => array(),
+		'desktop' => array( 'phone', 'tablet' ),
+		'large'   => array( 'phone' ),
+		'small'   => array( 'desktop' ),
+		'phone'   => array( 'tablet', 'desktop' ),
+	);
+
+	/** Rule "Where" choices that aren't a post type. */
+	const WHERE = array( 'front', 'blog', 'singular', 'archive', 'search', '404' );
+
+	/**
+	 * Where a rule applies: '' (everywhere), a page kind from WHERE, or "pt:<post type>" (single
+	 * posts of that type). "not:" in front of any of them inverts it.
+	 *
+	 * @param mixed $where Raw.
+	 * @return string
+	 */
+	public static function sanitize_where( $where ) {
+		$where = is_scalar( $where ) ? strtolower( trim( (string) $where ) ) : '';
+		$not   = 0 === strpos( $where, 'not:' );
+		$base  = $not ? substr( $where, 4 ) : $where;
+		if ( in_array( $base, self::WHERE, true ) ) {
+			return $where;
+		}
+		if ( 0 === strpos( $base, 'pt:' ) ) {
+			$type = sanitize_key( substr( $base, 3 ) );
+			return '' !== $type ? ( $not ? 'not:' : '' ) . 'pt:' . $type : '';
+		}
+		return '';
 	}
 
 	/**

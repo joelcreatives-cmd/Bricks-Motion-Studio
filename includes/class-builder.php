@@ -84,6 +84,9 @@ class Builder {
 		$name     = sanitize_key( $element['name'] );
 		$settings = isset( $element['settings'] ) && is_array( $element['settings'] ) ? $element['settings'] : array();
 
+		// Rule conditions ("Where") are judged by the page being edited.
+		Bricks_Integration::$context_post = $post_id;
+
 		// Page settings (Animations off / custom only, level) of the page being edited.
 		if ( $post_id && class_exists( '\Bricks\Database' ) && defined( 'BRICKS_DB_PAGE_SETTINGS' ) ) {
 			$page = get_post_meta( $post_id, BRICKS_DB_PAGE_SETTINGS, true );

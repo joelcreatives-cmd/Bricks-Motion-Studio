@@ -4123,3 +4123,675 @@ html:has(.bme-wrap) {
 	font-size: 14px;
 	line-height: 1.5;
 }
+
+/* Feature icons match the Motion Studio mark: the brand violet tile with a white glyph. */
+.bme-panel__icon,
+.bme-stat__icon {
+	background: var(--grad);
+	color: #fff;
+	box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.18), 0 2px 6px -2px rgba(91, 63, 196, 0.5);
+}
+
+.bme-nav__item svg,
+.bme-nav__item:hover svg,
+.bme-nav__item[aria-current="page"] svg {
+	color: var(--accent);
+	opacity: 1;
+}
+
+/* Rule conditions: a third action (filter) and a full-width line under the row with Where and
+   Screens. The filter button carries a dot while the rule has a condition. */
+@container (min-width: 821px) {
+	.bme-rule {
+		grid-template-columns: 28px minmax(220px, 1.4fr) minmax(170px, 1.2fr) minmax(96px, 0.7fr) minmax(128px, 0.8fr) 96px;
+	}
+}
+
+@container (max-width: 820px) {
+	#bme-rules-body .bme-rule > :nth-child(2) {
+		padding-inline-end: 108px;
+	}
+}
+
+.bme-rule__cond-btn {
+	position: relative;
+}
+
+.bme-rule__cond-btn.has-cond {
+	color: var(--accent);
+}
+
+.bme-rule__cond-btn.has-cond::after {
+	content: "";
+	position: absolute;
+	top: 5px;
+	right: 5px;
+	width: 7px;
+	height: 7px;
+	border: 1.5px solid #fff;
+	border-radius: 50%;
+	background: var(--accent);
+}
+
+.bme-rule__cond-btn[aria-expanded="true"] {
+	background: var(--accent-soft);
+	color: var(--accent-strong);
+}
+
+.bme-rule__when {
+	grid-column: 2 / -1;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 16px;
+	padding: 10px 12px;
+	border-radius: 10px;
+	background: #f8f7fc;
+	box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.bme-rule__when[hidden] {
+	display: none;
+}
+
+.bme-rule__cond {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.bme-rule__cond-label {
+	color: var(--muted);
+	font-size: 13px;
+	font-weight: 600;
+	white-space: nowrap;
+}
+
+.bme-wrap .bme-rule .bme-rule__cond .bme-select {
+	width: auto;
+	min-width: 190px;
+	max-width: 100%;
+}
+
+.bme-rule__cond-note {
+	flex: 1 1 220px;
+	color: var(--muted);
+	font-size: 12.5px;
+	line-height: 1.4;
+}
+
+@container (max-width: 520px) {
+	.bme-rule__cond {
+		flex: 1 1 100%;
+		flex-wrap: wrap;
+	}
+	.bme-wrap .bme-rule .bme-rule__cond .bme-select {
+		flex: 1 1 100%;
+		min-width: 0;
+	}
+}
+
+/* Selects in rule rows stay on one line ("Site default" never breaks in two). */
+.bme-wrap .bme-rule .bme-select {
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* Phones: play / remove only sit beside the first line (Match by), so the target field below
+   it can use the full width. */
+@container (max-width: 520px) {
+	#bme-rules-body .bme-rule > :nth-child(2) {
+		padding-inline-end: 0;
+	}
+	#bme-rules-body .bme-rule__target .bme-select {
+		margin-inline-end: 104px;
+	}
+	.bme-wrap #bme-rules-body .bme-rule__target .bme-select {
+		width: auto;
+		min-width: 108px;
+		justify-self: start;
+	}
+}
+
+/* Small buttons ----------------------------------------------------------- */
+.bme-btn--sm {
+	height: 28px;
+	padding: 0 10px;
+	font-size: 13px;
+}
+
+.bme-chip {
+	display: inline-flex;
+	align-items: center;
+	height: 22px;
+	padding: 0 8px;
+	border-radius: 999px;
+	background: var(--accent-soft);
+	color: var(--accent-strong);
+	font-size: 12px;
+	font-weight: 600;
+	white-space: nowrap;
+	box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+
+.bme-chip--muted {
+	background: var(--canvas);
+	color: var(--muted);
+	box-shadow: inset 0 0 0 1px var(--line);
+}
+
+/* Recent changes (System) -------------------------------------------------- */
+.bme-history {
+	margin: 0 0 30px;
+	padding: 0;
+	list-style: none;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+	overflow: hidden;
+}
+
+.bme-history__item {
+	display: grid;
+	grid-template-columns: 32px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
+	padding: 12px 14px;
+}
+
+.bme-history__item + .bme-history__item {
+	border-top: 1px solid var(--line-soft);
+}
+
+.bme-history__icon {
+	display: grid;
+	place-items: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 9px;
+	background: var(--accent-soft);
+	color: var(--accent);
+}
+
+.bme-history__icon svg {
+	width: 17px;
+	height: 17px;
+}
+
+.bme-history__text {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: 2px 10px;
+	min-width: 0;
+}
+
+.bme-history__text strong {
+	font-weight: 650;
+}
+
+.bme-history__meta {
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.bme-history__changes {
+	flex-basis: 100%;
+	color: var(--muted);
+	font-size: 13px;
+	text-wrap: pretty;
+}
+
+.bme-history__empty {
+	margin-bottom: 30px;
+}
+
+@media (max-width: 520px) {
+	.bme-history__item {
+		grid-template-columns: 32px minmax(0, 1fr);
+	}
+	.bme-history__item form {
+		grid-column: 2;
+	}
+}
+
+/* Usage & weight ----------------------------------------------------------- */
+.bme-usage__bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px 12px;
+}
+
+.bme-usage__progress {
+	color: var(--muted);
+	font-size: 13.5px;
+}
+
+.bme-wrap .bme-usage__intro {
+	margin: 0 0 14px;
+	max-width: 72ch;
+}
+
+.bme-usage__bar {
+	margin-bottom: 24px;
+}
+
+.bme-wrap .bme-usage__card .bme-subhead {
+	margin-top: 0 !important;
+}
+
+.bme-usage__stats {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+	gap: 12px;
+	margin-bottom: 16px;
+}
+
+.bme-usage__stat {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	min-width: 0;
+	padding: 14px 16px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+}
+
+.bme-usage__stat > span {
+	color: var(--muted);
+	font-size: 13px;
+}
+
+.bme-usage__stat strong {
+	font-size: 22px;
+	font-weight: 700;
+	letter-spacing: -0.02em;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bme-usage__stat a,
+.bme-usage__stat code {
+	overflow: hidden;
+	color: var(--muted);
+	font-size: 12.5px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bme-usage__stat code {
+	align-self: flex-start;
+	max-width: 100%;
+	padding: 0;
+	background: none;
+}
+
+.bme-usage__notes {
+	display: grid;
+	gap: 8px;
+	margin: 0 0 20px;
+	padding: 0;
+	list-style: none;
+}
+
+.bme-usage__notes li {
+	margin: 0;
+	padding: 10px 14px;
+	border-radius: 10px;
+	background: var(--accent-soft);
+	color: var(--ink);
+	font-size: 13.5px;
+	line-height: 1.45;
+	box-shadow: inset 3px 0 0 var(--accent);
+	text-wrap: pretty;
+}
+
+.bme-usage__notes li.is-warn {
+	background: #fffbeb;
+	box-shadow: inset 3px 0 0 #d97706;
+}
+
+.bme-usage__cols {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 12px;
+	margin-bottom: 26px;
+}
+
+.bme-usage__card {
+	padding: 16px;
+	border: 1px solid var(--line);
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+}
+
+.bme-usage__bars {
+	display: grid;
+	gap: 10px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.bme-usage__bars li {
+	display: grid;
+	grid-template-columns: minmax(80px, 140px) minmax(40px, 1fr) auto;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	font-size: 13.5px;
+}
+
+.bme-usage__bars li.is-off {
+	opacity: 0.55;
+}
+
+.bme-usage__name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bme-usage__num {
+	color: var(--muted);
+	font-size: 12.5px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.bme-usage__track {
+	display: block;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--canvas);
+	overflow: hidden;
+}
+
+.bme-usage__track i {
+	display: block;
+	height: 100%;
+	min-width: 2px;
+	border-radius: inherit;
+	background: var(--grad);
+}
+
+.bme-usage__table {
+	border: 1px solid var(--line);
+	border-radius: var(--radius-lg);
+	background: var(--surface);
+	overflow: hidden;
+	container-type: inline-size;
+}
+
+.bme-usage__row {
+	display: grid;
+	grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.4fr) 90px minmax(120px, 1.2fr) 110px;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 14px;
+	font-size: 13.5px;
+}
+
+.bme-usage__row + .bme-usage__row {
+	border-top: 1px solid var(--line-soft);
+}
+
+.bme-usage__row--head {
+	background: #fbfafd;
+	color: var(--muted);
+	font-weight: 550;
+}
+
+.bme-usage__page {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.bme-usage__page a {
+	overflow: hidden;
+	font-weight: 600;
+	text-decoration: none;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bme-usage__page small {
+	overflow: hidden;
+	color: var(--muted);
+	font-size: 12px;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.bme-usage__chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+
+.bme-usage__count,
+.bme-usage__seen {
+	color: var(--muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.bme-usage__weight {
+	display: grid;
+	grid-template-columns: minmax(30px, 1fr) auto;
+	align-items: center;
+	gap: 8px;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.bme-usage__more {
+	margin-top: 12px;
+}
+
+@container (max-width: 640px) {
+	.bme-usage__row {
+		grid-template-columns: minmax(0, 1fr) auto;
+		row-gap: 6px;
+	}
+	.bme-usage__row--head {
+		display: none;
+	}
+	.bme-usage__page {
+		grid-column: 1 / -1;
+	}
+	.bme-usage__count::before {
+		content: attr(data-label) " ";
+	}
+	.bme-usage__weight {
+		grid-column: 1 / -1;
+	}
+	.bme-usage__seen {
+		grid-column: 1 / -1;
+		font-size: 12px;
+	}
+}
+
+/* Preset builder ("Shape the motion" in My presets) ------------------------ */
+.bme-mine__motion {
+	border-top: 1px solid var(--line-soft);
+	padding-top: 10px;
+}
+
+.bme-mine__motion > summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 8px 4px 4px;
+	border-radius: 8px;
+	color: var(--accent-strong);
+	font-size: 13.5px;
+	font-weight: 600;
+	cursor: pointer;
+	list-style: none;
+}
+
+.bme-mine__motion > summary::-webkit-details-marker {
+	display: none;
+}
+
+.bme-mine__motion > summary::after {
+	content: "";
+	width: 7px;
+	height: 7px;
+	margin-left: 2px;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: translateY(-2px) rotate(45deg);
+	transition: transform 0.2s var(--ease);
+}
+
+.bme-mine__motion[open] > summary::after {
+	transform: translateY(1px) rotate(-135deg);
+}
+
+.bme-mine__motion > summary:hover {
+	background: var(--accent-soft);
+}
+
+.bme-mine__motion > summary svg {
+	width: 16px;
+	height: 16px;
+}
+
+.bme-mine__motion-count:not(:empty) {
+	display: inline-grid;
+	place-items: center;
+	min-width: 18px;
+	height: 18px;
+	padding: 0 5px;
+	border-radius: 999px;
+	background: var(--accent);
+	color: #fff;
+	font-size: 11px;
+	font-weight: 700;
+}
+
+.bme-mine__builder {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 200px;
+	gap: 14px;
+	margin-top: 10px;
+}
+
+.bme-mine__builder[hidden] {
+	display: none;
+}
+
+.bme-mine__from {
+	display: grid;
+	align-content: start;
+	justify-items: start;
+	gap: 10px;
+	min-width: 0;
+}
+
+.bme-mine__hint,
+.bme-mine__nomotion {
+	margin: 0;
+	color: var(--muted);
+	font-size: 12.5px;
+	line-height: 1.45;
+	text-wrap: pretty;
+}
+
+.bme-mine__nomotion {
+	margin-top: 8px;
+}
+
+.bme-mine__from-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+	width: 100%;
+}
+
+.bme-wrap .bme-mine__from-grid input::placeholder {
+	color: #a9a7b6;
+}
+
+.bme-mine__stage {
+	position: relative;
+	display: grid;
+	place-items: center;
+	min-height: 150px;
+	border-radius: 12px;
+	background:
+		radial-gradient(circle at 1px 1px, rgba(91, 63, 196, 0.14) 1px, transparent 0) 0 0 / 14px 14px,
+		var(--canvas);
+	box-shadow: inset 0 0 0 1px var(--line-soft);
+	overflow: hidden;
+}
+
+.bme-mine__card {
+	display: grid;
+	gap: 6px;
+	width: 92px;
+	padding: 12px;
+	border-radius: 10px;
+	background: var(--surface);
+	box-shadow: 0 6px 18px -8px rgba(40, 24, 110, 0.35), inset 0 0 0 1px var(--line);
+}
+
+.bme-mine__card[hidden],
+.bme-mine__text[hidden] {
+	display: none;
+}
+
+.bme-mine__card i {
+	display: block;
+	height: 7px;
+	border-radius: 4px;
+	background: var(--line);
+}
+
+.bme-mine__card i:first-child {
+	width: 60%;
+	height: 10px;
+	background: var(--grad);
+}
+
+.bme-mine__card i:last-child {
+	width: 75%;
+}
+
+.bme-mine__text {
+	padding: 0 12px;
+	color: var(--ink);
+	font-size: 19px;
+	font-weight: 700;
+	letter-spacing: -0.01em;
+	text-align: center;
+}
+
+.bme-mine__replay {
+	position: absolute;
+	right: 6px;
+	bottom: 6px;
+	background: var(--surface);
+	box-shadow: var(--shadow-sm);
+}
+
+@media (max-width: 700px) {
+	.bme-mine__builder {
+		grid-template-columns: minmax(0, 1fr);
+	}
+	.bme-mine__from-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+/* Every start-value field gets the same unit slot, so the six fields line up. */
+.bme-mine__from-grid .bme-mine__num em {
+	min-width: 14px;
+}

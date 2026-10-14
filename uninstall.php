@@ -14,10 +14,14 @@ if ( is_multisite() ) {
 		switch_to_blog( $bme_site_id );
 		delete_option( 'bme_settings' );
 		delete_option( 'bme_schema' );
+		delete_option( 'bme_usage_log' );
+		delete_option( 'bme_history' );
 		restore_current_blog();
 	}
 } else {
 	delete_option( 'bme_settings' );
 	delete_option( 'bme_schema' );
+	delete_option( 'bme_usage_log' );
+	delete_option( 'bme_history' );
 }
 delete_site_transient( 'bme_github_release' );

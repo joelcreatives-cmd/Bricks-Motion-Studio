@@ -1187,7 +1187,12 @@
 				if ( ! played ) {
 					played = true;
 					g.root.removeEventListener( 'focusin', onFocus );
-					pl.to( 1 );
+					// Paused by the visitor (Pause animations button): show the end state at once.
+					if ( loopsPaused ) {
+						pl.seek( g.span );
+					} else {
+						pl.to( 1 );
+					}
 				}
 			};
 			g.root.addEventListener( 'focusin', onFocus );
