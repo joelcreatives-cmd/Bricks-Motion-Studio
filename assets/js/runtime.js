@@ -1135,6 +1135,16 @@
 		return 'reveal';
 	}
 
+	var MARQUEE_UNCOPYABLE = '[data-bme-3d], canvas, .brxe-map-leaflet, .leaflet-container';
+
+	// Every child is positioned over the element (absolute / fixed), none takes room in the flow.
+	function overlaidOnly( el ) {
+		var kids = toArray( el.children );
+		return kids.length > 0 && kids.every( function ( k ) {
+			return /^(absolute|fixed)$/.test( getComputedStyle( k ).position );
+		} );
+	}
+
 	// An ancestor that is pinned (or will be: scanning runs in document order, parents first).
 	function pinnedAncestor( el ) {
 		for ( var a = el.parentElement; a && a !== document.body; a = a.parentElement ) {
@@ -1220,6 +1230,18 @@
 			log( 'No engine available for', c.slug, el );
 			noteSkip( el, 'no engine can run ' + c.slug + ' (turn on its library)' );
 			unhide( el );
+			return null;
+		}
+
+		// A marquee repeats its content: a 3D canvas copies as a blank box and an interactive map as a
+		// dead one. Those show as designed instead of sliding a strip with holes in it.
+		// Content laid over the element (a video embed in an aspect-ratio box, overlay layers) takes
+		// no room in a strip: the element would collapse to nothing.
+		if ( p.marquee && ( el.matches( MARQUEE_UNCOPYABLE ) || el.querySelector( MARQUEE_UNCOPYABLE ) || overlaidOnly( el ) ) ) {
+			log( 'Skipped', el, '(marquee: its content cannot be repeated)' );
+			noteSkip( el, 'marquee: a video embed, 3D scene, canvas or interactive map cannot be repeated in a strip' );
+			unhide( el );
+			byEl.set( el, { el: el, skipped: true } );
 			return null;
 		}
 
@@ -1875,6 +1897,11 @@
 		};
 		el.__bmeMarquee = m;
 		var originals = toArray( el.children );
+		// Widths before the strip layout: items sized as a percentage of the element (video embeds,
+		// images or canvases at 100%) have no width of their own in a max-content strip.
+		var before = originals.map( function ( child ) {
+			return child.getBoundingClientRect().width;
+		} );
 		// One row: Bricks containers and blocks are column flexboxes, and a grid with set columns
 		// would wrap the copies onto new rows.
 		if ( ! /flex/.test( wasDisplay ) ) {
@@ -1887,6 +1914,16 @@
 		el.style.flexWrap = 'nowrap';
 		el.style.width = 'max-content';
 		el.style.maxWidth = 'none'; // Bricks caps elements at 100%: the strip must keep both halves equal
+		// ...so they would collapse to nothing (an invisible, unmoving strip): keep the width they had.
+		// Set before copying, so the copies get it too.
+		m.frozen = [];
+		originals.forEach( function ( child, i ) {
+			if ( before[ i ] >= 1 && child.getBoundingClientRect().width < 1 ) {
+				m.frozen.push( [ child, child.style.getPropertyValue( 'width' ), child.style.getPropertyValue( 'flex-shrink' ) ] );
+				child.style.width = before[ i ] + 'px';
+				child.style.flexShrink = '0';
+			}
+		} );
 		// A column layout spaced its items with row-gap: in one row that spacing is the column gap.
 		var gap = parseFloat( cs.columnGap );
 		if ( column && ! ( gap > 0 ) && parseFloat( cs.rowGap ) > 0 ) {
@@ -2000,6 +2037,10 @@
 			} else {
 				el.style.removeProperty( pair[ 0 ] );
 			}
+		} );
+		( m.frozen || [] ).forEach( function ( f ) {
+			f[ 0 ].style.width = f[ 1 ];
+			f[ 0 ].style.flexShrink = f[ 2 ];
 		} );
 		if ( m.parent ) {
 			if ( m.parentOverflow ) {

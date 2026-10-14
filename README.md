@@ -119,6 +119,8 @@ Motion Studio → Timing & feel → **My presets**: give a built-in preset your 
 | Text | split-lines (masked), split-words, split-words-blur, split-chars, typewriter, scramble (GSAP), scroll-highlight | Built-in (words/chars/typewriter); GSAP (SplitText, needed for lines and scramble); Anime.js/Motion (built-in accessible splitter) |
 | Scroll-linked | parallax, parallax-x, scroll-fade, scroll-scale, scroll-rotate, scroll-expand, horizontal-scroll (GSAP), pin (GSAP) | GSAP ScrollTrigger, Anime.js `onScroll`, Motion `scroll()` |
 | Loop | float, pulse, sway, spin, marquee (pause automatically off-screen) | Built-in, GSAP, Anime.js, Motion |
+
+**Marquee** turns an element into a seamless strip of its content (repeated to fill the width; copies hidden from screen readers and keyboard). It is meant for rows of logos, text, images or cards. A video embed, 3D scene, canvas (e.g. a pie chart) or interactive map can't be repeated (its copies would be blank or dead): such an element shows as designed, and the inspector says why.
 | Special | counter (count-up with number formatting), draw-svg (stroked SVGs; GSAP DrawSVG when available) | built-in / any |
 | Hover | lift, grow, magnetic, 3D tilt (separate "Hover effect" setting, combinable with any preset) | built-in |
 
