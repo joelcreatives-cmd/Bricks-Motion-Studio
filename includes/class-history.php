@@ -37,10 +37,11 @@ class History {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- read-only label; the handlers verify their own nonces.
 		$action = isset( $_POST['action'] ) && is_string( $_POST['action'] ) ? sanitize_key( wp_unslash( $_POST['action'] ) ) : '';
 		$map    = array(
-			'bme_import'  => 'import',
-			'bme_reset'   => 'reset',
-			'bme_restore' => 'restore',
-			'update'      => 'save', // options.php
+			'bme_import'       => 'import',
+			'bme_reset'        => 'reset',
+			'bme_restore'      => 'restore',
+			'bme_share_import' => 'share',
+			'update'           => 'save', // options.php
 		);
 		return $map[ $action ] ?? 'other';
 	}
@@ -139,28 +140,34 @@ class History {
 	 */
 	public static function describe( array $paths ) {
 		$sections = array(
-			'status'         => __( 'Site status', 'bricks-motion-studio' ),
-			'admin_bar'      => __( 'Admin bar menu', 'bricks-motion-studio' ),
-			'libraries'      => __( 'Libraries', 'bricks-motion-studio' ),
-			'default_engine' => __( 'Default engine', 'bricks-motion-studio' ),
-			'source'         => __( 'Library source', 'bricks-motion-studio' ),
-			'level'          => __( 'Animation level', 'bricks-motion-studio' ),
-			'auto.rules'     => __( 'Rules', 'bricks-motion-studio' ),
-			'auto'           => __( 'Auto-animate', 'bricks-motion-studio' ),
-			'defaults'       => __( 'Timing & feel', 'bricks-motion-studio' ),
-			'lenis'          => __( 'Smooth scrolling', 'bricks-motion-studio' ),
-			'three'          => __( '3D', 'bricks-motion-studio' ),
-			'a11y'           => __( 'Accessibility', 'bricks-motion-studio' ),
-			'perf.off_paths' => __( 'Pages turned off', 'bricks-motion-studio' ),
-			'perf'           => __( 'Performance', 'bricks-motion-studio' ),
-			'debug'          => __( 'Debug mode', 'bricks-motion-studio' ),
-			'custom_presets' => __( 'My presets', 'bricks-motion-studio' ),
+			'status'             => __( 'Site status', 'bricks-motion-studio' ),
+			'admin_bar'          => __( 'Admin bar menu', 'bricks-motion-studio' ),
+			'libraries'          => __( 'Libraries', 'bricks-motion-studio' ),
+			'default_engine'     => __( 'Default engine', 'bricks-motion-studio' ),
+			'source'             => __( 'Library source', 'bricks-motion-studio' ),
+			'level'              => __( 'Animation level', 'bricks-motion-studio' ),
+			'auto.rules'         => __( 'Rules', 'bricks-motion-studio' ),
+			'auto'               => __( 'Auto-animate', 'bricks-motion-studio' ),
+			'defaults'           => __( 'Timing & feel', 'bricks-motion-studio' ),
+			'lenis'              => __( 'Smooth scrolling', 'bricks-motion-studio' ),
+			'three'              => __( '3D', 'bricks-motion-studio' ),
+			'a11y'               => __( 'Accessibility', 'bricks-motion-studio' ),
+			'perf.off_paths'     => __( 'Pages turned off', 'bricks-motion-studio' ),
+			'perf.native_scroll' => __( 'Scroll effects', 'bricks-motion-studio' ),
+			'effects.transition' => __( 'Page transitions', 'bricks-motion-studio' ),
+			'effects.intro'      => __( 'Page intro', 'bricks-motion-studio' ),
+			'effects.cursor'     => __( 'Custom cursor', 'bricks-motion-studio' ),
+			'effects'            => __( 'Effects', 'bricks-motion-studio' ),
+			'perf'               => __( 'Performance', 'bricks-motion-studio' ),
+			'debug'              => __( 'Debug mode', 'bricks-motion-studio' ),
+			'custom_presets'     => __( 'My presets', 'bricks-motion-studio' ),
 		);
 		$out      = array();
 		foreach ( $paths as $path ) {
 			$label = '';
 			foreach ( $sections as $key => $text ) {
-				if ( $path === $key || 0 === strpos( $path, $key . '.' ) ) {
+				// A key also covers settings named after it: effects.intro → effects.intro_color.
+				if ( $path === $key || 0 === strpos( $path, $key . '.' ) || 0 === strpos( $path, $key . '_' ) ) {
 					$label = $text;
 					break;
 				}
@@ -177,6 +184,7 @@ class History {
 			'import'  => __( 'Imported', 'bricks-motion-studio' ),
 			'reset'   => __( 'Reset to defaults', 'bricks-motion-studio' ),
 			'restore' => __( 'Restored an earlier version', 'bricks-motion-studio' ),
+			'share'   => __( 'Applied a share code', 'bricks-motion-studio' ),
 			'cli'     => __( 'Changed with WP-CLI', 'bricks-motion-studio' ),
 			'other'   => __( 'Changed', 'bricks-motion-studio' ),
 		);

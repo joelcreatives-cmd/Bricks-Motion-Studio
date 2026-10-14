@@ -632,6 +632,19 @@ async function run( mode ) {
 			if ( ! /1,250/.test( srText ) ) fail.push( 'counter has no screen-reader copy of its number (' + srText + ')' );
 			show( ct ); await wait( 2600 );
 			if ( ct.querySelector( '.bme-sr-only, [aria-hidden]' ) || ct.textContent !== '1,250 clients' ) fail.push( 'counter markup not restored after counting: ' + ct.innerHTML );
+			// An empty element that gets its size from its own script once on screen (Bricks pie chart),
+			// at the left edge: fade-right starts it off screen, and it must still play.
+			const em = add( '<div data-bme="fade-right" data-bme-engine="native" data-bme-hide style="width:0;height:0;margin-top:400px"></div>' );
+			em.style.marginLeft = -em.getBoundingClientRect().left + 'px';
+			BricksMotion.refresh( em ); await wait( 100 );
+			window.scrollTo( 0, em.getBoundingClientRect().top + window.scrollY - innerHeight / 2 ); await wait( 2000 );
+			if ( em.getAttribute( 'data-bme-state' ) !== 'done' || +getComputedStyle( em ).opacity < 0.99 ) fail.push( 'empty element at the screen edge never played (' + em.getAttribute( 'data-bme-state' ) + ', opacity ' + getComputedStyle( em ).opacity + ')' );
+			// Line reveal on text a Bricks script holds a node of (counter): the node stays on the page.
+			const bc = add( '<div data-bme="split-lines" data-bme-engine="gsap" data-bme-hide data-script-id="c10"><span class="count">0</span> clients</div>' );
+			const bcNode = bc.querySelector( '.count' );
+			BricksMotion.refresh( bc ); await wait( 100 );
+			show( bc ); await wait( 2500 );
+			if ( ! bcNode.isConnected ) fail.push( 'split-lines replaced the counter span a Bricks script counts in' );
 			document.querySelectorAll( '[data-case10]' ).forEach( ( e ) => e.remove() );
 			return fail;
 		} );

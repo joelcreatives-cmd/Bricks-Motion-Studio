@@ -316,6 +316,16 @@ class Admin {
 				'restored'       => array( 'success', __( 'Earlier settings restored. The version you replaced is in Recent changes, if you want it back.', 'bricks-motion-studio' ) ),
 				'restore_failed' => array( 'error', __( 'That version is no longer in the list (the settings changed meanwhile). Pick it again below.', 'bricks-motion-studio' ) ),
 				'reset'          => array( 'success', __( 'Settings reset to defaults.', 'bricks-motion-studio' ) ),
+				'share_failed'   => array( 'error', __( 'That is not a Motion Studio share code. Copy the whole code (it starts with BMS1.) and try again.', 'bricks-motion-studio' ) ),
+				'shared'         => array(
+					'success',
+					sprintf(
+						/* translators: 1: presets added, 2: rules added */
+						__( 'Share code applied: %1$d presets and %2$d rules added.', 'bricks-motion-studio' ),
+						isset( $_GET['bme_np'] ) ? absint( $_GET['bme_np'] ) : 0, // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+						isset( $_GET['bme_nr'] ) ? absint( $_GET['bme_nr'] ) : 0 // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+					),
+				),
 			);
 			if ( isset( $map[ $code ] ) ) {
 				printf( '<div class="notice notice-%1$s is-dismissible bme-notice"><p>%2$s</p></div>', esc_attr( $map[ $code ][0] ), esc_html( $map[ $code ][1] ) );
@@ -574,6 +584,39 @@ class Admin {
 						<option value="<?php echo esc_attr( (string) $value ); ?>" <?php selected( $current, (string) $value ); ?>><?php echo esc_html( $text ); ?></option>
 					<?php endforeach; ?>
 				</select>
+			</div>
+		</div>
+		<?php
+	}
+
+	private function text_row( $path, $label, $placeholder = '', $help = '', $max = 60 ) {
+		$id = $this->id( $path );
+		?>
+		<div class="bme-row">
+			<div class="bme-row__text">
+				<label class="bme-row__label" for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $label ); ?></label>
+				<?php if ( $help ) : ?><p class="bme-row__help"><?php echo esc_html( $help ); ?></p><?php endif; ?>
+			</div>
+			<div class="bme-row__control">
+				<input type="text" class="bme-text" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="<?php echo esc_attr( (string) Settings::get( $path ) ); ?>" placeholder="<?php echo esc_attr( $placeholder ); ?>" maxlength="<?php echo esc_attr( (string) $max ); ?>">
+			</div>
+		</div>
+		<?php
+	}
+
+	/** A colour: hex text field (empty = automatic) with the browser's colour picker beside it. */
+	private function color_row( $path, $label, $help = '' ) {
+		$id    = $this->id( $path );
+		$value = (string) Settings::get( $path );
+		?>
+		<div class="bme-row">
+			<div class="bme-row__text">
+				<label class="bme-row__label" for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $label ); ?></label>
+				<?php if ( $help ) : ?><p class="bme-row__help"><?php echo esc_html( $help ); ?></p><?php endif; ?>
+			</div>
+			<div class="bme-row__control bme-color" data-bme-color>
+				<input type="color" value="<?php echo esc_attr( '' !== $value ? $value : '#111111' ); ?>" aria-label="<?php echo esc_attr( sprintf( /* translators: %s: setting name */ __( '%s: pick a colour', 'bricks-motion-studio' ), $label ) ); ?>" tabindex="-1">
+				<input type="text" class="bme-text bme-mono" id="<?php echo esc_attr( $id ); ?>" name="<?php echo esc_attr( $this->name( $path ) ); ?>" value="<?php echo esc_attr( $value ); ?>" placeholder="<?php esc_attr_e( 'Automatic', 'bricks-motion-studio' ); ?>" maxlength="7" spellcheck="false" pattern="#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?">
 			</div>
 		</div>
 		<?php
@@ -973,6 +1016,7 @@ class Admin {
 			__( 'Fine-tune', 'bricks-motion-studio' ) => array(
 				'defaults' => array( __( 'Timing & feel', 'bricks-motion-studio' ), 'defaults' ),
 				'scroll3d' => array( __( 'Scroll & 3D', 'bricks-motion-studio' ), 'scroll3d' ),
+				'effects'  => array( __( 'Effects', 'bricks-motion-studio' ), 'sparkles' ),
 				'a11y'     => array( __( 'Accessibility', 'bricks-motion-studio' ), 'a11y' ),
 			),
 			__( 'Resources', 'bricks-motion-studio' ) => array(
@@ -1383,6 +1427,11 @@ class Admin {
 							<section class="bme-panel" id="bme-panel-scroll3d" data-bme-panel="scroll3d" aria-labelledby="bme-h-scroll3d" hidden>
 								<?php $this->panel_head( 'scroll3d', __( 'Scroll & 3D', 'bricks-motion-studio' ), __( 'Smooth scrolling with Lenis and rendering limits for Three.js scenes.', 'bricks-motion-studio' ), 'scroll3d' ); ?>
 
+								<h3 class="bme-subhead"><?php esc_html_e( 'Scroll effects', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php $this->switch_row( 'perf.native_scroll', __( 'Run on the browser\'s scroll timeline', 'bricks-motion-studio' ), __( 'Parallax, scroll fade, scale, rotate and expand run on the browser\'s own scroll timeline where it has one (Chrome, Edge, Safari 26): no scroll handling in JavaScript, smoother on busy pages. Other browsers use your animation library as before. Needs the lightweight engine (Libraries). Recommended.', 'bricks-motion-studio' ) ); ?>
+								</div>
+
 								<h3 class="bme-subhead"><?php esc_html_e( 'Smooth scroll', 'bricks-motion-studio' ); ?></h3>
 								<p class="bme-inline-note" data-bme-when-off="libraries.lenis"><?php esc_html_e( 'Lenis is off. Turn it on under Libraries to use these settings.', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-group" data-bme-depends="libraries.lenis">
@@ -1401,6 +1450,72 @@ class Admin {
 									$this->number_row( 'three.dpr', __( 'Max pixel ratio', 'bricks-motion-studio' ), 0.5, 3, 0.25, 'x', __( 'Caps resolution on high-density screens. 1.5 balances sharpness and battery.', 'bricks-motion-studio' ) );
 									$this->switch_row( 'three.mobile', __( 'Render on phones', 'bricks-motion-studio' ), __( 'When off, phones show the poster image or section background.', 'bricks-motion-studio' ) );
 									?>
+								</div>
+							</section>
+
+							<!-- Effects -->
+							<section class="bme-panel" id="bme-panel-effects" data-bme-panel="effects" aria-labelledby="bme-h-effects" hidden>
+								<?php $this->panel_head( 'effects', __( 'Effects', 'bricks-motion-studio' ), __( 'Site-wide touches: page transitions, an intro, a custom cursor and scroll progress. Visitors who prefer reduced motion get none of the movement.', 'bricks-motion-studio' ), 'sparkles' ); ?>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Page transitions', 'bricks-motion-studio' ); ?></h3>
+								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Animated navigation between pages of this site, by the browser itself (Chrome, Edge and Safari 18.2 and newer; other browsers simply open the page). In the builder, give an element and an element on another page the same Page transition name (Motion Studio → Extras) and it morphs between them.', 'bricks-motion-studio' ); ?></p>
+								<div class="bme-group">
+									<?php
+									$this->select_row(
+										'effects.transition',
+										__( 'Transition', 'bricks-motion-studio' ),
+										array(
+											'off'   => __( 'Off', 'bricks-motion-studio' ),
+											'fade'  => __( 'Cross-fade', 'bricks-motion-studio' ),
+											'slide' => __( 'Slide', 'bricks-motion-studio' ),
+											'zoom'  => __( 'Zoom', 'bricks-motion-studio' ),
+										)
+									);
+									$this->number_row( 'effects.transition_duration', __( 'Duration', 'bricks-motion-studio' ), 0.1, 1.5, 0.05, 's' );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Page intro', 'bricks-motion-studio' ); ?></h3>
+								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'A short full-screen intro that clears itself after about a second, even if scripts are blocked. It never waits for anything.', 'bricks-motion-studio' ); ?></p>
+								<div class="bme-group">
+									<?php
+									$this->select_row(
+										'effects.intro',
+										__( 'Intro', 'bricks-motion-studio' ),
+										array(
+											'off'     => __( 'Off', 'bricks-motion-studio' ),
+											'fade'    => __( 'Fade out', 'bricks-motion-studio' ),
+											'curtain' => __( 'Curtain up', 'bricks-motion-studio' ),
+										)
+									);
+									$this->text_row( 'effects.intro_text', __( 'Text', 'bricks-motion-studio' ), get_bloginfo( 'name' ), __( 'Shown in the middle, e.g. your name. Empty: just the colour.', 'bricks-motion-studio' ), 40 );
+									$this->color_row( 'effects.intro_color', __( 'Background', 'bricks-motion-studio' ), __( 'The text picks black or white to suit it.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'effects.intro_every', __( 'On every page', 'bricks-motion-studio' ), __( 'Off: only the first page of a visit.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Custom cursor', 'bricks-motion-studio' ); ?></h3>
+								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'On computers with a mouse only. It grows over links and buttons, and shows the Cursor label set on an element in the builder (Motion Studio → Extras), e.g. View on a card.', 'bricks-motion-studio' ); ?></p>
+								<div class="bme-group">
+									<?php
+									$this->select_row(
+										'effects.cursor',
+										__( 'Cursor', 'bricks-motion-studio' ),
+										array(
+											'off'  => __( 'Off', 'bricks-motion-studio' ),
+											'dot'  => __( 'Dot', 'bricks-motion-studio' ),
+											'ring' => __( 'Ring (trails the pointer)', 'bricks-motion-studio' ),
+											'both' => __( 'Dot and ring', 'bricks-motion-studio' ),
+										)
+									);
+									$this->color_row( 'effects.cursor_color', __( 'Colour', 'bricks-motion-studio' ), __( 'Automatic: inverts what is underneath, so it shows on light and dark.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'effects.cursor_hide', __( 'Hide the system cursor', 'bricks-motion-studio' ), __( 'Text fields keep their text cursor.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Scroll progress', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php $this->switch_row( 'effects.page_progress', __( 'Page progress variable', 'bricks-motion-studio' ), __( 'Sets --bme-page-progress on the page, from 0 at the top to 1 at the bottom, for your own CSS: e.g. a reading bar with transform: scaleX(var(--bme-page-progress)). Single elements: Scroll progress variable in the builder (Motion Studio → Extras).', 'bricks-motion-studio' ) ); ?>
 								</div>
 							</section>
 
@@ -1492,6 +1607,27 @@ class Admin {
 								</span>
 								</form>
 								<p class="bme-field-msg" id="bme-import-msg" data-bme-import-msg role="status"></p>
+
+							<h3 class="bme-subhead"><?php esc_html_e( 'Share presets and rules', 'bricks-motion-studio' ); ?></h3>
+							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Your presets and auto-animate rules as one code, to paste into Motion Studio on another site (the other settings stay as they are there).', 'bricks-motion-studio' ); ?></p>
+							<div class="bme-code">
+								<textarea class="bme-textarea bme-mono" rows="3" readonly data-bme-share-code aria-label="<?php esc_attr_e( 'This site\'s share code', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( Share::code() ); ?></textarea>
+								<span class="bme-code__actions">
+									<button type="button" class="bme-btn" data-bme-share-copy><?php esc_html_e( 'Copy code', 'bricks-motion-studio' ); ?></button>
+								</span>
+							</div>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bme-code bme-share-in">
+								<input type="hidden" name="action" value="bme_share_import">
+								<?php wp_nonce_field( 'bme_share_import' ); ?>
+								<textarea class="bme-textarea bme-mono" name="bme_share_code" rows="3" placeholder="BMS1.…" aria-label="<?php esc_attr_e( 'Paste a share code', 'bricks-motion-studio' ); ?>" spellcheck="false" required></textarea>
+								<span class="bme-code__actions">
+									<select class="bme-select" name="bme_share_mode" aria-label="<?php esc_attr_e( 'How to apply it', 'bricks-motion-studio' ); ?>">
+										<option value="add"><?php esc_html_e( 'Add to mine', 'bricks-motion-studio' ); ?></option>
+										<option value="replace"><?php esc_html_e( 'Replace mine', 'bricks-motion-studio' ); ?></option>
+									</select>
+									<button class="bme-btn"><?php esc_html_e( 'Apply code', 'bricks-motion-studio' ); ?></button>
+								</span>
+							</form>
 
 							<div class="bme-danger">
 								<div>

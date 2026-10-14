@@ -53,6 +53,7 @@ class Bricks_Integration {
 		add_action( 'bricks/load_elements/before', array( $this, 'hook_controls' ) );
 
 		add_filter( 'bricks/element/set_root_attributes', array( $this, 'root_attributes' ), 20, 2 );
+		add_filter( 'bricks/frontend/render_element', array( $this, 'close_element' ), 10, 2 );
 		add_action( 'bricks/render_query_page/start', array( __CLASS__, 'load_request_page_settings' ) );
 		add_action( 'bricks/render_query_result/start', array( __CLASS__, 'load_request_page_settings' ) );
 		// Root attributes are built before Bricks checks element conditions: only count what renders.
@@ -73,6 +74,7 @@ class Bricks_Integration {
 		if ( class_exists( '\Bricks\Elements' ) ) {
 			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-3d-scene.php', 'bme-3d-scene', 'BME_Element_3D_Scene' );
 			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-pause-toggle.php', 'bme-pause-toggle', 'BME_Element_Pause_Toggle' );
+			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-lottie.php', 'bme-lottie', 'BME_Element_Lottie' );
 		}
 	}
 
@@ -576,6 +578,44 @@ class Bricks_Integration {
 			);
 		}
 
+		// Recipes: one choice on a section animates what is inside it, in order.
+		if ( in_array( $name, self::LAYOUT_ELEMENTS, true ) ) {
+			$recipes = array();
+			foreach ( Recipes::all() as $slug => $recipe ) {
+				$recipes[ $slug ] = $recipe['label'];
+			}
+			$c['bmeRecipe'] = $g + array(
+				'label'       => esc_html__( 'Animation recipe', 'bricks-motion-studio' ),
+				'type'        => 'select',
+				'options'     => $recipes,
+				'placeholder' => esc_html__( 'None', 'bricks-motion-studio' ),
+				'required'    => array( 'bmeMode', '!=', 'off' ),
+				'description' => esc_html__( 'Animates the elements inside, in order: no settings on each one. Elements set to Custom keep their own animation. Plays on the page, not in the builder canvas.', 'bricks-motion-studio' ),
+			);
+		}
+
+		$c['bmeExtrasSeparator'] = $g + array(
+			'label' => esc_html__( 'Extras', 'bricks-motion-studio' ),
+			'type'  => 'separator',
+		);
+		$c['bmeVtName']          = $g + array(
+			'label'       => esc_html__( 'Page transition name', 'bricks-motion-studio' ),
+			'type'        => 'text',
+			'placeholder' => 'product-{post_id}',
+			'description' => esc_html__( 'Give this element and an element on another page the same name, and it morphs between them when the visitor navigates (needs Page transitions in Motion Studio → Effects). {post_id} adds the post of a query loop, e.g. a card image and the post\'s hero image. Names must be unique on a page.', 'bricks-motion-studio' ),
+		);
+		$c['bmeCursor']          = $g + array(
+			'label'       => esc_html__( 'Cursor label', 'bricks-motion-studio' ),
+			'type'        => 'text',
+			'placeholder' => esc_html__( 'View', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'Shown in the custom cursor while it is over this element (needs a cursor in Motion Studio → Effects).', 'bricks-motion-studio' ),
+		);
+		$c['bmeProgress']        = $g + array(
+			'label'       => esc_html__( 'Scroll progress variable', 'bricks-motion-studio' ),
+			'type'        => 'checkbox',
+			'description' => esc_html__( 'Sets --bme-progress on this element, from 0 (its top reaches the bottom of the screen) to 1 (its bottom leaves the top). Use it in your own CSS, e.g. opacity: var(--bme-progress).', 'bricks-motion-studio' ),
+		);
+
 		return $c;
 	}
 
@@ -912,6 +952,18 @@ class Bricks_Integration {
 
 		$this->tracking = spl_object_id( $element );
 
+		// Recipes: this element's place inside the open recipe sections (see close_element()).
+		$open_index       = count( $this->open );
+		$this->open[]     = $this->tracking;
+		$this->recipe_hit = null;
+		if ( $this->recipe_frames && ! isset( $attributes['data-bme'] ) ) {
+			$fi    = count( $this->recipe_frames ) - 1;
+			$depth = $open_index - $this->recipe_frames[ $fi ]['index'];
+			if ( $depth > 0 ) {
+				$this->recipe_hit = Recipes::assign( $this->recipe_frames[ $fi ], $name, $depth );
+			}
+		}
+
 		// Class shorthand (class="bme-fade-up") behaves like the data-bme attribute.
 		if ( ! isset( $attributes['data-bme'] ) && ! empty( $attributes['class'] ) ) {
 			foreach ( (array) $attributes['class'] as $class_list ) {
@@ -947,6 +999,17 @@ class Bricks_Integration {
 				$attributes = $this->apply_config( $attributes, $config );
 			}
 		}
+
+		// A recipe on this element: the elements rendered inside it follow it.
+		$recipe = self::str( $settings, 'bmeRecipe' );
+		if ( '' !== $recipe && 'off' !== $mode && in_array( $name, self::LAYOUT_ELEMENTS, true ) && Recipes::get( $recipe ) ) {
+			$this->recipe_frames[] = array(
+				'slug'  => $recipe,
+				'index' => $open_index,
+			);
+		}
+
+		$attributes = $this->extras( $attributes, $settings );
 
 		// Screen sizes this element doesn't animate on (main animation, hover, timeline).
 		$off_on = 'off' !== $mode ? self::off_on( $settings ) : array();
@@ -984,6 +1047,88 @@ class Bricks_Integration {
 		}
 
 		return $attributes;
+	}
+
+	/** @var int[] Elements being rendered, outermost first (their instance ids). */
+	private $open = array();
+
+	/** @var array[] Open recipe sections: slug, index in $open, counters. */
+	private $recipe_frames = array();
+
+	/** @var array|false|null What the open recipe does with the element being built (Recipes::assign()). */
+	private $recipe_hit = null;
+
+	/**
+	 * bricks/frontend/render_element: an element (and everything inside it) has been rendered.
+	 *
+	 * @param string $html    Element HTML.
+	 * @param object $element Element instance.
+	 * @return string
+	 */
+	public function close_element( $html, $element ) {
+		$id  = is_object( $element ) ? spl_object_id( $element ) : 0;
+		$pos = array_search( $id, $this->open, true );
+		if ( false !== $pos ) {
+			// Also drops anything opened inside it that never reported back.
+			$this->open = array_slice( $this->open, 0, $pos );
+			while ( $this->recipe_frames && end( $this->recipe_frames )['index'] >= $pos ) {
+				array_pop( $this->recipe_frames );
+			}
+		}
+		return $html;
+	}
+
+	/**
+	 * Per-element extras that are not an animation: page transition name, cursor label, scroll
+	 * progress variable. Each only when its Effects setting can use it.
+	 *
+	 * @param array $attributes Root attributes.
+	 * @param array $settings   Element settings.
+	 * @return array
+	 */
+	private function extras( array $attributes, array $settings ) {
+		$vt = self::str( $settings, 'bmeVtName' );
+		if ( '' !== $vt && 'off' !== Settings::get( 'effects.transition', 'off' ) ) {
+			$name = self::transition_name( $vt );
+			if ( '' !== $name ) {
+				$style               = isset( $attributes['style'] ) ? trim( implode( ' ', (array) $attributes['style'] ) ) : '';
+				$attributes['style'] = ( '' !== $style ? rtrim( $style, ';' ) . ';' : '' ) . 'view-transition-name:' . $name;
+			}
+		}
+		$label = self::str( $settings, 'bmeCursor' );
+		if ( '' !== $label && 'off' !== Settings::get( 'effects.cursor', 'off' ) ) {
+			$label                         = sanitize_text_field( $label );
+			$attributes['data-bme-cursor'] = function_exists( 'mb_substr' ) ? mb_substr( $label, 0, 24 ) : substr( $label, 0, 24 );
+		}
+		if ( ! empty( $settings['bmeProgress'] ) ) {
+			$attributes['data-bme-progress'] = '';
+			$this->track( 'feature', 'progress' );
+		}
+		return $attributes;
+	}
+
+	/**
+	 * A page transition name as a CSS identifier; {post_id} becomes the post being rendered (the
+	 * query loop's post inside a loop), so a card and that post's page can share a name.
+	 *
+	 * @param string $raw Name typed in the builder.
+	 * @return string
+	 */
+	public static function transition_name( $raw ) {
+		$post = 0;
+		if ( class_exists( '\Bricks\Query' ) && method_exists( '\Bricks\Query', 'is_any_looping' ) && \Bricks\Query::is_any_looping() && method_exists( '\Bricks\Query', 'get_loop_object_id' ) ) {
+			$post = (int) \Bricks\Query::get_loop_object_id();
+		}
+		if ( ! $post ) {
+			$post = (int) get_the_ID();
+		}
+		$name = str_replace( '{post_id}', (string) $post, strtolower( trim( $raw ) ) );
+		$name = trim( (string) preg_replace( '/[^a-z0-9_-]+/', '-', $name ), '-' );
+		if ( '' === $name || in_array( $name, array( 'none', 'auto', 'root' ), true ) ) {
+			return '';
+		}
+		// An identifier can't start with a digit (or a hyphen and a digit).
+		return preg_match( '/^-?\d/', $name ) ? 'bme-' . $name : substr( $name, 0, 80 );
 	}
 
 	/* ---------------------------------------------------------------------
@@ -1545,13 +1690,22 @@ class Bricks_Integration {
 	 * @return array|null
 	 */
 	private function auto_config( $element, $name, array $settings, array $attributes ) {
-		if ( ! Settings::get( 'auto.enabled' ) || in_array( $name, self::NEVER_AUTO, true ) || 'custom' === self::page_setting( 'bmePageMode' ) ) {
+		// Inside a recipe section: the recipe decides (an explicit choice on the section, so it
+		// applies with auto-animate off and in header / footer templates too).
+		$recipe = $this->recipe_hit;
+		if ( false === $recipe ) {
+			return null; // inside a recipe item: travels with it
+		}
+		if ( in_array( $name, self::NEVER_AUTO, true ) || 'custom' === self::page_setting( 'bmePageMode' ) ) {
+			return null;
+		}
+		if ( ! $recipe && ! Settings::get( 'auto.enabled' ) ) {
 			return null;
 		}
 
-		if ( ( Settings::get( 'auto.skip_header' ) && $this->in_area( 'header' ) )
+		if ( ! $recipe && ( ( Settings::get( 'auto.skip_header' ) && $this->in_area( 'header' ) )
 			|| ( Settings::get( 'auto.skip_footer' ) && $this->in_area( 'footer' ) )
-			|| ( Settings::get( 'auto.skip_popups' ) && $this->in_area( 'popup' ) ) ) {
+			|| ( Settings::get( 'auto.skip_popups' ) && $this->in_area( 'popup' ) ) ) ) {
 			return null;
 		}
 
@@ -1573,7 +1727,13 @@ class Bricks_Integration {
 			return null;
 		}
 
-		$rule = $this->match_rule( $name, $settings, $attributes );
+		$rule = $recipe ? array(
+			'type'   => 'recipe',
+			'target' => $name,
+			'preset' => $recipe['preset'],
+			'scope'  => 'self',
+			'engine' => '',
+		) : $this->match_rule( $name, $settings, $attributes );
 		if ( ! $rule ) {
 			return null;
 		}
@@ -1585,7 +1745,7 @@ class Bricks_Integration {
 		//   generic elements).
 		$level = self::str( $settings, 'bmeLevel' );
 		if ( ! Levels::valid( $level ) ) {
-			$level = 'class' === ( $rule['type'] ?? '' ) ? 'moderate' : Levels::site();
+			$level = in_array( $rule['type'] ?? '', array( 'class', 'recipe' ), true ) ? 'moderate' : Levels::site();
 		}
 		$preset = (string) $rule['preset'];
 		if ( 'advanced' !== $level || '*' !== ( $rule['target'] ?? '' ) ) {
@@ -1595,7 +1755,13 @@ class Bricks_Integration {
 			return null;
 		}
 
-		$opts  = array( 'auto' => 1 );
+		$opts = array( 'auto' => 1 );
+		if ( $recipe ) {
+			$opts['recipe'] = 1;
+			if ( ! empty( $recipe['delay'] ) ) {
+				$opts['delay'] = $recipe['delay'];
+			}
+		}
 		$scope = isset( $rule['scope'] ) && is_string( $rule['scope'] ) ? $rule['scope'] : 'self';
 		// Masonry / filtered (Isotope) grids position their items with transforms: animate the grid
 		// as a whole. Posts and Image Gallery add their Isotope classes later in render(), so the

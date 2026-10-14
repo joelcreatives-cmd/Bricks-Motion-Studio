@@ -130,7 +130,7 @@
 		if ( a.trigger === 'load' || a.trigger === 'manual' ) {
 			parts.push( a.trigger === 'load' ? 'on load' : 'manual' );
 		}
-		parts.push( a.auto ? 'rule' : 'element' );
+		parts.push( a.recipe ? 'recipe' : a.auto ? 'rule' : 'element' );
 		if ( a.targets > 1 ) {
 			parts.push( a.targets + ' items' );
 		}

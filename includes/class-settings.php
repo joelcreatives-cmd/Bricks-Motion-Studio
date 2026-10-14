@@ -70,12 +70,26 @@ class Settings {
 				'min_width' => 0,
 			),
 			'perf'           => array(
-				'fouc'      => 1,
-				'failsafe'  => 3000,
-				'always'    => 0,
-				'native'    => 1,
-				'clip_x'    => 1, // animations never make the page scroll sideways
-				'off_paths' => '', // one URL path per line: no Motion Studio output there
+				'fouc'          => 1,
+				'failsafe'      => 3000,
+				'always'        => 0,
+				'native'        => 1,
+				'clip_x'        => 1, // animations never make the page scroll sideways
+				'off_paths'     => '', // one URL path per line: no Motion Studio output there
+				'native_scroll' => 1, // scroll effects on the browser's own scroll timelines where supported
+			),
+			// Site-wide effects (Effects panel).
+			'effects'        => array(
+				'transition'          => 'off', // off | fade | slide | zoom: animated page-to-page navigation
+				'transition_duration' => 0.35,
+				'cursor'              => 'off', // off | dot | ring | both
+				'cursor_color'        => '',
+				'cursor_hide'         => 0,     // hide the system cursor where the custom one shows
+				'intro'               => 'off', // off | fade | curtain: a short intro before the page shows
+				'intro_color'         => '',
+				'intro_text'          => '',
+				'intro_every'         => 0,     // 0: first page of a visit only
+				'page_progress'       => 0,     // --bme-page-progress (0..1) on <html> while scrolling
 			),
 			'admin_bar'      => 1, // Motion Studio menu in the admin bar on the frontend
 			'debug'          => 0,
@@ -409,6 +423,22 @@ class Settings {
 		$out['perf']['clip_x'] = array_key_exists( 'clip_x', $p ) ? ( empty( $p['clip_x'] ) ? 0 : 1 ) : (int) $d['perf']['clip_x'];
 
 		$out['perf']['off_paths'] = self::sanitize_paths( $p['off_paths'] ?? '' );
+		// Older exports don't have it: keep the default.
+		$out['perf']['native_scroll'] = array_key_exists( 'native_scroll', $p ) ? ( empty( $p['native_scroll'] ) ? 0 : 1 ) : (int) $d['perf']['native_scroll'];
+
+		// Effects.
+		$fx                                    = is_array( $in['effects'] ?? null ) ? $in['effects'] : array();
+		$out['effects']['transition']          = self::pick( $fx['transition'] ?? '', array( 'off', 'fade', 'slide', 'zoom' ), 'off' );
+		$out['effects']['transition_duration'] = self::num( $fx['transition_duration'] ?? null, 0.1, 1.5, $d['effects']['transition_duration'] );
+		$out['effects']['cursor']              = self::pick( $fx['cursor'] ?? '', array( 'off', 'dot', 'ring', 'both' ), 'off' );
+		$out['effects']['cursor_color']        = self::sanitize_color( $fx['cursor_color'] ?? '' );
+		$out['effects']['cursor_hide']         = empty( $fx['cursor_hide'] ) ? 0 : 1;
+		$out['effects']['intro']               = self::pick( $fx['intro'] ?? '', array( 'off', 'fade', 'curtain' ), 'off' );
+		$out['effects']['intro_color']         = self::sanitize_color( $fx['intro_color'] ?? '' );
+		$intro_text                            = is_scalar( $fx['intro_text'] ?? null ) ? trim( sanitize_text_field( (string) $fx['intro_text'] ) ) : '';
+		$out['effects']['intro_text']          = function_exists( 'mb_substr' ) ? mb_substr( $intro_text, 0, 40 ) : substr( $intro_text, 0, 40 );
+		$out['effects']['intro_every']         = empty( $fx['intro_every'] ) ? 0 : 1;
+		$out['effects']['page_progress']       = empty( $fx['page_progress'] ) ? 0 : 1;
 
 		$out['debug']     = empty( $in['debug'] ) ? 0 : 1;
 		$out['admin_bar'] = empty( $in['admin_bar'] ) ? 0 : 1;
@@ -417,6 +447,18 @@ class Settings {
 
 		self::flush();
 		return $out;
+	}
+
+	/**
+	 * A colour for the Effects settings: #rgb / #rrggbb, or empty (the theme's default).
+	 *
+	 * @param mixed $value Raw.
+	 * @return string
+	 */
+	public static function sanitize_color( $value ) {
+		$value = is_scalar( $value ) ? trim( (string) $value ) : '';
+		$hex   = '' !== $value ? sanitize_hex_color( $value ) : '';
+		return is_string( $hex ) ? $hex : '';
 	}
 
 	/**

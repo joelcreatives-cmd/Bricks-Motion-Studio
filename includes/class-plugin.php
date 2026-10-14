@@ -33,6 +33,10 @@ class Plugin {
 
 		$this->bricks = new Bricks_Integration();
 		History::init();
+
+		// Lottie files are JSON: let administrators upload .json to the Media Library.
+		add_filter( 'upload_mimes', array( __CLASS__, 'json_mime' ) );
+		add_filter( 'wp_check_filetype_and_ext', array( __CLASS__, 'json_filetype' ), 10, 3 );
 		// Without Bricks nothing on the front end can be animated: load nothing there.
 		// (Checked once the theme is set up; the settings screen still loads.)
 		add_action(
@@ -41,6 +45,7 @@ class Plugin {
 				if ( self::bricks_active() ) {
 					new Assets();
 					new Builder();
+					new Effects();
 					Usage_Log::init();
 				}
 			},
@@ -52,6 +57,7 @@ class Plugin {
 		if ( is_admin() ) {
 			new Admin();
 			Usage_Log::init_admin();
+			Share::init();
 		}
 		// Update checks run in the dashboard, in background cron and in WP-CLI, never on the front end.
 		if ( is_admin() || wp_doing_cron() || ( defined( 'WP_CLI' ) && WP_CLI ) ) {
@@ -59,6 +65,43 @@ class Plugin {
 		}
 
 		add_filter( 'plugin_action_links_' . plugin_basename( BME_FILE ), array( $this, 'action_links' ) );
+	}
+
+	/**
+	 * upload_mimes: .json for administrators (Lottie animations).
+	 *
+	 * @param array $mimes Allowed types.
+	 * @return array
+	 */
+	public static function json_mime( $mimes ) {
+		if ( is_array( $mimes ) && current_user_can( 'manage_options' ) ) {
+			$mimes['json'] = 'application/json';
+		}
+		return $mimes;
+	}
+
+	/**
+	 * wp_check_filetype_and_ext: the server may detect a .json upload as text/plain; accept it as
+	 * JSON when the user may upload JSON and the file really parses as JSON.
+	 *
+	 * @param array  $data     Checked type data.
+	 * @param string $file     Temporary file path.
+	 * @param string $filename Original name.
+	 * @return array
+	 */
+	public static function json_filetype( $data, $file, $filename ) {
+		if ( ! is_array( $data ) || ! empty( $data['ext'] ) || ! current_user_can( 'manage_options' ) ) {
+			return $data;
+		}
+		if ( 'json' !== strtolower( pathinfo( (string) $filename, PATHINFO_EXTENSION ) ) || ! is_readable( $file ) || filesize( $file ) > 20 * 1024 * 1024 ) {
+			return $data;
+		}
+		$json = json_decode( (string) file_get_contents( $file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local temp upload.
+		if ( is_array( $json ) ) {
+			$data['ext']  = 'json';
+			$data['type'] = 'application/json';
+		}
+		return $data;
 	}
 
 	public function load_textdomain() {

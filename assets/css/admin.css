@@ -4795,3 +4795,38 @@ html:has(.bme-wrap) {
 .bme-mine__from-grid .bme-mine__num em {
 	min-width: 14px;
 }
+
+/* Colour field: picker swatch + hex text ---------------------------------- */
+.bme-color {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.bme-color input[type="color"] {
+	flex: none;
+	width: 34px;
+	height: 34px;
+	padding: 2px;
+	border: 1px solid var(--field-line, var(--line));
+	border-radius: 9px;
+	background: var(--surface);
+	cursor: pointer;
+}
+
+.bme-color input[type="color"]::-webkit-color-swatch-wrapper {
+	padding: 0;
+}
+
+.bme-color input[type="color"]::-webkit-color-swatch {
+	border: 0;
+	border-radius: 6px;
+}
+
+.bme-wrap .bme-color .bme-text {
+	width: 120px;
+}
+
+.bme-share-in .bme-code__actions {
+	align-items: stretch;
+}

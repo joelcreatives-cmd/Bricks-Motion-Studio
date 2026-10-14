@@ -12,8 +12,10 @@ const files = {
 	lenis: [ [ 'lenis/dist/lenis.min.js', 'lenis.min.js' ], [ 'lenis/dist/lenis.css', 'lenis.css' ] ],
 	anime: [ [ 'animejs/dist/bundles/anime.umd.min.js', 'anime.umd.min.js' ] ],
 	motion: [ [ 'motion/dist/motion.js', 'motion.js' ] ],
+	// SVG renderer only, no expressions (no eval): the smaller, safer Lottie player.
+	lottie: [ [ 'lottie-web/build/player/lottie_light.min.js', 'lottie_light.min.js' ] ],
 };
-const licenses = { gsap: 'gsap/LICENSE.md', lenis: 'lenis/LICENSE', anime: 'animejs/LICENSE.md', motion: 'motion/LICENSE.md' };
+const licenses = { gsap: 'gsap/LICENSE.md', lenis: 'lenis/LICENSE', anime: 'animejs/LICENSE.md', motion: 'motion/LICENSE.md', lottie: 'lottie-web/LICENSE.md' };
 
 const sri = {};
 for ( const [ lib, list ] of Object.entries( files ) ) {

@@ -52,7 +52,8 @@ Rows replace the part of the designed transform they animate (like GSAP's x / y 
 | **Libraries** | Toggle GSAP / Anime.js / Motion / Three.js / Lenis (any combination). Default engine (only enabled engines selectable). Bundled files (default) or jsDelivr with integrity checks. |
 | **Auto-animate** | Master switch, **animation level** (Basic / Moderate / Advanced), rules (element type, CSS class, or `*` = any other content element → preset, scope, engine) with live preview per rule, **conditions** per rule (where: front page, blog, single posts of a type, archives, search, 404, or everywhere except one of them; screens: desktop only, tablet and up, phone and tablet, phone only), and exclusions. |
 | **Timing & feel** | **Animation speed** (site-wide multiplier: 2 = twice as fast, 0.5 = half speed, every engine), duration, delay, easing, distance, stagger, cascade, start line, parallax speed, replay, with a live preview that plays as you type. |
-| **Scroll & 3D** | Lenis smoothness, wheel speed, anchors, touch. Three.js pixel ratio and phones on/off. |
+| **Scroll & 3D** | **Scroll effects on the browser's scroll timeline** (parallax, scroll fade / scale / rotate / expand run on `ViewTimeline` where supported, the library elsewhere), Lenis smoothness, wheel speed, anchors, touch. Three.js pixel ratio and phones on/off. |
+| **Effects** | **Page transitions** (cross-fade, slide or zoom between pages, by the browser's View Transitions; elements with the same *Page transition name* morph between pages), **page intro** (fade or curtain, with your text and colour; first page of a visit or every page; clears itself even without JavaScript), **custom cursor** (dot, trailing ring or both; grows over links, shows an element's *Cursor label*; mouse only), **page progress variable** (`--bme-page-progress`). Reduced-motion visitors get none of the movement. |
 | **Accessibility** | Reduced-motion behavior (none / fades / full), minimum width, anti-flash, fail-safe timeout, no sideways scrolling, load everywhere, debug mode. |
 | **Usage** | **Usage & weight**: which pages use which engines and presets, animations per page and how much Motion Studio script each page loads (heaviest first), with notes on unused engines and settings that load more. Pages are recorded as they are viewed; **Scan site** visits the published pages, recent posts and an archive once. |
 | **System** | Compatibility checks (WordPress, PHP, Bricks, element coverage, bundled files, form size limit, script loading), **Recent changes** (the last 10 versions of the settings, with who changed them and what; restore any of them, and undo a restore the same way), export / import, reset. |
@@ -104,6 +105,34 @@ Auto rules never touch: sticky/fixed elements, sliders/carousels, nav menus, off
 - **Live preview:** change any Motion Studio setting and the element plays its animation on the canvas, computed by the same code as the live page (auto rules, levels, presets, timelines). **Preview animation** at the top of the Motion Studio group replays it. Scroll-linked effects and scroll timelines follow the canvas' own scrolling while previewed.
 - **Timeline keyframe track:** under each timeline row's Keyframes field, one dot per keyframe. Drag a dot to move it, click the track to add one, focus a dot and use ←/→ (Shift: 10%) or Delete. A line under the track says why a row would be skipped (wrong value for the property, a typo) before you save.
 - **Turn off on:** pick Phone (below 768px), Tablet (768–991px) and/or Desktop (992px and up) for one element: there it shows as designed, with no animation, hover effect or timeline. Works in every mode (the old "Disable below 768px" counts as Phone).
+
+## Animation recipes
+
+Motion Studio → **Animation recipe** on a section, container, block or div animates what is inside it, in order, with no settings on each element:
+
+| Recipe | What it does |
+|---|---|
+| **Hero intro** | Heading splits into words, then text, buttons (one after another) and images follow. |
+| **Card grid** | Set it on the element that holds the cards: each card rises in, one after another; what is inside a card travels with it. |
+| **Two columns** | First column comes in from the left, second from the right. |
+| **Cascade** | Every heading, text, button and image inside fades up, a little after the one before. |
+
+Elements set to **Custom** (or Disabled) keep their own setting. Recipes apply even with auto-animate off, and in header / footer templates. They play on the page (not in the builder canvas).
+
+## Extras on every element
+
+Motion Studio → **Extras**:
+- **Page transition name**: the same name on an element here and one on another page makes it morph between them (needs Effects → Page transitions). `{post_id}` adds the post of a query loop (a card image and that post's hero image: `product-{post_id}` on both). Names must be unique on a page.
+- **Cursor label**: text shown in the custom cursor over this element, e.g. *View* (needs Effects → Custom cursor).
+- **Scroll progress variable**: `--bme-progress` on the element, from 0 (its top reaches the bottom of the screen) to 1 (its bottom leaves the top), for your own CSS.
+
+## Lottie animation element
+
+Bricks → Media → **Lottie animation**: a Lottie (After Effects / Bodymovin) `.json` file (administrators can upload `.json` to the Media Library), played by the light SVG player (no expressions, no `eval`) that loads only on pages with the element. **Play**: on load, when scrolled into view, on hover (back on leave), on click (a keyboard-accessible toggle) or with scrolling (scrubbed). Loop, speed, a still frame (first or last) for reduced motion, and a description for screen readers (empty = decorative). The Pause animations button pauses it; looping animations rest off screen.
+
+## Share presets and rules
+
+System → **Share presets and rules**: My presets and the auto-animate rules as one code (`BMS1.…`) to paste into Motion Studio on another site. **Add to mine** keeps what the site has (presets with the same id and identical rules are skipped); **Replace mine** swaps both lists. Everything in a code is sanitized like a save, and the change is kept in Recent changes.
 
 ## My presets
 
@@ -244,6 +273,10 @@ includes/
   class-usage.php                 per-request usage tracker
   class-usage-log.php             usage report: what each rendered page loaded (Usage panel)
   class-history.php               settings history and restore (System → Recent changes)
+  class-recipes.php               animation recipes (hero intro, card grid, two columns, cascade)
+  class-effects.php               page transitions, page intro, cursor / progress script loading
+  class-share.php                 share codes for My presets and rules
+  elements/class-element-lottie.php   "Lottie animation" element
   class-bricks-integration.php    builder controls, render attributes, auto rules, engine resolution
   class-assets.php                boot snippet, conditional enqueue, optimizer exclusions
   class-admin.php                 settings screen
@@ -264,6 +297,8 @@ assets/
   js/builder-panel.js             builder: live preview trigger + timeline keyframe track
   js/builder-canvas.js            builder canvas: plays the previewed animation
   js/inspector.js                 frontend animation inspector (?bme-debug, editors only)
+  js/effects.js                   custom cursor and scroll progress variables
+  js/lottie.js                    Lottie element player (with vendor/lottie/lottie_light.min.js)
   js/admin.js, css/*.css
   vendor/{gsap,anime,motion,lenis}/  bundled libraries + licenses (Anime.js / Motion as slim builds)
 src/three/                        Three.js scene sources (bundled by esbuild)

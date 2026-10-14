@@ -604,7 +604,7 @@
 			return null;
 		}
 		// SVG drawing runs on the core tween unless GSAP (DrawSVG) is there: no other library needed.
-		var supported = ( p.engines || [ 'gsap', 'anime', 'motion' ] ).concat( nativeOk( p ) || p.draw ? [ 'native' ] : [] );
+		var supported = ( p.engines || [ 'gsap', 'anime', 'motion' ] ).concat( nativeOk( p ) || p.draw || ( nativeScrollOk( p ) && nativeAdapter.scrub ) ? [ 'native' ] : [] );
 		// No engine chosen for this element: the built-in engine handles what it can (no library needed).
 		var auto = ! preferred && cfg.native !== false && ! ( p.draw && has( adapters, 'gsap' ) ) ? 'native' : '';
 		var order = [ preferred, auto, cfg.engine ].concat( cfg.engines || [] ).concat( Object.keys( adapters ) );
@@ -751,6 +751,85 @@
 		special: {},
 	};
 
+	/**
+	 * Scroll-linked effects on the browser's own scroll timeline (ViewTimeline): no scroll listener
+	 * and no work on the main thread while scrolling. Same ranges as the libraries:
+	 * "full" = the element's whole trip through the screen (top reaches the bottom → bottom leaves
+	 * the top), "enter" = its top travels from the bottom of the screen to 35% from the top.
+	 * Browsers without it keep using the library.
+	 */
+	function nativeScrollOk( p ) {
+		return cfg.nativeScroll !== false && typeof window.ViewTimeline === 'function' && !! p && p.group === 'scroll' && p.scrub && ! p.pin && ! p.engines;
+	}
+
+	if ( typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function' && typeof window.ViewTimeline === 'function' ) {
+		nativeAdapter.scrub = function ( trigger, targets, from, to, o ) {
+			var keys = {};
+			[ from, to ].forEach( function ( p ) {
+				for ( var k in p ) {
+					if ( Object.prototype.hasOwnProperty.call( p, k ) ) {
+						keys[ k ] = k === 'perspective' ? p[ k ] : true;
+					}
+				}
+			} );
+			var enter = o.range === 'enter';
+			var anims = [];
+			var timeline;
+			try {
+				timeline = new window.ViewTimeline( { subject: trigger, axis: 'block' } );
+			} catch ( e ) {
+				return null;
+			}
+			var endOf = function () {
+				return enter ? { rangeName: 'cover', offset: CSS.px( Math.round( window.innerHeight * 0.65 ) ) } : 'cover 100%';
+			};
+			targets.forEach( function ( t ) {
+				if ( typeof t.animate !== 'function' ) {
+					return;
+				}
+				var rest = restOf( t );
+				var a = t.animate( [ nativeFrame( from, keys, rest && rest.t ), nativeFrame( to, keys, rest && rest.t ) ], {
+					timeline: timeline,
+					rangeStart: 'cover 0%',
+					rangeEnd: endOf(),
+					fill: 'both',
+					easing: 'linear',
+				} );
+				anims.push( a );
+			} );
+			if ( ! anims.length ) {
+				return null;
+			}
+			// "enter" ends at a point measured in pixels of the screen: follow resizes.
+			var onResize = enter ? debounce( function () {
+				anims.forEach( function ( a ) {
+					try {
+						a.rangeEnd = endOf();
+					} catch ( e ) {
+						/* older implementation: keeps the first value */
+					}
+				} );
+			}, 150 ) : null;
+			if ( onResize ) {
+				window.addEventListener( 'resize', onResize );
+			}
+			return {
+				native: true,
+				finished: new Promise( function () {} ), // scroll-linked: never "done"
+				pause: function () {},
+				play: function () {},
+				revert: function () {
+					if ( onResize ) {
+						window.removeEventListener( 'resize', onResize );
+					}
+					anims.forEach( function ( a ) {
+						a.cancel();
+					} );
+				},
+			};
+		};
+	}
+
 	if ( typeof Element !== 'undefined' && typeof Element.prototype.animate === 'function' ) {
 		nativeAdapter.name = 'native';
 		adapters.native = nativeAdapter;
@@ -813,6 +892,7 @@
 			replay: o.replay !== undefined ? flag( o.replay ) : !! D.replay,
 			minWidth: num( o.minWidth, 0 ),
 			auto: !! o.auto,
+			recipe: !! o.recipe,
 		};
 	}
 
@@ -993,7 +1073,7 @@
 	 * reports elements clipped by an overflow:hidden ancestor, can miss elements on very fast
 	 * scrolls, and elements at the end of the page may never cross the offset line. Anything
 	 * whose box has reached its trigger line is played; anything already scrolled past is shown
-	 * without animation. Zero-size boxes (display:none — closed tabs, popups) are left alone.
+	 * without animation. Elements with no box (display:none — closed tabs, popups) are left alone.
 	 */
 	/** Vertical entrance offset applied to the observed element itself (0 when it animates children). */
 	function restOffsetY( rec ) {
@@ -1041,7 +1121,10 @@
 				return;
 			}
 			var r = rec.el.getBoundingClientRect();
-			if ( ! r.width && ! r.height ) {
+			// No box at all: display:none here or above (closed tab, popup). An empty box that is laid
+			// out still counts: a pie chart or map gets its size from its own script only once it is
+			// on screen, so waiting for a size would leave it hidden for good.
+			if ( ! r.width && ! r.height && ! rec.el.getClientRects().length ) {
 				return;
 			}
 			var line = vh * ( 1 - rec.cfg.offset / 100 );
@@ -1302,6 +1385,17 @@
 		} ) ) {
 			log( 'Using the built-in engine for', el, '(keeps its designed transform)' );
 			rec.engine = nativeAdapter;
+		}
+
+		// The browser's scroll timeline runs every target over the same range: a staggered scroll
+		// effect (several children) stays on a library when one is loaded.
+		if ( kind === 'scrub' && rec.engine === nativeAdapter && rec.targets.length > 1 && c.stagger > 0 ) {
+			var lib = [ c.engine, cfg.engine ].concat( cfg.engines || [] ).filter( function ( e ) {
+				return e && e !== 'native' && has( adapters, e );
+			} )[ 0 ];
+			if ( lib ) {
+				rec.engine = adapters[ lib ];
+			}
 		}
 
 		rec.targets.forEach( function ( t ) {
@@ -1612,8 +1706,10 @@
 			// GSAP SplitText is used for masked line reveals (its line detection re-flows best);
 			// words/chars use the non-destructive core splitter on every engine.
 			// It rewrites innerHTML on revert, so links / buttons inside (their listeners, focus) would
-			// be replaced: such text uses the core splitter, which keeps every element.
-			var interactive = el.querySelector( 'a, button, input, select, textarea, label, video, audio, iframe, [tabindex], [onclick], [data-interactions], [data-bme-hover]' );
+			// be replaced: such text uses the core splitter, which keeps every element. So does text a
+			// Bricks script keeps a reference into (data-script-id: counter, countdown, typing): a
+			// counter would go on counting in a replaced span and stay at 0 on the page.
+			var interactive = el.hasAttribute( 'data-script-id' ) || el.querySelector( 'a, button, input, select, textarea, label, video, audio, iframe, [tabindex], [onclick], [data-interactions], [data-bme-hover], [data-script-id]' );
 			split = type === 'lines' && ! interactive && eng && eng.special && eng.special.split ? eng.special.split( el, type, !! p.mask ) : null;
 			if ( ! split ) {
 				split = splitText( el, type, !! p.mask );
@@ -3584,6 +3680,7 @@
 					trigger: rec.cfg.trigger || 'view',
 					offset: rec.cfg.offset,
 					auto: !! rec.cfg.auto,
+					recipe: !! rec.cfg.recipe,
 					targets: rec.targets.length,
 					played: !! rec.played,
 				} );

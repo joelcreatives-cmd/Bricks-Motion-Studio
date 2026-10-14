@@ -25,7 +25,7 @@ for ( const f of walk( root ) ) {
 	const { readFileSync, existsSync } = await import( 'node:fs' );
 	const hashOf = ( ...parts ) => createHash( 'sha1' ).update( parts.join( '\0' ) ).digest( 'hex' ).slice( 0, 10 );
 	const presets = JSON.stringify( JSON.parse( readFileSync( join( root, 'includes/data/presets.json' ), 'utf8' ) ) );
-	const pairs = [ 'runtime', 'adapter-gsap', 'adapter-anime', 'adapter-motion', 'smooth-scroll', 'timeline' ].map( ( n ) => [ `assets/js/${ n }.js`, `assets/js/${ n }.min.js`, n === 'runtime' ? presets : '' ] );
+	const pairs = [ 'runtime', 'adapter-gsap', 'adapter-anime', 'adapter-motion', 'smooth-scroll', 'timeline', 'effects', 'lottie' ].map( ( n ) => [ `assets/js/${ n }.js`, `assets/js/${ n }.min.js`, n === 'runtime' ? presets : '' ] );
 	pairs.push( [ 'assets/css/frontend.css', 'assets/css/frontend.min.css', '' ] );
 	for ( const [ src, min, extra ] of pairs ) {
 		const want = hashOf( readFileSync( join( root, src ), 'utf8' ), extra );
@@ -82,7 +82,7 @@ for ( const f of walk( root ) ) {
 		}
 		// Every CDN integrity hash must match the file it covers (jsDelivr serves npm files as-is).
 		const sri = JSON.parse( readFileSync( join( root, 'includes/data/sri.json' ), 'utf8' ) );
-		const npmPath = { gsap: 'gsap/dist/', lenis: 'lenis/dist/', anime: 'animejs/dist/bundles/', motion: 'motion/dist/' };
+		const npmPath = { gsap: 'gsap/dist/', lenis: 'lenis/dist/', anime: 'animejs/dist/bundles/', motion: 'motion/dist/', lottie: 'lottie-web/build/player/' };
 		for ( const [ key, hash ] of Object.entries( sri ) ) {
 			const [ lib, file ] = key.split( '/' );
 			const p = join( root, 'node_modules', npmPath[ lib ] || '', file );

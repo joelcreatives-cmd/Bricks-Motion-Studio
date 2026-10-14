@@ -1881,6 +1881,49 @@
 		}
 	} )();
 
+	/* Colour fields: hex text (empty = automatic) and the browser's picker, kept in step. */
+	$$( '[data-bme-color]' ).forEach( function ( box ) {
+		var pick = $( 'input[type="color"]', box );
+		var text = $( 'input[type="text"]', box );
+		if ( ! pick || ! text ) {
+			return;
+		}
+		pick.addEventListener( 'input', function () {
+			text.value = pick.value;
+			text.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+			text.dispatchEvent( new Event( 'change', { bubbles: true } ) );
+		} );
+		text.addEventListener( 'input', function () {
+			var v = text.value.trim();
+			if ( /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.test( v ) ) {
+				v = v.charAt( 0 ) === '#' ? v : '#' + v;
+				pick.value = v.length === 4 ? '#' + v[ 1 ] + v[ 1 ] + v[ 2 ] + v[ 2 ] + v[ 3 ] + v[ 3 ] : v;
+			}
+		} );
+	} );
+
+	/* Share code: copy. */
+	var shareCopy = $( '[data-bme-share-copy]' );
+	if ( shareCopy ) {
+		shareCopy.addEventListener( 'click', function () {
+			var ta = $( '[data-bme-share-code]' );
+			var done = function () {
+				toast( i18n.copied || 'Copied' );
+			};
+			if ( navigator.clipboard && navigator.clipboard.writeText ) {
+				navigator.clipboard.writeText( ta.value ).then( done, function () {
+					ta.select();
+					document.execCommand( 'copy' );
+					done();
+				} );
+			} else {
+				ta.select();
+				document.execCommand( 'copy' );
+				done();
+			}
+		} );
+	}
+
 	initialCounts.rules = body ? $$( '.bme-rule', body ).length : null;
 	initialCounts.mine = mineBody ? mineBody.children.length : null;
 	sync();

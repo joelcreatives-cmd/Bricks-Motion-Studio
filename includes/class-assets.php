@@ -450,6 +450,7 @@ class Assets {
 			'engine'           => Settings::default_engine(),
 			'engines'          => $engines,
 			'native'           => (bool) $s['perf']['native'],
+			'nativeScroll'     => (bool) $s['perf']['native_scroll'],
 			'builder'          => Builder::canvas(), // the canvas animates only what the live preview plays
 			'ownGsap'          => ! in_array( 'gsap', $engines, true ) || 'bme-gsap' === $this->external_gsap_handle(),
 			'defaults'         => $s['defaults'],
