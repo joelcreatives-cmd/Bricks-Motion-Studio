@@ -93,6 +93,11 @@
 					anim.play();
 				}
 			},
+			rate: function ( r ) {
+				if ( anim && 'speed' in anim ) {
+					anim.speed = r;
+				}
+			},
 			revert: function () {
 				if ( cancelScroll ) {
 					cancelScroll();

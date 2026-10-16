@@ -149,10 +149,15 @@ class Effects {
 		echo '<div id="bme-intro" aria-hidden="true">' . ( '' !== $text ? '<span>' . esc_html( $text ) . '</span>' : '' ) . '</div>' . "\n";
 	}
 
-	/** wp_footer: the cursor / progress script, only where something uses it. */
+	/** wp_footer: the cursor / progress script and the element extras script, only where used. */
 	public function enqueue() {
 		if ( ! self::active() ) {
 			return;
+		}
+		// Pointer and scroll extras on elements (mouse move, text roll, follow image, in-view class,
+		// scroll-speed skew): their own small script, only where an element uses one.
+		if ( Usage::has( 'interact' ) ) {
+			wp_enqueue_script( 'bme-interact', BME_URL . 'assets/js/interact' . Assets::min() . '.js', array(), Assets::asset_version(), array( 'in_footer' => true, 'strategy' => 'defer' ) );
 		}
 		$fx     = self::fx();
 		$cursor = in_array( $fx['cursor'] ?? 'off', array( 'dot', 'ring', 'both' ), true ) ? $fx['cursor'] : '';

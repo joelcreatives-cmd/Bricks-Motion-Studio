@@ -106,6 +106,9 @@
 			play: function () {
 				anim.play();
 			},
+			rate: function ( r ) {
+				anim.speed = r;
+			},
 			revert: function () {
 				anim.revert();
 				resolve();

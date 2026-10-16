@@ -35,8 +35,8 @@ Every element's **Motion Studio** group has a **Timeline** list. Each row animat
 
 | Field | Values |
 |---|---|
-| Trigger | **Scroll position** (keyframes are % of the element's trip through the screen, so a tall section can choreograph a sticky stage), **Scrolled into view** (once), **Hover** (reverses on leave), **Hover out** (plays on leave instead of reversing), **Loop** |
-| Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour. Width and height re-lay-out the page on every frame: prefer scaleX / scaleY for smooth motion on long pages |
+| Trigger | **Scroll position** (keyframes are % of the element's trip through the screen, so a tall section can choreograph a sticky stage), **Scrolled into view** (once), **Hover** (reverses on leave), **Hover out** (plays on leave instead of reversing), **Loop**, **Click** (plays, the next click plays it back) |
+| Property | x, y, rotate, scale, scaleX, scaleY, opacity, width, height, text colour, background colour, blur, skewX, skewY, rotateX / rotateY (3D, in perspective), corner radius, letter spacing, wipe reveal (% shown, from the bottom up) and circle reveal (circle size %). Width and height re-lay-out the page on every frame: prefer scaleX / scaleY for smooth motion on long pages |
 | Keyframes | `percent: value` pairs, e.g. `0: 100%, 25: 0%` (`25%: 0%` works too). Values must suit the property: x / y / width / height take lengths (px % vw vh vmin vmax svh dvh lvh em rem), rotate takes deg or turn, scale / opacity take plain numbers or % (`80%` = 0.8), colours take `#hex`, `rgb()` / `rgba()` / `hsl()` (comma or space syntax), `oklch()` / `oklab()` / `lab()` / `lch()` / `hwb()` / `color()`, colour names, `transparent`, `var(--brand)` or `var(--brand, #333)`. Also `auto` (the element's designed value; resting on it hands the property back to the stylesheet) and `-overflow` (slide until the far edge reaches the parent's content edge). If any pair doesn't fit, the whole row is left out, never half-read. Colours blend like CSS transitions (premultiplied alpha). Elements that fade in from their first keyframe start invisible, so they never flash before the script runs. Targets written as `#brxe-…` also work inside query loops and components |
 | Duration / delay / easing | timed triggers; easing includes exact quad/cubic/quart/quint/expo/sine/circ/back curves (GSAP power1-4 …) |
 | Scroll range | optional ScrollTrigger-style `"<element edge> <screen line>"`, e.g. `top 15%` → `bottom bottom`, measured on this element or another |
@@ -116,6 +116,13 @@ Motion Studio → **Animation recipe** on a section, container, block or div ani
 | **Card grid** | Set it on the element that holds the cards: each card rises in, one after another; what is inside a card travels with it. |
 | **Two columns** | First column comes in from the left, second from the right. |
 | **Cascade** | Every heading, text, button and image inside fades up, a little after the one before. |
+| **Gallery grid** | Set it on the grid: tiles zoom in from the center out (by where they sit on screen). |
+| **Pricing cards** | The middle card first, then the sides. |
+| **Logo wall** | Logos blur in at random (the same order on every visit). |
+| **Alternating rows** | Each row comes in from the other side (left, right, left…). |
+| **Testimonials** | Each quote blurs up, one after another. |
+| **Split hero** | Heading words rise, text and buttons follow, the image is revealed (clip + zoom). |
+| **Call to action** | Heading blurs in word by word, text follows, buttons pop in. |
 
 Elements set to **Custom** (or Disabled) keep their own setting. Recipes apply even with auto-animate off, and in header / footer templates. They play on the page (not in the builder canvas).
 
@@ -125,6 +132,21 @@ Motion Studio → **Extras**:
 - **Page transition name**: the same name on an element here and one on another page makes it morph between them (needs Effects → Page transitions). `{post_id}` adds the post of a query loop (a card image and that post's hero image: `product-{post_id}` on both). Names must be unique on a page.
 - **Cursor label**: text shown in the custom cursor over this element, e.g. *View* (needs Effects → Custom cursor).
 - **Scroll progress variable**: `--bme-progress` on the element, from 0 (its top reaches the bottom of the screen) to 1 (its bottom leaves the top), for your own CSS.
+- **Class when in view**: adds a class (e.g. `is-inview`) when the element reaches the start line, for your own CSS transitions; optionally removed again when it leaves the screen.
+- **Move with the pointer (px)**: the element shifts up to this far as the pointer moves (negative: the other way), across the page or only while the pointer is over its section. Several layers with different amounts give depth. Uses CSS `translate`, so it adds to any transform; devices with a mouse only, off with reduced motion.
+- **Image that follows the pointer**: an image shown next to the pointer while it is over the element (a list of projects or services with a preview), with its width. Decorative (hidden from screen readers); devices with a mouse only.
+- **Skew with scroll speed (deg)**: the element leans up to this many degrees while the page scrolls fast and settles back when it stops.
+
+## Click to play, stagger order
+
+- **Start → When clicked**: plays when something is clicked. **Clicked element** is a selector anywhere on the page (`.show-team`): the element waits hidden until then, and every later click plays it again (a `#` link used as the button does not jump the page). Empty: the element shows as designed and replays each time it is clicked itself. Works from the keyboard on real buttons and links.
+- **Stagger order**: from the first (default), from the last, from the center out, from the edges in, or random (the same order on every visit). Center and edges follow the layout on screen, so a grid cascades from its middle. Applies to children, a custom selector and split words / letters.
+- **Hover effect → Text roll**: the letters of a button, link or heading roll up and are replaced by a copy on hover and keyboard focus (screen readers read the text once).
+- **Marquee → Speed up with scrolling**: the strip runs up to 5× faster while the page scrolls and eases back to its own speed (every engine).
+
+## Image sequence element
+
+Bricks → Media → **Image sequence (scroll)**: frames of an exported video or 3D render, drawn on a canvas by scroll position (the product turns as you scroll). Frames are images picked from the Media Library (in order) or a numbered URL pattern (`https://…/frame_{n}.webp`, first and last number, zero padding). **Play while it crosses the screen**, or **Pinned**: it stays on screen (CSS sticky, no library) for a scroll length you set (% of the screen height). Fit (fill / whole frame), a still frame (first or last) for reduced motion and pages where Motion Studio is off, and a description for screen readers. Frames load in passes (a coarse set first), so it plays at once and gets smoother; at most 300 frames.
 
 ## Lottie animation element
 
@@ -166,12 +188,17 @@ Add in any element's **Style → Attributes**:
 ```
 data-bme         = fade-up
 data-bme-engine  = motion
-data-bme-opts    = {"duration":1.2,"delay":0.2,"scope":"children","stagger":0.1,"trigger":"load","replay":1}
-data-bme-hover   = magnetic
+data-bme-opts    = {"duration":1.2,"delay":0.2,"scope":"children","stagger":0.1,"from":"center","trigger":"load","replay":1}
+                   trigger "click" + "click":".selector"; marquee "boost":1
+data-bme-hover   = magnetic   (lift, grow, magnetic, tilt, roll)
+data-bme-inview  = {"c":"is-inview","r":1}
+data-bme-mouse   = {"s":24,"a":"section"}
+data-bme-follow  = {"src":"https://…/preview.jpg","w":280}
+data-bme-skew    = 6
 data-bme-skip    (no value — opt the element out of auto rules)
 ```
 
-Individual overrides also work: `data-bme-duration`, `data-bme-delay`, `data-bme-stagger`, `data-bme-distance`, `data-bme-offset`, `data-bme-speed`, `data-bme-ease`, `data-bme-trigger`, `data-bme-scope`, `data-bme-replay`. A class like `bme-fade-up` works too.
+Individual overrides also work: `data-bme-duration`, `data-bme-delay`, `data-bme-stagger`, `data-bme-distance`, `data-bme-offset`, `data-bme-speed`, `data-bme-ease`, `data-bme-trigger`, `data-bme-scope`, `data-bme-replay`, `data-bme-click`, `data-bme-from`. A class like `bme-fade-up` works too.
 
 Eases: `smooth`, `soft`, `strong`, `in-out`, `back`, `elastic`, `bounce`, `sine`, `linear` (mapped to each engine's equivalent).
 
@@ -273,10 +300,11 @@ includes/
   class-usage.php                 per-request usage tracker
   class-usage-log.php             usage report: what each rendered page loaded (Usage panel)
   class-history.php               settings history and restore (System → Recent changes)
-  class-recipes.php               animation recipes (hero intro, card grid, two columns, cascade)
+  class-recipes.php               animation recipes (roles, items and group recipes)
   class-effects.php               page transitions, page intro, cursor / progress script loading
   class-share.php                 share codes for My presets and rules
   elements/class-element-lottie.php   "Lottie animation" element
+  elements/class-element-image-sequence.php   "Image sequence (scroll)" element
   class-bricks-integration.php    builder controls, render attributes, auto rules, engine resolution
   class-assets.php                boot snippet, conditional enqueue, optimizer exclusions
   class-admin.php                 settings screen
@@ -292,13 +320,15 @@ assets/
   js/adapter-{gsap,anime,motion}.js
   js/*.min.js, css/frontend.min.css  production builds (SCRIPT_DEBUG loads the sources)
   js/smooth-scroll.js             Lenis integration
-  js/timeline.js                  Timeline keyframes (scroll / view / hover / loop), library-free
+  js/timeline.js                  Timeline keyframes (scroll / view / hover / loop / click), library-free
   js/three/                       built Three.js scenes (ES modules, lazy)
   js/builder-panel.js             builder: live preview trigger + timeline keyframe track
   js/builder-canvas.js            builder canvas: plays the previewed animation
   js/inspector.js                 frontend animation inspector (?bme-debug, editors only)
   js/effects.js                   custom cursor and scroll progress variables
   js/lottie.js                    Lottie element player (with vendor/lottie/lottie_light.min.js)
+  js/interact.js                  element extras: mouse move, text roll, follow image, in-view class, scroll skew
+  js/sequence.js                  Image sequence element (canvas frames by scroll)
   js/admin.js, css/*.css
   vendor/{gsap,anime,motion,lenis}/  bundled libraries + licenses (Anime.js / Motion as slim builds)
 src/three/                        Three.js scene sources (bundled by esbuild)

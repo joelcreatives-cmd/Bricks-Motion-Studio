@@ -5,7 +5,7 @@
  * (Motion Studio → Timeline) and rendered as data-bme-tl='[row, …]'. Each row animates
  * one property of one set of targets:
  *
- *   on   scroll | hover | leave | view | loop
+ *   on   scroll | hover | leave | view | loop | click
  *          scroll  keyframes are % of the element's trip through the viewport (from its
  *                  top reaching the bottom of the screen to its bottom leaving the top),
  *                  so several rows on one tall section can choreograph a sticky stage
@@ -14,9 +14,12 @@
  *                  the other way); its first keyframe should be where hover ends
  *          view    plays once when the element reaches the start line
  *          loop    repeats forever (marquees); pauses off-screen
+ *          click   plays forward on a click of the element, back on the next click
  *   s    targets: '' = the element itself, a selector = matches inside it (and the element
  *        itself if it matches), 'page:<selector>' = matches anywhere on the page
  *   p    x y rotate scale scaleX scaleY opacity width height color backgroundColor
+ *        skewX skewY rotateX rotateY (3D, with perspective) blur radius letterSpacing
+ *        clip (wipe: % shown, from the bottom up) circle (clip: circle radius %)
  *   k    [[percent, value], …]  values hold before the first and after the last keyframe;
  *        'auto' is the element's own designed value ("animate from wherever it is");
  *        'overflow' / '-overflow' is how far the element sticks out of its parent (x: width,
@@ -60,9 +63,12 @@
 	}
 	w.__bmeTimelineLoaded = true;
 	var cfg = w.BME_TL || {};
-	var PROPS = [ 'x', 'y', 'rotate', 'scale', 'scaleX', 'scaleY', 'opacity', 'width', 'height', 'color', 'backgroundColor' ];
-	var TRANSFORM = { x: 1, y: 1, rotate: 1, scale: 1, scaleX: 1, scaleY: 1 };
-	var CSS_NAME = { backgroundColor: 'background-color' };
+	var PROPS = [ 'x', 'y', 'rotate', 'scale', 'scaleX', 'scaleY', 'opacity', 'width', 'height', 'color', 'backgroundColor', 'skewX', 'skewY', 'rotateX', 'rotateY', 'blur', 'radius', 'letterSpacing', 'clip', 'circle' ];
+	var TRANSFORM = { x: 1, y: 1, rotate: 1, scale: 1, scaleX: 1, scaleY: 1, skewX: 1, skewY: 1, rotateX: 1, rotateY: 1 };
+	var CSS_NAME = { backgroundColor: 'background-color', blur: 'filter', radius: 'border-radius', letterSpacing: 'letter-spacing', clip: 'clip-path', circle: 'clip-path' };
+	var ANGLED = { rotate: 1, skewX: 1, skewY: 1, rotateX: 1, rotateY: 1 }; // values in deg / turn
+	var PERCENT = { clip: 1, circle: 1 }; // values in % (a plain number is a %)
+	var PERSPECTIVE = 'perspective(900px)'; // 3D rotations read as depth, not as a squash
 
 	var reduceQuery = w.matchMedia ? w.matchMedia( '(prefers-reduced-motion: reduce)' ) : { matches: false };
 	function reduced() {
@@ -261,7 +267,7 @@
 			return { n: u === '%' ? num / 100 : num, u: '' };
 		}
 		if ( ! u ) {
-			u = prop === 'rotate' ? 'deg' : 'px';
+			u = ANGLED[ prop ] ? 'deg' : PERCENT[ prop ] ? '%' : 'px';
 		}
 		return { n: num, u: u };
 	}
@@ -397,7 +403,14 @@
 			height: parse( cs.height, 'height' ),
 			color: parse( cs.color, 'color' ),
 			backgroundColor: parse( cs.backgroundColor, 'backgroundColor' ),
+			blur: { n: 0, u: 'px' },
+			radius: parse( cs.borderTopLeftRadius || '0px', 'radius' ),
+			letterSpacing: cs.letterSpacing === 'normal' ? { n: 0, u: 'px' } : parse( cs.letterSpacing, 'letterSpacing' ),
+			clip: { n: 100, u: '%' },
+			circle: { n: 150, u: '%' },
 		};
+		// A blur row adds to the designed filters (a drop shadow stays).
+		st.filter = cs.filter && cs.filter !== 'none' ? cs.filter.replace( /\s*blur\([^)]*\)/g, '' ).trim() : '';
 		st.ox = st.oy = undefined;
 		st.cols = null;
 		st.prim = null;
@@ -511,6 +524,9 @@
 		if ( prop === 'rotate' ) {
 			return b ? b.rotate : { n: 0, u: 'deg' };
 		}
+		if ( ANGLED[ prop ] ) {
+			return { n: 0, u: 'deg' }; // skew / 3D rotation: the design's own is kept in st.base
+		}
 		if ( prop === 'scaleX' || prop === 'scaleY' ) {
 			return { n: b ? b[ prop ] : 1, u: '' };
 		}
@@ -523,6 +539,21 @@
 			st.last[ cssProp ] = value;
 			el.style.setProperty( cssProp, value );
 		}
+	}
+
+	// The CSS value for a non-transform property: filters and clip shapes wrap the number.
+	function cssValue( st, prop, v ) {
+		var raw = css( v );
+		if ( prop === 'blur' ) {
+			return ( st.filter ? st.filter + ' ' : '' ) + 'blur(' + raw + ')';
+		}
+		if ( prop === 'clip' ) {
+			return 'inset(' + +Math.min( 100, Math.max( 0, 100 - v.n ) ).toFixed( 3 ) + '% 0 0 0)';
+		}
+		if ( prop === 'circle' ) {
+			return 'circle(' + +Math.max( 0, v.n ).toFixed( 3 ) + '% at 50% 50%)';
+		}
+		return raw;
 	}
 
 	function write( el, prop, v ) {
@@ -546,7 +577,7 @@
 			st.vals[ prop ] = v;
 		}
 		if ( ! TRANSFORM[ prop ] ) {
-			put( st, el, cssProp, css( v ) );
+			put( st, el, cssProp, cssValue( st, prop, v ) );
 			return;
 		}
 		var s = st.vals;
@@ -564,6 +595,16 @@
 		}
 		if ( r && r.n ) {
 			out.push( 'rotate(' + css( r ) + ')' );
+		}
+		var depth = false;
+		[ 'rotateX', 'rotateY', 'skewX', 'skewY' ].forEach( function ( part ) {
+			if ( s[ part ] && s[ part ].n ) {
+				out.push( part + '(' + css( s[ part ] ) + ')' );
+				depth = depth || part.charAt( 1 ) === 'o';
+			}
+		} );
+		if ( depth ) {
+			out.unshift( PERSPECTIVE );
 		}
 		if ( sx !== 1 || sy !== 1 ) {
 			out.push( 'scale(' + +sx.toFixed( 5 ) + ', ' + +sy.toFixed( 5 ) + ')' );
@@ -675,7 +716,13 @@
 		if ( v.n === undefined || ! isFinite( v.n ) || colour ) {
 			return false;
 		}
-		return prop === 'rotate' ? !! ANGLE[ v.u ] : ! ANGLE[ v.u ];
+		if ( PERCENT[ prop ] ) {
+			return v.u === '%' && ! v.calc;
+		}
+		if ( prop === 'blur' && ( v.u === '%' || v.n < 0 ) ) {
+			return false; // blur takes a length, never negative
+		}
+		return ANGLED[ prop ] ? !! ANGLE[ v.u ] : ! ANGLE[ v.u ];
 	}
 
 	function trackFor( row ) {
@@ -1175,6 +1222,20 @@
 				g.root.removeEventListener( 'pointerleave', leave );
 				g.root.removeEventListener( 'focusin', enter );
 				g.root.removeEventListener( 'focusout', leave );
+			} );
+			return;
+		}
+		if ( g.on === 'click' ) {
+			// Plays forward, the next click plays it back (a button, a card that opens).
+			var open = false;
+			var toggle = function () {
+				open = ! open;
+				pl.to( open ? 1 : 0 );
+			};
+			g.root.addEventListener( 'click', toggle );
+			later( function () {
+				pl.stop();
+				g.root.removeEventListener( 'click', toggle );
 			} );
 			return;
 		}

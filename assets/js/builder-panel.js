@@ -175,7 +175,19 @@
 	function allowed( prop ) {
 		switch ( prop ) {
 			case 'rotate':
+			case 'skewX':
+			case 'skewY':
+			case 'rotateX':
+			case 'rotateY':
 				return 'auto|' + NUM + '(?:deg|turn)?';
+			case 'blur':
+				return 'auto|(?:\\d+\\.?\\d*|\\.\\d+)(?:px|em|rem)?';
+			case 'radius':
+			case 'letterSpacing':
+				return 'auto|' + LEN;
+			case 'clip':
+			case 'circle':
+				return 'auto|' + NUM + '%?';
 			case 'opacity':
 			case 'scale':
 			case 'scaleX':

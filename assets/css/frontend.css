@@ -149,6 +149,63 @@
 	}
 }
 
+/* Text roll (hover effect): each letter rolls up and a copy rolls in from below. */
+.bme-roll-w {
+	display: inline-block;
+	white-space: nowrap;
+}
+.bme-roll-c {
+	display: inline-block;
+	overflow: hidden;
+	vertical-align: top;
+	line-height: inherit;
+}
+.bme-roll-i {
+	display: inline-block;
+	position: relative;
+	transition: transform 0.45s cubic-bezier(0.7, 0, 0.3, 1) calc(var(--bme-i, 0) * 18ms);
+}
+.bme-roll-i::after {
+	content: attr(data-c);
+	position: absolute;
+	left: 0;
+	top: 100%;
+}
+.bme-roll-on:hover .bme-roll-i,
+.bme-roll-on:focus-visible .bme-roll-i,
+.bme-roll-on:focus-within .bme-roll-i {
+	transform: translateY(-100%);
+}
+
+/* Image that follows the pointer (hover preview). */
+.bme-follow {
+	position: fixed;
+	left: 0;
+	top: 0;
+	z-index: 2147482000;
+	height: auto;
+	max-width: 80vw;
+	pointer-events: none;
+	opacity: 0;
+	scale: 0.85;
+	transition: opacity 0.25s ease, scale 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+	border-radius: 6px;
+	will-change: transform;
+}
+.bme-follow.is-on {
+	opacity: 1;
+	scale: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.bme-roll-i {
+		transition: none;
+	}
+	.bme-follow {
+		display: none;
+	}
+}
+
 /* Printing / "Save as PDF": everything readable, whatever state an animation is in (scroll-linked
    effects below the fold, words not yet lit, start states). Positions are left alone. */
 @media print {

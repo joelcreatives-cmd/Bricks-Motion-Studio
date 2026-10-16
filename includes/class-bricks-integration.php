@@ -34,7 +34,7 @@ class Bricks_Integration {
 	const LAYOUT_ELEMENTS = array( 'section', 'container', 'block', 'div' );
 
 	/** Elements never auto-animated (they animate themselves or break when transformed). */
-	const NEVER_AUTO = array( 'slider', 'slider-nested', 'carousel', 'nav-menu', 'nav-nested', 'offcanvas', 'toggle', 'back-to-top', 'post-reading-progress-bar', 'animated-typing', 'counter', 'testimonials', 'map', 'map-leaflet', 'map-connector', 'code', 'html', 'shortcode', 'template', 'slot', 'bme-3d-scene', 'bme-pause-toggle', 'dropdown', 'toggle-mode', 'post-content', 'wordpress', 'sidebar', 'facebook-page', 'instagram-feed', 'pagination', 'query-results-summary' );
+	const NEVER_AUTO = array( 'slider', 'slider-nested', 'carousel', 'nav-menu', 'nav-nested', 'offcanvas', 'toggle', 'back-to-top', 'post-reading-progress-bar', 'animated-typing', 'counter', 'testimonials', 'map', 'map-leaflet', 'map-connector', 'code', 'html', 'shortcode', 'template', 'slot', 'bme-3d-scene', 'bme-pause-toggle', 'bme-image-sequence', 'dropdown', 'toggle-mode', 'post-content', 'wordpress', 'sidebar', 'facebook-page', 'instagram-feed', 'pagination', 'query-results-summary' );
 
 	/** @var string[] Render area stack (header/content/footer/popup). */
 	private $areas = array();
@@ -75,6 +75,7 @@ class Bricks_Integration {
 			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-3d-scene.php', 'bme-3d-scene', 'BME_Element_3D_Scene' );
 			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-pause-toggle.php', 'bme-pause-toggle', 'BME_Element_Pause_Toggle' );
 			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-lottie.php', 'bme-lottie', 'BME_Element_Lottie' );
+			\Bricks\Elements::register_element( BME_PATH . 'includes/elements/class-element-image-sequence.php', 'bme-image-sequence', 'BME_Element_Image_Sequence' );
 		}
 	}
 
@@ -249,9 +250,18 @@ class Bricks_Integration {
 				'scroll' => esc_html__( 'When scrolled into view', 'bricks-motion-studio' ),
 				'load'   => esc_html__( 'On page load', 'bricks-motion-studio' ),
 				'manual' => esc_html__( 'By a Bricks interaction', 'bricks-motion-studio' ),
+				'click'  => esc_html__( 'When clicked', 'bricks-motion-studio' ),
 			),
 			'placeholder' => esc_html__( 'When scrolled into view', 'bricks-motion-studio' ),
 			'required'    => array( $custom, array( 'bmePreset', '=', $timed_presets ) ),
+		);
+
+		$c['bmeClickTarget'] = $g + array(
+			'label'       => esc_html__( 'Clicked element', 'bricks-motion-studio' ),
+			'type'        => 'text',
+			'placeholder' => esc_html__( 'This element', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'A selector for what starts it, anywhere on the page (.show-team). This element waits hidden until then; every later click plays it again. Empty: this element shows as designed and plays again each time it is clicked.', 'bricks-motion-studio' ),
+			'required'    => array( $custom, array( 'bmeTrigger', '=', 'click' ) ),
 		);
 
 		$c['bmeInfoManual'] = $g + array(
@@ -321,6 +331,21 @@ class Bricks_Integration {
 			'required'    => $custom,
 		);
 
+		$c['bmeStaggerFrom'] = $g + array(
+			'label'       => esc_html__( 'Stagger order', 'bricks-motion-studio' ),
+			'type'        => 'select',
+			'options'     => array(
+				'end'    => esc_html__( 'From the last', 'bricks-motion-studio' ),
+				'center' => esc_html__( 'From the center out', 'bricks-motion-studio' ),
+				'edges'  => esc_html__( 'From the edges in', 'bricks-motion-studio' ),
+				'random' => esc_html__( 'Random', 'bricks-motion-studio' ),
+			),
+			'placeholder' => esc_html__( 'From the first', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'For children, a custom selector and words / letters. Center and edges follow the layout on screen, so a grid cascades from its middle.', 'bricks-motion-studio' ),
+			'inline'      => true,
+			'required'    => $custom,
+		);
+
 		$c['bmeEase'] = $g + array(
 			'label'       => esc_html__( 'Easing', 'bricks-motion-studio' ),
 			'type'        => 'select',
@@ -373,6 +398,13 @@ class Bricks_Integration {
 			'required' => array( $custom, array( 'bmePreset', '=', $reveal_like ) ),
 		);
 
+		$c['bmeBoost'] = $g + array(
+			'label'       => esc_html__( 'Speed up with scrolling', 'bricks-motion-studio' ),
+			'type'        => 'checkbox',
+			'description' => esc_html__( 'The strip runs faster while the page scrolls (up to 5×) and eases back when scrolling stops.', 'bricks-motion-studio' ),
+			'required'    => array( $custom, array( 'bmePreset', '=', 'marquee' ) ),
+		);
+
 		$c['bmeOffOn'] = $g + array(
 			'label'       => esc_html__( 'Turn off on', 'bricks-motion-studio' ),
 			'type'        => 'select',
@@ -395,6 +427,7 @@ class Bricks_Integration {
 				'grow'     => esc_html__( 'Grow', 'bricks-motion-studio' ),
 				'magnetic' => esc_html__( 'Magnetic (follows pointer)', 'bricks-motion-studio' ),
 				'tilt'     => esc_html__( '3D tilt', 'bricks-motion-studio' ),
+				'roll'     => esc_html__( 'Text roll (letters roll up)', 'bricks-motion-studio' ),
 			),
 			'placeholder' => esc_html__( 'None', 'bricks-motion-studio' ),
 			'inline'      => true,
@@ -423,6 +456,7 @@ class Bricks_Integration {
 						'hover'  => esc_html__( 'Hover (reverses on leave)', 'bricks-motion-studio' ),
 						'leave'  => esc_html__( 'Hover out (plays on leave instead of reversing)', 'bricks-motion-studio' ),
 						'loop'   => esc_html__( 'Loop forever', 'bricks-motion-studio' ),
+						'click'  => esc_html__( 'Click (plays, the next click plays it back)', 'bricks-motion-studio' ),
 					),
 					'placeholder' => esc_html__( 'Scroll position', 'bricks-motion-studio' ),
 				),
@@ -442,7 +476,7 @@ class Bricks_Integration {
 					'label'       => esc_html__( 'Keyframes', 'bricks-motion-studio' ),
 					'type'        => 'text',
 					'placeholder' => '0: 100%, 100: 0%',
-					'description' => esc_html__( 'percent: value pairs. Values must suit the property: lengths (px, %, vw, vh, em, rem) for position and size, deg or turn for rotate, plain numbers or % for scale and opacity, colors as #hex, rgb(), hsl(), a name or var(--color). auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge. If one pair doesn\'t fit, the row is skipped.', 'bricks-motion-studio' ),
+					'description' => esc_html__( 'percent: value pairs. Values must suit the property: lengths (px, %, vw, vh, em, rem) for position and size, deg or turn for rotate, skew and 3D tilt, plain numbers or % for scale and opacity, % for wipe and circle reveals (100 = fully shown), px for blur, colors as #hex, rgb(), hsl(), a name or var(--color). auto = the element\'s own designed value; -overflow = slide until its far edge reaches its parent\'s edge. If one pair doesn\'t fit, the row is skipped.', 'bricks-motion-studio' ),
 				),
 				'duration'     => array(
 					'label'       => esc_html__( 'Duration (s)', 'bricks-motion-studio' ),
@@ -614,6 +648,65 @@ class Bricks_Integration {
 			'label'       => esc_html__( 'Scroll progress variable', 'bricks-motion-studio' ),
 			'type'        => 'checkbox',
 			'description' => esc_html__( 'Sets --bme-progress on this element, from 0 (its top reaches the bottom of the screen) to 1 (its bottom leaves the top). Use it in your own CSS, e.g. opacity: var(--bme-progress).', 'bricks-motion-studio' ),
+		);
+		$c['bmeInView']          = $g + array(
+			'label'       => esc_html__( 'Class when in view', 'bricks-motion-studio' ),
+			'type'        => 'text',
+			'placeholder' => 'is-inview',
+			'description' => esc_html__( 'Adds this class when the element scrolls into view (at the start line set in Timing & feel), for your own CSS transitions. No animation needed.', 'bricks-motion-studio' ),
+		);
+		$c['bmeInViewRepeat']    = $g + array(
+			'label'    => esc_html__( 'Remove the class when it leaves the screen', 'bricks-motion-studio' ),
+			'type'     => 'checkbox',
+			'required' => array( 'bmeInView', '!=', '' ),
+		);
+		$c['bmeMouse']           = $g + array(
+			'label'       => esc_html__( 'Move with the pointer (px)', 'bricks-motion-studio' ),
+			'type'        => 'number',
+			'min'         => -200,
+			'max'         => 200,
+			'step'        => 1,
+			'placeholder' => '0',
+			'description' => esc_html__( 'Shifts up to this far as the pointer moves (negative: the opposite way). Give layers different amounts for depth. Devices with a mouse only; off with reduced motion.', 'bricks-motion-studio' ),
+			'inline'      => true,
+			'small'       => true,
+		);
+		$c['bmeMouseArea']       = $g + array(
+			'label'       => esc_html__( 'Pointer area', 'bricks-motion-studio' ),
+			'type'        => 'select',
+			'options'     => array(
+				'section' => esc_html__( 'Only over its section', 'bricks-motion-studio' ),
+			),
+			'placeholder' => esc_html__( 'Anywhere on the page', 'bricks-motion-studio' ),
+			'inline'      => true,
+			'required'    => array( 'bmeMouse', '!=', array( '', '0' ) ),
+		);
+		$c['bmeFollowImage']     = $g + array(
+			'label'       => esc_html__( 'Image that follows the pointer', 'bricks-motion-studio' ),
+			'type'        => 'image',
+			'description' => esc_html__( 'Shown next to the pointer while it is over this element (a list of projects or services with a preview). Devices with a mouse only.', 'bricks-motion-studio' ),
+		);
+		$c['bmeFollowWidth']     = $g + array(
+			'label'       => esc_html__( 'Image width (px)', 'bricks-motion-studio' ),
+			'type'        => 'number',
+			'min'         => 60,
+			'max'         => 800,
+			'step'        => 10,
+			'placeholder' => '280',
+			'inline'      => true,
+			'small'       => true,
+			'required'    => array( 'bmeFollowImage', '!=', '' ),
+		);
+		$c['bmeSkew']            = $g + array(
+			'label'       => esc_html__( 'Skew with scroll speed (deg)', 'bricks-motion-studio' ),
+			'type'        => 'number',
+			'min'         => 0,
+			'max'         => 20,
+			'step'        => 0.5,
+			'placeholder' => '0',
+			'description' => esc_html__( 'Leans up to this many degrees while the page scrolls fast and settles back when it stops. Off with reduced motion.', 'bricks-motion-studio' ),
+			'inline'      => true,
+			'small'       => true,
 		);
 
 		return $c;
@@ -994,7 +1087,8 @@ class Bricks_Integration {
 		} elseif ( 'custom' === $mode || ! self::timeline_on_self( $tl_rows ) ) {
 			// An element with its own timeline is never also given a site-wide auto animation:
 			// both would write the same transform / opacity every frame.
-			$config = 'custom' === $mode ? $this->custom_config( $settings ) : $this->auto_config( $element, $name, $settings, $attributes );
+			$group  = 'custom' !== $mode && in_array( $name, self::LAYOUT_ELEMENTS, true ) ? Recipes::group_config( self::str( $settings, 'bmeRecipe' ) ) : null;
+			$config = $group ? $group : ( 'custom' === $mode ? $this->custom_config( $settings ) : $this->auto_config( $element, $name, $settings, $attributes ) );
 			if ( $config ) {
 				$attributes = $this->apply_config( $attributes, $config );
 			}
@@ -1019,9 +1113,9 @@ class Bricks_Integration {
 
 		// Hover effect (independent of the main animation; engine-free CSS/JS).
 		$hover = self::str( $settings, 'bmeHover' );
-		if ( 'off' !== $mode && in_array( $hover, array( 'lift', 'grow', 'magnetic', 'tilt' ), true ) ) {
+		if ( 'off' !== $mode && in_array( $hover, array( 'lift', 'grow', 'magnetic', 'tilt', 'roll' ), true ) ) {
 			$attributes['data-bme-hover'] = $hover;
-			$this->track( 'feature', 'hover' ); // engine-free: loads the runtime only
+			$this->track( 'feature', 'roll' === $hover ? 'interact' : 'hover' ); // engine-free
 		}
 
 		// Timeline rows (their own lightweight script; no animation library).
@@ -1103,6 +1197,42 @@ class Bricks_Integration {
 		if ( ! empty( $settings['bmeProgress'] ) ) {
 			$attributes['data-bme-progress'] = '';
 			$this->track( 'feature', 'progress' );
+		}
+		$inview = self::str( $settings, 'bmeInView' );
+		if ( '' !== $inview ) {
+			$class = sanitize_html_class( ltrim( $inview, '.' ) );
+			if ( '' !== $class ) {
+				$attributes['data-bme-inview'] = Plugin::json(
+					array_filter(
+						array(
+							'c' => $class,
+							'r' => ! empty( $settings['bmeInViewRepeat'] ) ? 1 : 0,
+							'o' => (int) Settings::get( 'defaults.offset', 15 ),
+						)
+					)
+				);
+				$this->track( 'feature', 'interact' );
+			}
+		}
+		$mouse = isset( $settings['bmeMouse'] ) && is_numeric( $settings['bmeMouse'] ) ? (int) max( -200, min( 200, (float) $settings['bmeMouse'] ) ) : 0;
+		if ( $mouse ) {
+			$attributes['data-bme-mouse'] = Plugin::json( array_filter( array( 's' => $mouse, 'a' => 'section' === self::str( $settings, 'bmeMouseArea' ) ? 'section' : '' ) ) );
+			$this->track( 'feature', 'interact' );
+		}
+		$follow = self::image_url( $settings['bmeFollowImage'] ?? null );
+		if ( '' !== $follow ) {
+			$attributes['data-bme-follow'] = Plugin::json(
+				array(
+					'src' => $follow,
+					'w'   => isset( $settings['bmeFollowWidth'] ) && is_numeric( $settings['bmeFollowWidth'] ) ? (int) max( 60, min( 800, (float) $settings['bmeFollowWidth'] ) ) : 280,
+				)
+			);
+			$this->track( 'feature', 'interact' );
+		}
+		$skew = isset( $settings['bmeSkew'] ) && is_numeric( $settings['bmeSkew'] ) ? round( max( 0, min( 20, (float) $settings['bmeSkew'] ) ), 2 ) : 0;
+		if ( $skew > 0 ) {
+			$attributes['data-bme-skew'] = (string) $skew;
+			$this->track( 'feature', 'interact' );
 		}
 		return $attributes;
 	}
@@ -1268,6 +1398,15 @@ class Bricks_Integration {
 			'height'          => esc_html__( 'Height', 'bricks-motion-studio' ),
 			'color'           => esc_html__( 'Text color', 'bricks-motion-studio' ),
 			'backgroundColor' => esc_html__( 'Background color', 'bricks-motion-studio' ),
+			'blur'            => esc_html__( 'Blur', 'bricks-motion-studio' ),
+			'skewX'           => esc_html__( 'Skew horizontally (skewX)', 'bricks-motion-studio' ),
+			'skewY'           => esc_html__( 'Skew vertically (skewY)', 'bricks-motion-studio' ),
+			'rotateX'         => esc_html__( 'Tilt forward / back in 3D (rotateX)', 'bricks-motion-studio' ),
+			'rotateY'         => esc_html__( 'Turn left / right in 3D (rotateY)', 'bricks-motion-studio' ),
+			'radius'          => esc_html__( 'Corner radius', 'bricks-motion-studio' ),
+			'letterSpacing'   => esc_html__( 'Letter spacing', 'bricks-motion-studio' ),
+			'clip'            => esc_html__( 'Wipe reveal (% shown, from the bottom up)', 'bricks-motion-studio' ),
+			'circle'          => esc_html__( 'Circle reveal (circle size %)', 'bricks-motion-studio' ),
 		);
 	}
 
@@ -1330,7 +1469,7 @@ class Bricks_Integration {
 			if ( ! is_array( $row ) ) {
 				continue;
 			}
-			$on   = isset( $row['on'] ) && is_string( $row['on'] ) && in_array( $row['on'], array( 'scroll', 'view', 'hover', 'leave', 'loop' ), true ) ? $row['on'] : 'scroll';
+			$on   = isset( $row['on'] ) && is_string( $row['on'] ) && in_array( $row['on'], array( 'scroll', 'view', 'hover', 'leave', 'loop', 'click' ), true ) ? $row['on'] : 'scroll';
 			$prop = isset( $row['prop'] ) && is_string( $row['prop'] ) && isset( $props[ $row['prop'] ] ) ? $row['prop'] : 'y';
 			$keys = self::timeline_keys( isset( $row['keys'] ) && is_scalar( $row['keys'] ) ? (string) $row['keys'] : '', $prop );
 			if ( ! $keys ) {
@@ -1550,7 +1689,22 @@ class Bricks_Integration {
 				$allowed = 'auto|-?overflow|' . $length;
 				break;
 			case 'rotate':
+			case 'skewX':
+			case 'skewY':
+			case 'rotateX':
+			case 'rotateY':
 				$allowed = 'auto|' . $number . '(?:deg|turn)?';
+				break;
+			case 'blur':
+				$allowed = 'auto|(?:\d+\.?\d*|\.\d+)(?:px|em|rem)?'; // a length, never negative
+				break;
+			case 'radius':
+			case 'letterSpacing':
+				$allowed = 'auto|' . $length;
+				break;
+			case 'clip':
+			case 'circle':
+				$allowed = 'auto|' . $number . '%?';
 				break;
 			case 'opacity':
 			case 'scale':
@@ -1619,6 +1773,23 @@ class Bricks_Integration {
 		return $parts;
 	}
 
+	/**
+	 * URL of a Bricks image control value (a Media Library image in a size, or an external URL).
+	 *
+	 * @param mixed $img Control value.
+	 * @return string '' when there is none.
+	 */
+	public static function image_url( $img ) {
+		if ( ! is_array( $img ) ) {
+			return '';
+		}
+		$id   = isset( $img['id'] ) && is_numeric( $img['id'] ) ? (int) $img['id'] : 0;
+		$size = isset( $img['size'] ) && is_string( $img['size'] ) ? $img['size'] : 'large';
+		$url  = $id ? wp_get_attachment_image_url( $id, $size ) : ( isset( $img['url'] ) && is_string( $img['url'] ) ? $img['url'] : '' );
+		$url  = $url ? esc_url_raw( $url, array( 'http', 'https' ) ) : '';
+		return is_string( $url ) ? $url : '';
+	}
+
 	private static function str( array $s, $key ) {
 		return isset( $s[ $key ] ) && is_scalar( $s[ $key ] ) ? trim( (string) $s[ $key ] ) : '';
 	}
@@ -1648,8 +1819,18 @@ class Bricks_Integration {
 		}
 
 		$trigger = self::str( $s, 'bmeTrigger' );
-		if ( 'load' === $trigger || 'manual' === $trigger ) {
+		if ( 'load' === $trigger || 'manual' === $trigger || 'click' === $trigger ) {
 			$opts['trigger'] = $trigger;
+		}
+		if ( 'click' === $trigger && '' !== self::str( $s, 'bmeClickTarget' ) ) {
+			$click = Settings::sanitize_selector_list( self::str( $s, 'bmeClickTarget' ) );
+			if ( $click ) {
+				$opts['click'] = self::loop_safe_selector( $click );
+			}
+		}
+		$from = self::str( $s, 'bmeStaggerFrom' );
+		if ( in_array( $from, array( 'end', 'center', 'edges', 'random' ), true ) ) {
+			$opts['from'] = $from;
 		}
 
 		foreach ( array(
@@ -1671,6 +1852,9 @@ class Bricks_Integration {
 		}
 		if ( ! empty( $s['bmeReplay'] ) ) {
 			$opts['replay'] = 1;
+		}
+		if ( 'marquee' === $preset && ! empty( $s['bmeBoost'] ) ) {
+			$opts['boost'] = 1;
 		}
 
 		return array(

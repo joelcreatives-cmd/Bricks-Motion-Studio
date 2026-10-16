@@ -4,7 +4,7 @@ Tags: bricks, animation, gsap, three.js, scroll
 Requires at least: 6.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -59,6 +59,15 @@ Like any other plugin: WordPress checks this plugin's GitHub releases (from the 
 While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 
 == Changelog ==
+
+= 1.1.0 =
+* New: Start → When clicked (a button anywhere on the page reveals an element, or an element replays when clicked; "#" links don't jump), and a Click trigger for timeline rows (plays, the next click plays it back).
+* New: Stagger order: from the last, from the center out, from the edges in, or random; center and edges follow the layout, so grids cascade from their middle.
+* New timeline properties: blur, skew, 3D rotation (rotateX / rotateY in perspective), corner radius, letter spacing, wipe and circle reveals.
+* New extras: move with the pointer (layers with depth, page-wide or per section), an image that follows the pointer, a class when in view, skew with scroll speed.
+* New hover effect: Text roll. Marquees can speed up with scrolling (every engine).
+* New element: Image sequence (scroll), frames from the Media Library or a numbered URL pattern, played while crossing the screen or pinned for a scroll length; still frame for reduced motion.
+* New recipes: gallery grid (from the center), pricing cards, logo wall (random), alternating rows, testimonials, split hero, call to action.
 
 = 1.0.0 =
 * Initial release.

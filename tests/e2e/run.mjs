@@ -639,6 +639,29 @@ async function run( mode ) {
 			BricksMotion.refresh( em ); await wait( 100 );
 			window.scrollTo( 0, em.getBoundingClientRect().top + window.scrollY - innerHeight / 2 ); await wait( 2000 );
 			if ( em.getAttribute( 'data-bme-state' ) !== 'done' || +getComputedStyle( em ).opacity < 0.99 ) fail.push( 'empty element at the screen edge never played (' + em.getAttribute( 'data-bme-state' ) + ', opacity ' + getComputedStyle( em ).opacity + ')' );
+			// 1.1: click trigger. With a selector it waits hidden for a click on a match, then plays.
+			const ckBtn = add( '<button type="button" class="c10-open">open</button>' );
+			const ck = add( '<div data-bme="fade-up" data-bme-engine="native" data-bme-hide data-bme-opts=\'{"trigger":"click","click":".c10-open"}\' style="height:40px">clicked</div>' );
+			BricksMotion.refresh( ck ); show( ck ); await wait( 900 );
+			if ( +getComputedStyle( ck ).opacity > 0.1 ) fail.push( 'click trigger: played before the click (opacity ' + getComputedStyle( ck ).opacity + ')' );
+			ckBtn.click(); await wait( 1500 );
+			if ( ck.getAttribute( 'data-bme-state' ) !== 'done' || +getComputedStyle( ck ).opacity < 0.99 ) fail.push( 'click trigger: did not play on the click' );
+			// 1.1: stagger order from the center (by layout).
+			const so = add( '<div data-bme="fade-up" data-bme-engine="native" data-bme-hide data-bme-opts=\'{"scope":"children","stagger":0.1,"from":"center","trigger":"load"}\' style="display:flex;gap:4px"><i style="width:20px;height:20px;display:block"></i><i style="width:20px;height:20px;display:block"></i><i style="width:20px;height:20px;display:block"></i><i style="width:20px;height:20px;display:block"></i><i style="width:20px;height:20px;display:block"></i></div>' );
+			BricksMotion.refresh( so ); await wait( 80 );
+			const sd = [ ...so.children ].map( ( c ) => { const a = c.getAnimations()[ 0 ]; return a ? Math.round( a.effect.getTiming().delay ) : -1; } );
+			if ( ! ( sd[ 2 ] < sd[ 1 ] && sd[ 1 ] < sd[ 0 ] && sd[ 0 ] === sd[ 4 ] ) ) fail.push( 'stagger from the center: delays ' + sd.join( ',' ) );
+			// 1.1: timeline properties (blur, skew, 3D rotation, wipe) and the click trigger.
+			const tp = add( '<div style="width:60px;height:40px" ' + tlAttr( [ { on: 'view', p: 'blur', k: [ [ 0, '10px' ], [ 100, '0px' ] ], d: 2, e: 'linear', o: 0 }, { on: 'view', p: 'rotateY', k: [ [ 0, '60deg' ], [ 100, '0deg' ] ], d: 2, e: 'linear', o: 0 }, { on: 'view', p: 'clip', k: [ [ 0, '0%' ], [ 100, '100%' ] ], d: 2, e: 'linear', o: 0 } ] ) + '>p</div>' );
+			show( tp ); await wait( 1000 );
+			const tc = getComputedStyle( tp );
+			if ( ! /blur\(/.test( tc.filter ) || ! /matrix3d/.test( tc.transform ) || ! /inset\(/.test( tc.clipPath ) ) fail.push( 'timeline blur / rotateY / clip not applied mid-way: ' + [ tc.filter, tc.transform.slice( 0, 20 ), tc.clipPath ].join( ' | ' ) );
+			const tk = add( '<button type="button" style="width:40px;height:20px" ' + tlAttr( [ { on: 'click', p: 'x', k: [ [ 0, '0px' ], [ 100, '50px' ] ], d: 0.3, e: 'linear' } ] ) + '>t</button>' );
+			show( tk ); await wait( 300 ); tk.click(); await wait( 700 );
+			const tx1 = new DOMMatrix( getComputedStyle( tk ).transform ).e;
+			tk.click(); await wait( 700 );
+			const tx2 = getComputedStyle( tk ).transform;
+			if ( Math.round( tx1 ) !== 50 || ! ( tx2 === 'none' || new DOMMatrix( tx2 ).e === 0 ) ) fail.push( 'timeline click toggle: ' + tx1 + ' then ' + tx2 );
 			// Line reveal on text a Bricks script holds a node of (counter): the node stays on the page.
 			const bc = add( '<div data-bme="split-lines" data-bme-engine="gsap" data-bme-hide data-script-id="c10"><span class="count">0</span> clients</div>' );
 			const bcNode = bc.querySelector( '.count' );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       Bricks Motion Studio
  * Description:       Multi-library animation engine for Bricks Builder. Pick GSAP, Anime.js, Motion, Three.js and/or Lenis — one or all — and animations are applied automatically to Bricks elements, with per-element controls in the builder.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.5
  * Requires PHP:      7.4
  * Author:            JoelCreatives
@@ -17,7 +17,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BME_VERSION', '1.0.0' );
+define( 'BME_VERSION', '1.1.0' );
 define( 'BME_FILE', __FILE__ );
 define( 'BME_PATH', plugin_dir_path( __FILE__ ) );
 define( 'BME_URL', plugin_dir_url( __FILE__ ) );

@@ -741,6 +741,16 @@
 						a.play();
 					} );
 				},
+				// Playback speed (1 = as set): a marquee that speeds up while the page scrolls.
+				rate: function ( r ) {
+					anims.forEach( function ( a ) {
+						if ( a.updatePlaybackRate ) {
+							a.updatePlaybackRate( r );
+						} else {
+							a.playbackRate = r;
+						}
+					} );
+				},
 				revert: function () {
 					anims.forEach( function ( a ) {
 						a.cancel();
@@ -864,7 +874,7 @@
 
 		var o = parseJSON( el.getAttribute( 'data-bme-opts' ) );
 		// Individual attribute overrides: data-bme-duration="1.2" etc.
-		[ 'duration', 'delay', 'stagger', 'distance', 'offset', 'speed', 'ease', 'trigger', 'scope', 'replay' ].forEach( function ( k ) {
+		[ 'duration', 'delay', 'stagger', 'distance', 'offset', 'speed', 'ease', 'trigger', 'scope', 'replay', 'click', 'from' ].forEach( function ( k ) {
 			var v = el.getAttribute( 'data-bme-' + k );
 			// A bare data-bme-replay (no value) switches replay on.
 			if ( v !== null && ( v !== '' || k === 'replay' ) ) {
@@ -887,7 +897,12 @@
 			offset: Math.max( 0, Math.min( 50, num( o.offset, D.offset ) ) ),
 			speed: num( o.speed, D.speed ),
 			ease: o.ease || p.ease || D.ease,
-			trigger: o.trigger === 'load' || o.trigger === 'manual' ? o.trigger : 'scroll',
+			trigger: o.trigger === 'load' || o.trigger === 'manual' || o.trigger === 'click' ? o.trigger : 'scroll',
+			// Click: a selector for what starts it (anywhere on the page); empty = the element itself.
+			click: typeof o.click === 'string' ? o.click.trim() : '',
+			// Stagger order across the animated children / words: start, end, center, edges, random.
+			from: /^(end|center|edges|random)$/.test( o.from ) ? o.from : 'start',
+			boost: o.boost !== undefined && flag( o.boost ), // marquee: faster while the page scrolls
 			scope: o.scope || 'self',
 			replay: o.replay !== undefined ? flag( o.replay ) : !! D.replay,
 			minWidth: num( o.minWidth, 0 ),
@@ -1350,6 +1365,19 @@
 			busy: false,
 		};
 
+		// A group recipe (gallery, pricing…): children with their own animation (set to Custom)
+		// keep it instead of joining the group.
+		if ( c.recipe && rec.targets[ 0 ] !== el ) {
+			rec.targets = rec.targets.filter( function ( t ) {
+				return ! t.hasAttribute( 'data-bme' );
+			} );
+			if ( ! rec.targets.length ) {
+				unhide( el );
+				byEl.set( el, { el: el, skipped: true } );
+				return null;
+			}
+		}
+
 		// Scoped children: same design rules as the element itself (skip invisible-by-design ones).
 		if ( rec.targets.length && rec.targets[ 0 ] !== el ) {
 			rec.targets.forEach( function ( t ) {
@@ -1544,9 +1572,117 @@
 			} else {
 				safePlay( rec, 0 );
 			}
+		} else if ( c.trigger === 'click' ) {
+			watchClick( rec );
 		} else if ( c.trigger !== 'manual' ) {
 			watch( rec );
 		}
+	}
+
+	/* Click trigger: one listener for the page. With a selector the element waits (hidden) for a
+	 * click on a match; without one it shows as designed and a click on it plays it (again). */
+	var clickRecs = new Set();
+	function onClickTrigger( e ) {
+		var t = e.target;
+		clickRecs.forEach( function ( rec ) {
+			if ( ! records.has( rec ) || ! rec.el.isConnected ) {
+				clickRecs.delete( rec );
+				return;
+			}
+			var hit = false;
+			if ( rec.cfg.click ) {
+				try {
+					var src = t && t.closest && t.closest( rec.cfg.click );
+					hit = !! src;
+					// A link used only as a button ("#"): it opens content here, it must not jump to the top.
+					var link = src && src.closest( 'a[href]' );
+					if ( link && link.getAttribute( 'href' ) === '#' ) {
+						e.preventDefault();
+					}
+				} catch ( err ) {
+					log( 'Invalid click selector', rec.cfg.click );
+					clickRecs.delete( rec );
+				}
+			} else {
+				hit = rec.el.contains( t );
+			}
+			if ( hit ) {
+				api.play( rec.el );
+			}
+		} );
+	}
+	function watchClick( rec ) {
+		if ( ! /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
+			watch( rec ); // loops and the like keep their own start
+			return;
+		}
+		if ( ! clickRecs.size ) {
+			document.addEventListener( 'click', onClickTrigger );
+		}
+		clickRecs.add( rec );
+		if ( ! rec.cfg.click && ! rec.played ) {
+			finish( rec ); // clicked on itself: visible until the click replays it
+		}
+	}
+
+	/** Delays for a stagger in another order than first-to-last. Center / edges go by distance from
+	 * the middle of the group on screen, so a grid cascades out from (or in to) its centre. */
+	function orderStagger( from, targets, s ) {
+		var n = targets.length;
+		if ( from === 'start' || typeof s !== 'number' || ! s || n < 2 ) {
+			return s;
+		}
+		if ( from === 'end' ) {
+			return function ( i ) {
+				return ( n - 1 - i ) * s;
+			};
+		}
+		if ( from === 'random' ) {
+			var pos = [];
+			var order = targets.map( function ( t, i ) {
+				return i;
+			} );
+			var seed = n * 9301 + 49297; // the same order on every visit (no reshuffle on replay)
+			for ( var k = n - 1; k > 0; k-- ) {
+				seed = ( seed * 9301 + 49297 ) % 233280;
+				var j = Math.floor( ( seed / 233280 ) * ( k + 1 ) );
+				var tmp = order[ k ];
+				order[ k ] = order[ j ];
+				order[ j ] = tmp;
+			}
+			order.forEach( function ( idx, at ) {
+				pos[ idx ] = at;
+			} );
+			return function ( i ) {
+				return pos[ i ] * s;
+			};
+		}
+		var pts = targets.map( function ( t ) {
+			var r = t.getBoundingClientRect();
+			return [ r.left + r.width / 2, r.top + r.height / 2 ];
+		} );
+		var cx = 0;
+		var cy = 0;
+		pts.forEach( function ( q ) {
+			cx += q[ 0 ] / n;
+			cy += q[ 1 ] / n;
+		} );
+		var dist = pts.map( function ( q ) {
+			return Math.sqrt( ( q[ 0 ] - cx ) * ( q[ 0 ] - cx ) + ( q[ 1 ] - cy ) * ( q[ 1 ] - cy ) );
+		} );
+		var max = Math.max.apply( null, dist );
+		if ( ! ( max > 0.5 ) ) {
+			// Not laid out (no size yet): by position in the list.
+			dist = targets.map( function ( t, i ) {
+				return Math.abs( i - ( n - 1 ) / 2 );
+			} );
+			max = ( n - 1 ) / 2;
+		}
+		var span = ( s * ( n - 1 ) ) / 2;
+		return function ( i ) {
+			var f = dist[ i ] / max;
+			return ( from === 'edges' ? 1 - f : f ) * span;
+		};
 	}
 
 	/** play() that can never leave an element hidden: any engine error reveals it. */
@@ -1673,7 +1809,7 @@
 			duration: rec.fade ? Math.min( c.duration, 0.6 ) : c.duration,
 			delay: delay,
 			ease: rec.fade ? 'soft' : c.ease,
-			stagger: rec.targets.length > 1 ? c.stagger : 0,
+			stagger: rec.targets.length > 1 ? orderStagger( c.from, rec.targets, c.stagger ) : 0,
 		} );
 		whenDone( rec );
 	}
@@ -1733,6 +1869,10 @@
 			if ( stagger * ( targets.length - 1 ) > cap ) {
 				stagger = cap / ( targets.length - 1 );
 			}
+		}
+
+		if ( split && type !== 'lines' ) {
+			stagger = orderStagger( c.from, targets, stagger );
 		}
 
 		// Line reveals with the core splitter: every word of a line shares the line's delay.
@@ -1881,7 +2021,7 @@
 				sv.style.strokeDashoffset = sv.__bmeLen;
 			} );
 		}
-		if ( c.trigger !== 'manual' ) {
+		if ( c.trigger !== 'manual' && c.trigger !== 'click' ) {
 			watch( rec );
 		}
 	}
@@ -2163,9 +2303,68 @@
 				yoyo: c.preset.yoyo !== false,
 			} );
 			rec.played = true;
+			if ( c.boost && c.preset.marquee && rec.ctrl.rate ) {
+				watchBoost( rec );
+			}
 		} else if ( rec.ctrl.play ) {
 			rec.ctrl.play();
 		}
+	}
+
+	/* Marquees that speed up with scrolling: the strip runs faster the faster the page scrolls
+	 * (up to 5×) and eases back to its own speed when scrolling stops. */
+	var boostRecs = new Set();
+	var boostSpeed = 0;
+	var boostRate = 1;
+	var boostRunning = false;
+	var boostY = 0;
+	var boostT = 0;
+	function boostFrame() {
+		boostSpeed *= 0.92;
+		var target = motionOff() || fadeOnly() ? 1 : 1 + Math.min( 4, Math.abs( boostSpeed ) * 2.5 );
+		boostRate += ( target - boostRate ) * 0.15;
+		var done = Math.abs( boostRate - 1 ) < 0.005 && Math.abs( boostSpeed ) < 0.002;
+		if ( done ) {
+			boostRate = 1;
+		}
+		boostRecs.forEach( function ( rec ) {
+			if ( ! records.has( rec ) || ! rec.ctrl || ! rec.ctrl.rate ) {
+				boostRecs.delete( rec );
+				return;
+			}
+			try {
+				rec.ctrl.rate( boostRate );
+			} catch ( e ) {
+				boostRecs.delete( rec );
+			}
+		} );
+		if ( done ) {
+			boostRunning = false;
+		} else {
+			requestAnimationFrame( boostFrame );
+		}
+	}
+	function onBoostScroll() {
+		var now = window.performance ? window.performance.now() : Date.now();
+		var dt = Math.max( 8, now - boostT );
+		var dy = window.scrollY - boostY;
+		boostY = window.scrollY;
+		boostT = now;
+		if ( Math.abs( dy ) > ( window.innerHeight || 800 ) * 1.5 ) {
+			return; // a jump (anchor link, back to top), not scrolling the visitor sees
+		}
+		boostSpeed = boostSpeed * 0.6 + Math.max( -6, Math.min( 6, dy / dt ) ) * 0.4;
+		if ( boostRecs.size && ! boostRunning ) {
+			boostRunning = true;
+			requestAnimationFrame( boostFrame );
+		}
+	}
+	function watchBoost( rec ) {
+		if ( ! boostRecs.size ) {
+			boostY = window.scrollY;
+			window.addEventListener( 'scroll', onBoostScroll, { passive: true } );
+		}
+		boostRecs.add( rec );
 	}
 
 	function pauseLoop( rec ) {
@@ -3012,7 +3211,7 @@
 			}
 		} );
 		created.forEach( function ( rec ) {
-			if ( setupWait && rec.kind === 'reveal' && rec.cfg.trigger !== 'load' && rec.cfg.trigger !== 'manual' && rec.targets.some( function ( t ) {
+			if ( setupWait && rec.kind === 'reveal' && rec.cfg.trigger !== 'load' && rec.cfg.trigger !== 'manual' && rec.cfg.trigger !== 'click' && rec.targets.some( function ( t ) {
 				return restOf( t ) && ! restOf( t ).sized;
 			} ) ) {
 				waiting.set( rec.el, rec );
@@ -3625,7 +3824,7 @@
 				var rec = byEl.get( el );
 				if ( rec && ! rec.skipped && ! rec.persistent && rec.played && /^(reveal|text|draw|counter)$/.test( rec.kind ) ) {
 					reset( rec );
-					if ( rec.cfg.trigger === 'manual' ) {
+					if ( rec.cfg.trigger === 'manual' || rec.cfg.trigger === 'click' ) {
 						unwatch( rec );
 					}
 				}

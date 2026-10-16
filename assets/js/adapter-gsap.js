@@ -144,6 +144,9 @@
 			play: function () {
 				tween.play();
 			},
+			rate: function ( r ) {
+				tween.timeScale( r );
+			},
 			revert: function () {
 				if ( tween.scrollTrigger ) {
 					tween.scrollTrigger.kill();
