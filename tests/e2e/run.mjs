@@ -662,6 +662,22 @@ async function run( mode ) {
 			tk.click(); await wait( 700 );
 			const tx2 = getComputedStyle( tk ).transform;
 			if ( Math.round( tx1 ) !== 50 || ! ( tx2 === 'none' || new DOMMatrix( tx2 ).e === 0 ) ) fail.push( 'timeline click toggle: ' + tx1 + ' then ' + tx2 );
+			// 1.1: fine-tuned motion from the element (data-bme-opts "m"): start values and a counter's first number.
+			const ft = add( '<div data-bme="zoom-in" data-bme-engine="native" data-bme-hide data-bme-opts=\'{"trigger":"load","m":{"from":{"scale":0.3,"rotate":15}}}\' style="width:40px;height:40px">ft</div>' );
+			BricksMotion.refresh( ft ); await wait( 80 );
+			const fa = ft.getAnimations()[ 0 ];
+			const fk = fa ? fa.effect.getKeyframes()[ 0 ].transform : '';
+			if ( ! /scale\(0\.3\)/.test( fk ) || ! /rotate\(15deg\)/.test( fk ) ) fail.push( 'fine-tuned start values not used: ' + fk );
+			const bad = add( '<div data-bme="fade-up" data-bme-engine="native" data-bme-hide data-bme-opts=\'{"trigger":"load","m":{"from":{"y":"evil()","nope":5}}}\' style="height:20px">bad</div>' );
+			BricksMotion.refresh( bad ); await wait( 80 );
+			const bk = ( bad.getAnimations()[ 0 ] || { effect: { getKeyframes: () => [ {} ] } } ).effect.getKeyframes()[ 0 ].transform || '';
+			if ( /evil|nope/.test( bk ) ) fail.push( 'fine-tune accepted a value that is not a number: ' + bk );
+			const fc = add( '<p data-bme="counter" data-bme-opts=\'{"m":{"start":40}}\' style="margin-top:600px">90 items</p>' );
+			BricksMotion.refresh( fc ); await wait( 100 );
+			const shown = [ ...fc.childNodes ].filter( ( n ) => ! ( n.classList && n.classList.contains( 'bme-sr-only' ) ) ).map( ( n ) => n.textContent ).join( '' ).trim();
+			if ( shown !== '40 items' ) fail.push( 'counter does not start from its fine-tuned number: ' + shown );
+			show( fc ); await wait( 2600 );
+			if ( fc.textContent !== '90 items' ) fail.push( 'fine-tuned counter did not end on its text: ' + fc.textContent );
 			// Line reveal on text a Bricks script holds a node of (counter): the node stays on the page.
 			const bc = add( '<div data-bme="split-lines" data-bme-engine="gsap" data-bme-hide data-script-id="c10"><span class="count">0</span> clients</div>' );
 			const bcNode = bc.querySelector( '.count' );

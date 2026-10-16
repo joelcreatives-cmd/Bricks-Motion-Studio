@@ -708,9 +708,50 @@
 		} );
 	}
 	// The preset as currently typed (unsaved values included).
+	// A My preset's base: the built-in animation as shipped (not an adjusted copy of it).
+	var builtin = data.builtin || presets;
+	var tunable = data.tunable || {};
+	var AMOUNT_UNIT = { float: [ 'How far it floats', 'px' ], pulse: [ 'How much it grows', '%' ], sway: [ 'How far it rocks', '°' ] };
+	// Two presets changing the same built-in animation site-wide: say which one wins.
+	function mineReplaceNotes() {
+		var seen = {};
+		$$( '#bme-mine-body [data-bme-mine]' ).forEach( function ( r ) {
+			var on = $( '[data-bme-mine-replace]', r );
+			var note = $( '[data-bme-mine-replace-note]', r );
+			var base = ( $( '[data-bme-mine-base]', r ) || {} ).value;
+			if ( note ) {
+				note.hidden = true;
+			}
+			if ( on && on.checked && base ) {
+				if ( seen[ base ] && note ) {
+					note.hidden = false;
+				}
+				seen[ base ] = true;
+			}
+		} );
+	}
+	document.addEventListener( 'change', function ( e ) {
+		if ( e.target.closest && e.target.closest( '[data-bme-mine-replace], [data-bme-mine-base]' ) ) {
+			mineReplaceNotes();
+		}
+	} );
+	setTimeout( mineReplaceNotes, 0 );
+	function mineExtras( row ) {
+		var base = $( '[data-bme-mine-base]', row ).value;
+		var can = tunable[ base ] || {};
+		$$( '[data-bme-extra]', row ).forEach( function ( box ) {
+			var k = box.getAttribute( 'data-bme-extra' );
+			box.hidden = ! ( k === 'tilt' ? !! can.tilt : can[ k ] );
+		} );
+		var amount = $( '[data-bme-extra="amount"]', row );
+		if ( amount && AMOUNT_UNIT[ base ] ) {
+			$( '[data-bme-extra-label]', amount ).textContent = ( i18n[ 'amount_' + base ] || AMOUNT_UNIT[ base ][ 0 ] );
+			$( '[data-bme-extra-unit]', amount ).textContent = AMOUNT_UNIT[ base ][ 1 ];
+		}
+	}
 	function mineFromRow( row ) {
 		var base = $( '[data-bme-mine-base]', row ).value;
-		var p = Object.assign( {}, presets[ base ] || {} );
+		var p = Object.assign( {}, builtin[ base ] || {} );
 		[ 'duration', 'delay', 'distance', 'stagger' ].forEach( function ( k ) {
 			var field = $( 'input[name$="[' + k + ']"]', row );
 			var v = field ? parseFloat( field.value ) : NaN;
@@ -731,6 +772,30 @@
 					p.from[ f.getAttribute( 'data-bme-from' ) ] = v;
 				}
 			} );
+			var can = tunable[ base ] || {};
+			var tilt = parseFloat( ( $( 'input[name$="[tilt]"]', row ) || {} ).value );
+			if ( can.tilt && isFinite( tilt ) ) {
+				p.from[ can.tilt ] = tilt;
+			}
+		}
+		// Loop amount and marquee direction, as the server applies them (Presets::tune).
+		var amount = parseFloat( ( $( 'input[name$="[amount]"]', row ) || {} ).value );
+		if ( isFinite( amount ) && /^(float|pulse|sway)$/.test( base ) ) {
+			p.from = Object.assign( {}, p.from );
+			p.to = Object.assign( {}, p.to );
+			if ( base === 'float' ) {
+				p.to.y = -amount;
+			} else if ( base === 'pulse' ) {
+				p.to.scale = 1 + amount / 100;
+			} else {
+				p.to.rotate = amount;
+				p.from.rotate = -amount;
+			}
+		}
+		var dir = $( 'select[name$="[dir]"]', row );
+		if ( dir && dir.value === 'right' && p.marquee ) {
+			p.from = Object.assign( {}, p.from, { x: '-50%' } );
+			p.to = Object.assign( {}, p.to, { x: '0%' } );
 		}
 		return p;
 	}
@@ -743,7 +808,8 @@
 		if ( ! box ) {
 			return;
 		}
-		var base = presets[ $( '[data-bme-mine-base]', row ).value ] || {};
+		mineExtras( row );
+		var base = builtin[ $( '[data-bme-mine-base]', row ).value ] || {};
 		var shapeable = !! base.from && /^(reveal|text)$/.test( base.group || '' );
 		$( '.bme-mine__builder', box ).hidden = ! shapeable;
 		$( '[data-bme-mine-nomotion]', box ).hidden = shapeable;

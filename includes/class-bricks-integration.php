@@ -405,6 +405,71 @@ class Bricks_Integration {
 			'required'    => array( $custom, array( 'bmePreset', '=', 'marquee' ) ),
 		);
 
+		// Fine-tune the motion: only the fields that fit the chosen animation (My presets follow
+		// the animation they are based on).
+		$tune = array( 'shape' => array(), 'tilt' => array(), 'float' => array(), 'pulse' => array(), 'sway' => array(), 'dir' => array(), 'start' => array() );
+		foreach ( Presets::all() as $slug => $p ) {
+			$base = ! empty( $p['base'] ) ? $p['base'] : $slug;
+			$can  = Presets::tunables( $base );
+			foreach ( array( 'shape', 'dir', 'start' ) as $k ) {
+				if ( $can[ $k ] ) {
+					$tune[ $k ][] = $slug;
+				}
+			}
+			if ( '' !== $can['tilt'] ) {
+				$tune['tilt'][] = $slug;
+			}
+			if ( $can['amount'] ) {
+				$tune[ $base ][] = $slug;
+			}
+		}
+		$any = array_values( array_unique( array_merge( ...array_values( $tune ) ) ) );
+		if ( $any ) {
+			$c['bmeTuneSeparator'] = $g + array(
+				'label'       => esc_html__( 'Fine-tune the motion', 'bricks-motion-studio' ),
+				'type'        => 'separator',
+				'description' => esc_html__( 'Optional. Change how this animation moves on this element only. Empty fields keep the animation\'s own movement (Zoom in, for example, starts at 85% size). A start position set here replaces the travel distance above. To change an animation everywhere on the site, use My presets in the dashboard.', 'bricks-motion-studio' ),
+				'required'    => array( $custom, array( 'bmePreset', '=', $any ) ),
+			);
+		}
+		$num = function ( $key, $label, $min, $max, $step, $list, $placeholder = '' ) use ( &$c, $g, $custom ) {
+			if ( ! $list ) {
+				return;
+			}
+			$c[ $key ] = $g + array(
+				'label'       => $label,
+				'type'        => 'number',
+				'min'         => $min,
+				'max'         => $max,
+				'step'        => $step,
+				'placeholder' => $placeholder,
+				'inline'      => true,
+				'small'       => true,
+				'required'    => array( $custom, array( 'bmePreset', '=', $list ) ),
+			);
+		};
+		$num( 'bmeFromOpacity', esc_html__( 'Start opacity (%)', 'bricks-motion-studio' ), 0, 100, 5, $tune['shape'] );
+		$num( 'bmeFromX', esc_html__( 'Start sideways (px)', 'bricks-motion-studio' ), -1000, 1000, 1, $tune['shape'] );
+		$num( 'bmeFromY', esc_html__( 'Start up / down (px)', 'bricks-motion-studio' ), -1000, 1000, 1, $tune['shape'] );
+		$num( 'bmeFromScale', esc_html__( 'Start size (%)', 'bricks-motion-studio' ), 0, 300, 1, $tune['shape'] );
+		$num( 'bmeFromRotate', esc_html__( 'Start rotation (°)', 'bricks-motion-studio' ), -360, 360, 1, $tune['shape'] );
+		$num( 'bmeFromBlur', esc_html__( 'Start blur (px)', 'bricks-motion-studio' ), 0, 50, 0.5, $tune['shape'] );
+		$num( 'bmeTilt', esc_html__( '3D tilt at the start (°)', 'bricks-motion-studio' ), -90, 90, 1, $tune['tilt'], '65' );
+		$num( 'bmeAmountFloat', esc_html__( 'How far it floats (px)', 'bricks-motion-studio' ), 0, 120, 1, $tune['float'], '14' );
+		$num( 'bmeAmountPulse', esc_html__( 'How much it grows (%)', 'bricks-motion-studio' ), 0, 60, 1, $tune['pulse'], '6' );
+		$num( 'bmeAmountSway', esc_html__( 'How far it rocks (° each way)', 'bricks-motion-studio' ), 0, 45, 0.5, $tune['sway'], '3' );
+		if ( $tune['dir'] ) {
+			$c['bmeMarqueeDir'] = $g + array(
+				'label'       => esc_html__( 'Direction', 'bricks-motion-studio' ),
+				'type'        => 'select',
+				'options'     => array( 'right' => esc_html__( 'Slides to the right', 'bricks-motion-studio' ) ),
+				'placeholder' => esc_html__( 'Slides to the left', 'bricks-motion-studio' ),
+				'inline'      => true,
+				'required'    => array( $custom, array( 'bmePreset', '=', $tune['dir'] ) ),
+			);
+		}
+		$num( 'bmeCounterStart', esc_html__( 'Count from', 'bricks-motion-studio' ), -1000000000, 1000000000, 1, $tune['start'], '0' );
+
 		$c['bmeOffOn'] = $g + array(
 			'label'       => esc_html__( 'Turn off on', 'bricks-motion-studio' ),
 			'type'        => 'select',
@@ -1827,6 +1892,45 @@ class Bricks_Integration {
 		return is_string( $url ) ? $url : '';
 	}
 
+	/**
+	 * "Fine-tune the motion" fields of an element as the preset changes they make (data-bme-opts "m").
+	 *
+	 * @param string $preset Preset slug.
+	 * @param array  $s      Element settings.
+	 * @return array
+	 */
+	public static function fine_tune( $preset, array $s ) {
+		$all  = Presets::all();
+		$base = ! empty( $all[ $preset ]['base'] ) ? $all[ $preset ]['base'] : $preset;
+		$n    = static function ( $key ) use ( $s ) {
+			return isset( $s[ $key ] ) && is_scalar( $s[ $key ] ) && '' !== trim( (string) $s[ $key ] ) && is_numeric( $s[ $key ] ) ? (float) $s[ $key ] : null;
+		};
+		$raw  = array( 'from' => array() );
+		foreach ( array( 'bmeFromOpacity' => array( 'opacity', 100 ), 'bmeFromX' => array( 'x', 1 ), 'bmeFromY' => array( 'y', 1 ), 'bmeFromScale' => array( 'scale', 100 ), 'bmeFromRotate' => array( 'rotate', 1 ), 'bmeFromBlur' => array( 'blur', 1 ) ) as $key => $def ) {
+			$v = $n( $key );
+			if ( null !== $v ) {
+				$raw['from'][ $def[0] ] = $v / $def[1]; // percentages are stored as fractions
+			}
+		}
+		$raw['tilt']  = $n( 'bmeTilt' );
+		$raw['start'] = $n( 'bmeCounterStart' );
+		$amount       = array( 'float' => 'bmeAmountFloat', 'pulse' => 'bmeAmountPulse', 'sway' => 'bmeAmountSway' );
+		if ( isset( $amount[ $base ] ) ) {
+			$raw['amount'] = $n( $amount[ $base ] );
+		}
+		if ( 'right' === self::str( $s, 'bmeMarqueeDir' ) ) {
+			$raw['dir'] = 'right';
+		}
+		$raw = array_filter(
+			$raw,
+			static function ( $v ) {
+				return null !== $v && array() !== $v;
+			}
+		);
+		$t   = Settings::sanitize_tune( $raw, $base );
+		return $t ? Presets::tune_diff( $preset, $t ) : array();
+	}
+
 	private static function str( array $s, $key ) {
 		return isset( $s[ $key ] ) && is_scalar( $s[ $key ] ) ? trim( (string) $s[ $key ] ) : '';
 	}
@@ -1895,6 +1999,10 @@ class Bricks_Integration {
 		}
 		if ( 'marquee' === $preset && ! empty( $s['bmeBoost'] ) && Settings::feature( 'boost' ) ) {
 			$opts['boost'] = 1;
+		}
+		$m = self::fine_tune( $preset, $s );
+		if ( $m ) {
+			$opts['m'] = $m;
 		}
 
 		return array(

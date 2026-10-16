@@ -882,7 +882,7 @@
 			}
 		} );
 
-		var p = presets[ slug ];
+		var p = withMotion( presets[ slug ], o.m );
 		// Animation level (auto rules): scales values the element did not set itself.
 		var lv = has( LEVEL_SCALE, o.level ) ? LEVEL_SCALE[ o.level ] : LEVEL_SCALE.moderate;
 		return {
@@ -909,7 +909,40 @@
 			minWidth: num( o.minWidth, 0 ),
 			auto: !! o.auto,
 			recipe: !! o.recipe,
+			m: o.m, // fine-tuned motion, kept for a fallback preset
 		};
+	}
+
+	/**
+	 * The element's own fine-tuned motion (Motion Studio → Fine-tune the motion): start values,
+	 * end values, a counter's first number, over a copy of the preset. Built by the server; only
+	 * plain numbers and percentages are taken.
+	 */
+	var MOTION_KEYS = { opacity: 1, x: 1, y: 1, scale: 1, rotate: 1, blur: 1, rotateX: 1, rotateY: 1 };
+	function motionValue( v ) {
+		return typeof v === 'number' && isFinite( v ) ? v : ( typeof v === 'string' && /^-?\d+(\.\d+)?%$/.test( v ) ? v : null );
+	}
+	function withMotion( p, m ) {
+		if ( ! p || ! m || typeof m !== 'object' ) {
+			return p;
+		}
+		var q = Object.assign( {}, p );
+		[ 'from', 'to' ].forEach( function ( side ) {
+			if ( m[ side ] && typeof m[ side ] === 'object' ) {
+				var merged = Object.assign( {}, p[ side ] || {} );
+				Object.keys( m[ side ] ).forEach( function ( k ) {
+					var v = motionValue( m[ side ][ k ] );
+					if ( MOTION_KEYS[ k ] && v !== null ) {
+						merged[ k ] = v;
+					}
+				} );
+				q[ side ] = merged;
+			}
+		} );
+		if ( typeof m.start === 'number' && isFinite( m.start ) ) {
+			q.start = m.start;
+		}
+		return q;
 	}
 
 	/** Switched off site-wide in Motion Studio → Features. */
@@ -1325,7 +1358,7 @@
 		// Fallback preset when no loaded engine can run this one (e.g. scramble without GSAP).
 		if ( ! p.core && ! engineName && p.fallback && has( presets, p.fallback ) ) {
 			c.slug = p.fallback;
-			c.preset = p = presets[ p.fallback ];
+			c.preset = p = withMotion( presets[ p.fallback ], c.m ); // keeps the element's fine-tuning
 			kind = kindOf( p );
 			engineName = pickEngine( c.slug, c.engine );
 		}
@@ -2566,8 +2599,14 @@
 			wrap.appendChild( node );
 			rec.counterSr = [ wrap, sr ];
 		}
-		node.nodeValue = rec.numberPrefix + formatNumber( 0, rec.numberFmt ) + rec.numberSuffix;
+		node.nodeValue = rec.numberPrefix + formatNumber( counterStart( rec ), rec.numberFmt ) + rec.numberSuffix;
 		rec.el.style.fontVariantNumeric = 'tabular-nums';
+	}
+
+	/** The number a counter starts from: 0, or the one set in Fine-tune the motion / My presets. */
+	function counterStart( rec ) {
+		var s = rec.cfg && rec.cfg.preset && rec.cfg.preset.start;
+		return typeof s === 'number' && isFinite( s ) ? s : 0;
 	}
 
 	function runCounter( rec, delay ) {
@@ -2582,7 +2621,8 @@
 			delay: delay,
 			ease: rec.cfg.ease === 'smooth' ? 'strong' : rec.cfg.ease,
 			update: function ( e ) {
-				rec.numberNode.nodeValue = rec.numberPrefix + formatNumber( fmt.value * e, fmt ) + rec.numberSuffix;
+				var from = counterStart( rec );
+				rec.numberNode.nodeValue = rec.numberPrefix + formatNumber( from + ( fmt.value - from ) * e, fmt ) + rec.numberSuffix;
 			},
 			complete: function () {
 				rec.numberNode.nodeValue = rec.numberOriginal;

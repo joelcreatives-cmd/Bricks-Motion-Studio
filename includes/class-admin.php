@@ -199,6 +199,14 @@ class Admin {
 			'window.BME_ADMIN=' . Plugin::json(
 				array(
 					'presets' => Presets::all(),
+					// My presets: the built-in animations as shipped (a row's base) and what each one can tune.
+					'builtin' => Presets::builtin(),
+					'tunable' => array_map(
+						static function ( $slug ) {
+							return Presets::tunables( $slug );
+						},
+						array_combine( array_keys( Presets::builtin() ), array_keys( Presets::builtin() ) )
+					),
 					'rev'     => self::settings_rev(),
 					'ajax'    => admin_url( 'admin-ajax.php' ),
 					'nonce'   => wp_create_nonce( 'bme_settings_rev' ),
@@ -524,6 +532,7 @@ class Admin {
 			__( 'Easing', 'bricks-motion-studio' )         => __( 'How the movement speeds up and slows down. Smooth is a good default.', 'bricks-motion-studio' ),
 			__( 'Start line', 'bricks-motion-studio' )     => __( 'How far up the screen an element must come before it animates.', 'bricks-motion-studio' ),
 			__( 'Animation level', 'bricks-motion-studio' ) => __( 'Basic, Moderate or Advanced: how much movement the automatic animations use, site-wide or per page.', 'bricks-motion-studio' ),
+			__( 'Fine-tune the motion', 'bricks-motion-studio' ) => __( 'On one element (set to Custom): change where it starts (size, position, blur…), how far a loop moves, a marquee\'s direction or a counter\'s first number. To change an animation for the whole site, use My presets in Timing & feel.', 'bricks-motion-studio' ),
 			__( 'Timeline (keyframes)', 'bricks-motion-studio' ) => __( 'For a movement of your own: say where an element is at the start, middle and end (for example while scrolling), and Motion Studio moves it in between.', 'bricks-motion-studio' ),
 			__( 'Reduced motion', 'bricks-motion-studio' ) => __( 'A setting on visitors\' devices asking for less movement. Motion Studio respects it (Accessibility).', 'bricks-motion-studio' ),
 		);
@@ -809,6 +818,11 @@ class Admin {
 						<?php $this->preset_optgroups( (string) ( $row['base'] ?? 'fade-up' ), true ); ?>
 					</select>
 				</label>
+				<label class="bme-mine__replace">
+					<input type="checkbox" name="<?php echo esc_attr( $base . '[replace]' ); ?>" value="1" <?php checked( ! empty( $row['replace'] ) ); ?> data-bme-mine-replace>
+					<span><?php esc_html_e( 'Use it for every element with the original animation (changes the built-in one site-wide)', 'bricks-motion-studio' ); ?></span>
+				</label>
+				<p class="bme-mine__replace-note" data-bme-mine-replace-note hidden><?php esc_html_e( 'Another of your presets already changes this animation site-wide: the one lower in the list wins.', 'bricks-motion-studio' ); ?></p>
 				<button type="button" class="bme-icon-btn" data-bme-preview-mine aria-label="<?php esc_attr_e( 'Preview this preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Preview', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'play' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 				<button type="button" class="bme-icon-btn bme-icon-btn--danger" data-bme-remove-mine aria-label="<?php esc_attr_e( 'Remove preset', 'bricks-motion-studio' ); ?>" title="<?php esc_attr_e( 'Remove', 'bricks-motion-studio' ); ?>"><?php echo self::icon( 'trash' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></button>
 			</div>
@@ -819,6 +833,21 @@ class Admin {
 				$num( 'distance', __( 'Distance', 'bricks-motion-studio' ), 400, 1, 'px' );
 				$num( 'stagger', __( 'Stagger', 'bricks-motion-studio' ), 2, 0.01, 's' );
 				?>
+				<label class="bme-mine__num" data-bme-extra="tilt" hidden><span><?php esc_html_e( '3D tilt', 'bricks-motion-studio' ); ?></span>
+					<input type="number" class="bme-text" name="<?php echo esc_attr( $base . '[tilt]' ); ?>" value="<?php echo esc_attr( isset( $row['tilt'] ) ? (string) $row['tilt'] : '' ); ?>" min="-90" max="90" step="1" placeholder="<?php esc_attr_e( 'auto', 'bricks-motion-studio' ); ?>" inputmode="decimal"><em>°</em>
+				</label>
+				<label class="bme-mine__num" data-bme-extra="amount" hidden><span data-bme-extra-label><?php esc_html_e( 'Amount', 'bricks-motion-studio' ); ?></span>
+					<input type="number" class="bme-text" name="<?php echo esc_attr( $base . '[amount]' ); ?>" value="<?php echo esc_attr( isset( $row['amount'] ) ? (string) $row['amount'] : '' ); ?>" min="0" max="120" step="0.5" placeholder="<?php esc_attr_e( 'auto', 'bricks-motion-studio' ); ?>" inputmode="decimal"><em data-bme-extra-unit></em>
+				</label>
+				<label class="bme-mine__num" data-bme-extra="dir" hidden><span><?php esc_html_e( 'Direction', 'bricks-motion-studio' ); ?></span>
+					<select class="bme-select" name="<?php echo esc_attr( $base . '[dir]' ); ?>">
+						<option value=""><?php esc_html_e( 'To the left', 'bricks-motion-studio' ); ?></option>
+						<option value="right" <?php selected( (string) ( $row['dir'] ?? '' ), 'right' ); ?>><?php esc_html_e( 'To the right', 'bricks-motion-studio' ); ?></option>
+					</select>
+				</label>
+				<label class="bme-mine__num" data-bme-extra="start" hidden><span><?php esc_html_e( 'Count from', 'bricks-motion-studio' ); ?></span>
+					<input type="number" class="bme-text" name="<?php echo esc_attr( $base . '[start]' ); ?>" value="<?php echo esc_attr( isset( $row['start'] ) ? (string) $row['start'] : '' ); ?>" step="1" placeholder="0" inputmode="decimal">
+				</label>
 				<label class="bme-mine__num bme-mine__ease"><span><?php esc_html_e( 'Easing', 'bricks-motion-studio' ); ?></span>
 					<select class="bme-select" name="<?php echo esc_attr( $base . '[ease]' ); ?>">
 						<?php foreach ( $eases as $value => $label ) : ?>

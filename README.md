@@ -161,7 +161,22 @@ System → **Share presets and rules**: My presets and the auto-animate rules as
 
 Motion Studio → Timing & feel → **My presets**: give a built-in preset your own duration, delay, distance, stagger and easing, under your own name (shown with ★). It appears in every preset list — rules and the builder panel — and keeps working when you rename it (its id is fixed when you create it). Empty fields follow the base preset and the site defaults. Exported and imported with the rest of the settings.
 
-**Shape the motion** (entrance presets: reveals and text): set where the element starts — opacity, move X / Y, scale, rotate, blur — with a live preview that replays as you type. Empty fields keep the base preset's value (shown in grey). Scroll-linked and looping presets keep their own motion.
+**Shape the motion** (entrance presets: reveals and text): set where the element starts — opacity, move X / Y, scale, rotate, blur — with a live preview that replays as you type. Empty fields keep the base preset's value (shown in grey). Each base also shows the settings only it has: the 3D tilt of the flips, how far Float rises / how much Pulse grows / how far Sway rocks, the marquee's direction, the number a counter starts from.
+
+**Use it for every element with the original animation**: the built-in animation itself changes site-wide (rules, Auto-animate and every element that picked it), shown as "Fade up (adjusted)" in the lists. The My preset stays available under its own name too.
+
+## Fine-tune the motion (one element)
+
+Motion Studio → Custom → **Fine-tune the motion**, under the timing fields: only the settings that fit the chosen animation.
+
+| Animation | Fine-tune fields |
+|---|---|
+| Entrances (reveals, words, letters) | Start opacity (%), start sideways / up–down (px), start size (%), start rotation (°), start blur (px); flips also 3D tilt (°) |
+| Float / Pulse / Sway | How far it floats (px) / how much it grows (%) / how far it rocks (° each way) |
+| Marquee | Direction (left or right) |
+| Count up | Count from |
+
+Empty fields keep the animation's own movement. The live preview plays the change on the canvas. On the page the element gets `data-bme-opts` `"m"` (the changed start / end values and the counter's first number), which the runtime merges into the animation for that element only.
 
 ## Presets
 
@@ -191,6 +206,7 @@ data-bme         = fade-up
 data-bme-engine  = motion
 data-bme-opts    = {"duration":1.2,"delay":0.2,"scope":"children","stagger":0.1,"from":"center","trigger":"load","replay":1}
                    trigger "click" + "click":".selector"; marquee "boost":1
+                   "m":{"from":{"scale":0.6,"y":30},"to":{"y":-20},"start":100}  (fine-tune)
 data-bme-hover   = magnetic   (lift, grow, magnetic, tilt, roll)
 data-bme-inview  = {"c":"is-inview","r":1}
 data-bme-mouse   = {"s":24,"a":"section"}

@@ -5057,3 +5057,46 @@ html:has(.bme-wrap) {
 		grid-template-columns: 1fr;
 	}
 }
+
+/* My presets: "use it for every element with the original animation" sits under the name row. */
+.bme-mine__replace {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	grid-column: 1 / -1;
+	grid-row: 2;
+	font-size: 13.5px;
+	line-height: 1.4;
+	cursor: pointer;
+}
+
+.bme-mine__replace input {
+	margin-top: 2px;
+	accent-color: var(--accent);
+}
+
+@media (max-width: 600px) {
+	.bme-mine__replace {
+		grid-row: 3;
+	}
+}
+
+.bme-mine__replace-note {
+	grid-column: 1 / -1;
+	grid-row: 3;
+	margin: 0;
+	color: var(--warn);
+	font-size: 13px;
+}
+
+@media (max-width: 600px) {
+	.bme-mine__replace-note {
+		grid-row: 4;
+	}
+}
+
+/* Fields hidden by the script stay hidden (the field layout sets its own display). */
+.bme-mine__num[hidden],
+.bme-wrap [data-bme-extra][hidden] {
+	display: none !important;
+}

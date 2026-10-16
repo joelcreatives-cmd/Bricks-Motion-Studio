@@ -293,18 +293,12 @@ class Settings {
 			if ( isset( self::eases()[ $ease ] ) ) {
 				$item['ease'] = $ease;
 			}
-			// The motion itself (preset builder): where the element starts. Empty = as the base.
-			$from = array();
-			if ( isset( $row['from'] ) && is_array( $row['from'] ) && Presets::shapeable( $base[ $item['base'] ] ) ) {
-				foreach ( self::MOTION_RANGES as $key => $range ) {
-					$v = $row['from'][ $key ] ?? null;
-					if ( is_scalar( $v ) && '' !== trim( (string) $v ) && is_numeric( $v ) ) {
-						$from[ $key ] = round( min( $range[1], max( $range[0], (float) $v ) ), 3 );
-					}
-				}
-			}
-			if ( $from ) {
-				$item['from'] = $from;
+			// The motion itself (preset builder): where the element starts, a loop's amount, a
+			// marquee's direction, a counter's first number. Empty = as the base.
+			$item += self::sanitize_tune( $row, $item['base'] );
+			// Use it for every element with the built-in animation (instead of a new one).
+			if ( ! empty( $row['replace'] ) ) {
+				$item['replace'] = 1;
 			}
 			$out[ $slug ] = $item;
 		}
@@ -334,6 +328,53 @@ class Settings {
 	public static function feature( $key ) {
 		$f = self::get( 'features', array() );
 		return ! is_array( $f ) || ! array_key_exists( $key, $f ) || ! empty( $f[ $key ] );
+	}
+
+	/**
+	 * Fine-tuned motion for a preset, from a My presets row or an element (same keys):
+	 * from[opacity|x|y|scale|rotate|blur], tilt, amount, dir, start. Only what the preset supports.
+	 *
+	 * @param array  $row  Submitted values (already in the stored units: opacity 0–1, scale ×).
+	 * @param string $slug Built-in slug the preset is (or is based on).
+	 * @return array Only the keys that were set.
+	 */
+	public static function sanitize_tune( array $row, $slug ) {
+		$can = Presets::tunables( (string) $slug );
+		$out = array();
+		$val = static function ( $v, $lo, $hi ) {
+			return is_scalar( $v ) && '' !== trim( (string) $v ) && is_numeric( $v ) ? round( min( $hi, max( $lo, (float) $v ) ), 3 ) : null;
+		};
+		if ( $can['shape'] && isset( $row['from'] ) && is_array( $row['from'] ) ) {
+			$from = array();
+			foreach ( self::MOTION_RANGES as $key => $range ) {
+				$v = $val( $row['from'][ $key ] ?? null, $range[0], $range[1] );
+				if ( null !== $v ) {
+					$from[ $key ] = $v;
+				}
+			}
+			if ( $from ) {
+				$out['from'] = $from;
+			}
+		}
+		$tilt = '' !== $can['tilt'] ? $val( $row['tilt'] ?? null, -90, 90 ) : null;
+		if ( null !== $tilt ) {
+			$out['tilt'] = $tilt;
+		}
+		if ( $can['amount'] ) {
+			$a      = Presets::AMOUNTS[ (string) $slug ];
+			$amount = $val( $row['amount'] ?? null, $a[3], $a[4] );
+			if ( null !== $amount ) {
+				$out['amount'] = $amount;
+			}
+		}
+		if ( $can['dir'] && isset( $row['dir'] ) && 'right' === $row['dir'] ) {
+			$out['dir'] = 'right';
+		}
+		$start = $can['start'] ? $val( $row['start'] ?? null, -1000000000, 1000000000 ) : null;
+		if ( null !== $start ) {
+			$out['start'] = $start;
+		}
+		return $out;
 	}
 
 	/** Preset builder: start values a preset of your own can set (min, max). */

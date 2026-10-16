@@ -117,16 +117,30 @@ class Presets {
 			$p['label'] = '★ ' . (string) ( $row['label'] ?? $row['slug'] ); // easy to spot in every preset list
 			$p['base']  = $row['base'];
 			$p['mine']  = true;
-			foreach ( array( 'duration', 'delay', 'distance', 'stagger', 'ease' ) as $key ) {
-				if ( isset( $row[ $key ] ) && '' !== $row[ $key ] ) {
-					$p[ $key ] = $row[ $key ];
+			foreach ( array( 'duration', 'delay', 'distance', 'stagger' ) as $key ) {
+				if ( isset( $row[ $key ] ) && is_numeric( $row[ $key ] ) ) {
+					$p[ $key ] = (float) $row[ $key ]; // a number, however the setting was written
 				}
 			}
-			// Preset builder: its own start values over the base's.
-			if ( ! empty( $row['from'] ) && is_array( $row['from'] ) && self::shapeable( $p ) ) {
-				$p['from'] = array_merge( $p['from'], $row['from'] );
+			if ( isset( $row['ease'] ) && is_string( $row['ease'] ) && '' !== $row['ease'] ) {
+				$p['ease'] = $row['ease'];
 			}
+			// Preset builder: its own start values, loop amount, marquee direction, counter start
+			// (checked and turned into numbers again: the option may have been written directly).
+			$p                            = self::tune( $p, $row['base'], Settings::sanitize_tune( $row, $row['base'] ) );
 			$out[ (string) $row['slug'] ] = $p;
+			// "Use for every …": the built-in animation itself changes, everywhere it is used.
+			if ( ! empty( $row['replace'] ) ) {
+				$q          = $p;
+				$q['label'] = sprintf(
+					/* translators: %s: a built-in animation's name, e.g. Fade up */
+					__( '%s (adjusted)', 'bricks-motion-studio' ),
+					$base[ $row['base'] ]['label']
+				);
+				unset( $q['mine'], $q['base'] );
+				$q['tweaked']        = true;
+				$out[ $row['base'] ] = $q;
+			}
 		}
 		return $out;
 	}
@@ -142,6 +156,108 @@ class Presets {
 		return is_array( $p ) && ! empty( $p['from'] ) && is_array( $p['from'] ) && in_array( $p['group'] ?? '', array( 'reveal', 'text' ), true );
 	}
 
+	/**
+	 * Loop presets whose size of movement can be set (Fine-tune / My presets): preset => [ where,
+	 * property, unit label, min, max ]. Float: px it rises; pulse: % it grows; sway: degrees each way.
+	 */
+	const AMOUNTS = array(
+		'float' => array( 'to', 'y', 'px', 0, 120 ),
+		'pulse' => array( 'to', 'scale', '%', 0, 60 ),
+		'sway'  => array( 'both', 'rotate', '°', 0, 45 ),
+	);
+
+	/**
+	 * What can be fine-tuned on a preset, beyond its timing.
+	 *
+	 * @param string $slug Preset slug (built-in, or a My preset's base).
+	 * @return array { shape: bool, tilt: string ('' | rotateX | rotateY), amount: bool, dir: bool, start: bool }
+	 */
+	public static function tunables( $slug ) {
+		$all = self::builtin();
+		$p   = $all[ $slug ] ?? null;
+		if ( ! $p ) {
+			return array( 'shape' => false, 'tilt' => '', 'amount' => false, 'dir' => false, 'start' => false );
+		}
+		$from = isset( $p['from'] ) && is_array( $p['from'] ) ? $p['from'] : array();
+		return array(
+			'shape'  => self::shapeable( $p ),
+			'tilt'   => isset( $from['rotateX'] ) ? 'rotateX' : ( isset( $from['rotateY'] ) ? 'rotateY' : '' ),
+			'amount' => isset( self::AMOUNTS[ $slug ] ),
+			'dir'    => ! empty( $p['marquee'] ),
+			'start'  => 'counter' === $slug,
+		);
+	}
+
+	/**
+	 * A preset with fine-tuned motion: where it starts (shape, tilt), how far a loop moves, which
+	 * way a marquee runs, which number a counter starts from. Values are already sanitized
+	 * (Settings::sanitize_tune()); missing ones keep the preset's own.
+	 *
+	 * @param array  $p    Preset.
+	 * @param string $slug Built-in slug the preset is (or is based on).
+	 * @param array  $t    { from: array, tilt: float, amount: float, dir: string, start: float }.
+	 * @return array
+	 */
+	public static function tune( array $p, $slug, array $t ) {
+		$can = self::tunables( $slug );
+		if ( $can['shape'] && ! empty( $t['from'] ) && is_array( $t['from'] ) ) {
+			$p['from'] = array_merge( (array) $p['from'], $t['from'] );
+		}
+		if ( '' !== $can['tilt'] && isset( $t['tilt'] ) ) {
+			$p['from'][ $can['tilt'] ] = (float) $t['tilt'];
+		}
+		if ( $can['amount'] && isset( $t['amount'] ) ) {
+			list( $where, $prop ) = self::AMOUNTS[ $slug ];
+			$a                    = (float) $t['amount'];
+			$v                    = 'scale' === $prop ? round( 1 + $a / 100, 4 ) : ( 'y' === $prop ? -$a : $a );
+			$p['to']              = (array) ( $p['to'] ?? array() );
+			$p['to'][ $prop ]     = $v;
+			if ( 'both' === $where ) {
+				$p['from']          = (array) ( $p['from'] ?? array() );
+				$p['from'][ $prop ] = -$v;
+			}
+		}
+		if ( $can['dir'] && isset( $t['dir'] ) && 'right' === $t['dir'] ) {
+			$p['from'] = array_merge( (array) ( $p['from'] ?? array() ), array( 'x' => '-50%' ) );
+			$p['to']   = array_merge( (array) ( $p['to'] ?? array() ), array( 'x' => '0%' ) );
+		}
+		if ( $can['start'] && isset( $t['start'] ) ) {
+			$p['start'] = (float) $t['start'];
+		}
+		return $p;
+	}
+
+	/**
+	 * Only what fine-tuning changes on a preset (for one element's data-bme-opts "m").
+	 *
+	 * @param string $slug Preset slug in the catalog (a My preset or a built-in).
+	 * @param array  $t    Sanitized fine-tune values.
+	 * @return array { from?, to?, start? } Empty when nothing changes.
+	 */
+	public static function tune_diff( $slug, array $t ) {
+		$all  = self::all();
+		$p    = $all[ $slug ] ?? null;
+		$base = is_array( $p ) && ! empty( $p['base'] ) ? $p['base'] : $slug;
+		if ( ! is_array( $p ) || ! $t ) {
+			return array();
+		}
+		$q   = self::tune( $p, $base, $t );
+		$out = array();
+		foreach ( array( 'from', 'to' ) as $side ) {
+			$a = isset( $p[ $side ] ) && is_array( $p[ $side ] ) ? $p[ $side ] : array();
+			$b = isset( $q[ $side ] ) && is_array( $q[ $side ] ) ? $q[ $side ] : array();
+			foreach ( $b as $k => $v ) {
+				if ( ! array_key_exists( $k, $a ) || $a[ $k ] !== $v ) {
+					$out[ $side ][ $k ] = $v;
+				}
+			}
+		}
+		if ( isset( $q['start'] ) && ( $p['start'] ?? null ) !== $q['start'] ) {
+			$out['start'] = $q['start'];
+		}
+		return $out;
+	}
+
 	/** Forget the cached catalog (after "My presets" were saved). */
 	public static function flush() {
 		self::$catalog = null;
@@ -149,7 +265,8 @@ class Presets {
 
 	public static function all() {
 		if ( null === self::$catalog ) {
-			self::$catalog = self::builtin() + self::custom();
+			// My presets, and built-in animations adjusted for the whole site (same slug: replaces it).
+			self::$catalog = array_merge( self::builtin(), self::custom() );
 
 			/**
 			 * Filter the preset catalog. Custom presets must follow the presets.json schema.
