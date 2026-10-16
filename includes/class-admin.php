@@ -104,7 +104,7 @@ class Admin {
 					'id'     => 'bme-inspect',
 					'title'  => $inspecting ? esc_html__( 'Stop inspecting', 'bricks-motion-studio' ) : esc_html__( 'Inspect animations', 'bricks-motion-studio' ),
 					'href'   => esc_url( $inspecting ? remove_query_arg( 'bme-debug' ) : add_query_arg( 'bme-debug', '1' ) ),
-					'meta'   => array( 'title' => __( 'Label every animation on this page with its preset, engine and source, and show why other elements are skipped.', 'bricks-motion-studio' ) ),
+					'meta'   => array( 'title' => __( 'Show a label on every animation on this page (which animation it is and where it comes from), and why some elements don\'t animate.', 'bricks-motion-studio' ) ),
 				)
 			);
 		}
@@ -215,8 +215,8 @@ class Admin {
 						/* translators: 1: rules shown by the filter, 2: all rules */
 						'ruleShown'          => __( '%1$d of %2$d shown', 'bricks-motion-studio' ),
 						'unknownEl'          => __( 'Not a Bricks element on this site', 'bricks-motion-studio' ),
-						'jsonOk'             => __( 'Valid settings file. Click Import to apply it.', 'bricks-motion-studio' ),
-						'jsonBad'            => __( 'This is not a Motion Studio settings export (invalid JSON).', 'bricks-motion-studio' ),
+						'jsonOk'             => __( 'This is a valid backup. Click Restore to apply it.', 'bricks-motion-studio' ),
+						'jsonBad'            => __( 'This doesn\'t look like a Motion Studio backup. Choose the file you downloaded with Download backup, or paste all of its text.', 'bricks-motion-studio' ),
 						/* translators: %s: preset slug, e.g. fade-up */
 						'copySlug'           => __( 'Copied %s', 'bricks-motion-studio' ),
 						'unsaved'            => __( 'Unsaved changes', 'bricks-motion-studio' ),
@@ -243,10 +243,10 @@ class Admin {
 						/* translators: 1: pages using it, 2: pages recorded */
 						'usageOfPages'       => __( '%1$d of %2$d pages', 'bricks-motion-studio' ),
 						/* translators: %s: library name, e.g. Anime.js */
-						'usageUnused'        => __( '%s is on, but no recorded page uses it. Pages only download the engines they use, so it costs nothing; switch it off if you don\'t plan to use it.', 'bricks-motion-studio' ),
-						'usageAlways'        => __( '"Load engines on every page" is on (Scroll & 3D): every page downloads all enabled engines, used or not.', 'bricks-motion-studio' ),
+						'usageUnused'        => __( '%s is on, but no recorded page uses it. Pages only download the libraries they use, so it costs nothing; switch it off if you don\'t plan to use it.', 'bricks-motion-studio' ),
+						'usageAlways'        => __( '"Load engines on every page" is on (Accessibility): every page downloads all libraries you turned on, used or not.', 'bricks-motion-studio' ),
 						'usageLenis'         => __( 'Smooth scrolling is on, so every page loads Lenis.', 'bricks-motion-studio' ),
-						'usageCdn'           => __( 'Libraries load from the CDN: their sizes are those of the bundled copies of the same version.', 'bricks-motion-studio' ),
+						'usageCdn'           => __( 'Libraries load from an outside server (Libraries, Load libraries from): the sizes shown are those of the same files included with the plugin.', 'bricks-motion-studio' ),
 						/* translators: 1: pages done, 2: pages to scan */
 						'usageScanning'      => __( 'Scanning %1$d of %2$d…', 'bricks-motion-studio' ),
 						/* translators: %d: pages scanned */
@@ -311,8 +311,8 @@ class Admin {
 		if ( $screen && $screen->id === $this->hook && isset( $_GET['bme_notice'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$code = sanitize_key( wp_unslash( $_GET['bme_notice'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$map  = array(
-				'imported'       => array( 'success', __( 'Settings imported.', 'bricks-motion-studio' ) ),
-				'import_failed'  => array( 'error', __( 'Import failed: paste a valid Motion Studio JSON export.', 'bricks-motion-studio' ) ),
+				'imported'       => array( 'success', __( 'Settings restored from the backup. You can undo it in Recent changes.', 'bricks-motion-studio' ) ),
+				'import_failed'  => array( 'error', __( 'Restore failed: choose a Motion Studio backup file, or paste all of its text.', 'bricks-motion-studio' ) ),
 				'restored'       => array( 'success', __( 'Earlier settings restored. The version you replaced is in Recent changes, if you want it back.', 'bricks-motion-studio' ) ),
 				'restore_failed' => array( 'error', __( 'That version is no longer in the list (the settings changed meanwhile). Pick it again below.', 'bricks-motion-studio' ) ),
 				'reset'          => array( 'success', __( 'Settings reset to defaults.', 'bricks-motion-studio' ) ),
@@ -455,6 +455,101 @@ class Admin {
 	 * @param array  $p    Preset.
 	 * @return string
 	 */
+	/** Plain-language explanation of each animation group (Guide). */
+	private static function group_help() {
+		return array(
+			'reveal'  => __( 'The element appears as the visitor scrolls to it, once. Good for almost anything: cards, images, buttons, sections.', 'bricks-motion-studio' ),
+			'text'    => __( 'Headings and text appear line by line, word by word or letter by letter. Best on short text such as headings.', 'bricks-motion-studio' ),
+			'scroll'  => __( 'Moves with the scrollbar: forward as the visitor scrolls down, back as they scroll up. Good for depth and storytelling.', 'bricks-motion-studio' ),
+			'loop'    => __( 'Keeps moving gently to draw the eye (it pauses when off screen, and visitors can pause it with the Pause animations button). Use sparingly.', 'bricks-motion-studio' ),
+			'special' => __( 'For numbers and line drawings.', 'bricks-motion-studio' ),
+		);
+	}
+
+	/** One plain sentence per built-in animation: what it does, when to use it (Guide). */
+	private static function preset_help() {
+		return array(
+			'fade'              => __( 'Softly appears in place. The calmest choice; works everywhere.', 'bricks-motion-studio' ),
+			'fade-up'           => __( 'Appears while rising a little. The classic, for text, cards and buttons.', 'bricks-motion-studio' ),
+			'fade-down'         => __( 'Appears while dropping in from slightly above.', 'bricks-motion-studio' ),
+			'fade-left'         => __( 'Slides in from the right while appearing. Nice for the right column.', 'bricks-motion-studio' ),
+			'fade-right'        => __( 'Slides in from the left while appearing. Nice for the left column.', 'bricks-motion-studio' ),
+			'zoom-in'           => __( 'Grows from slightly smaller to full size. Good for buttons, icons and cards.', 'bricks-motion-studio' ),
+			'zoom-out'          => __( 'Settles from slightly larger to full size. Good for big images.', 'bricks-motion-studio' ),
+			'flip-up'           => __( 'Tips up into place like a card turning over. Playful.', 'bricks-motion-studio' ),
+			'flip-left'         => __( 'Swings in from the side like a door opening.', 'bricks-motion-studio' ),
+			'rotate-in'         => __( 'Turns slightly as it appears. For badges and icons.', 'bricks-motion-studio' ),
+			'skew-up'           => __( 'Rises with a slight lean that straightens out. Energetic.', 'bricks-motion-studio' ),
+			'blur-in'           => __( 'Comes into focus, from blurry to sharp.', 'bricks-motion-studio' ),
+			'blur-up'           => __( 'Comes into focus while rising. Elegant for headings and quotes.', 'bricks-motion-studio' ),
+			'clip-up'           => __( 'Revealed from the bottom up, as if a cover slides away.', 'bricks-motion-studio' ),
+			'clip-down'         => __( 'Revealed from the top down.', 'bricks-motion-studio' ),
+			'clip-left'         => __( 'Revealed from right to left.', 'bricks-motion-studio' ),
+			'clip-right'        => __( 'Revealed from left to right.', 'bricks-motion-studio' ),
+			'reveal-image'      => __( 'The image is uncovered while gently zooming. Made for photos.', 'bricks-motion-studio' ),
+			'split-lines'       => __( 'Each line of text slides up from behind an invisible edge. Striking on big headings.', 'bricks-motion-studio' ),
+			'split-words'       => __( 'Words appear one after another, rising a little. The go-to for headings.', 'bricks-motion-studio' ),
+			'split-words-blur'  => __( 'Words come into focus one after another. Soft and premium.', 'bricks-motion-studio' ),
+			'split-chars'       => __( 'Letters appear one by one. Best on a few short words.', 'bricks-motion-studio' ),
+			'typewriter'        => __( 'Letters appear one at a time, as if typed.', 'bricks-motion-studio' ),
+			'scramble'          => __( 'Letters shuffle like a code breaker before settling into the real text.', 'bricks-motion-studio' ),
+			'scroll-highlight'  => __( 'Words light up one by one as the visitor scrolls through a paragraph. Good for a statement.', 'bricks-motion-studio' ),
+			'parallax'          => __( 'Moves at a different speed than the page, for a feeling of depth. Great on background images.', 'bricks-motion-studio' ),
+			'parallax-x'        => __( 'Drifts sideways as the page scrolls.', 'bricks-motion-studio' ),
+			'scroll-fade'       => __( 'Fades in gradually as it scrolls up the screen.', 'bricks-motion-studio' ),
+			'scroll-scale'      => __( 'Grows gradually as it scrolls up the screen.', 'bricks-motion-studio' ),
+			'scroll-rotate'     => __( 'Turns slowly as the page scrolls. For decorative shapes.', 'bricks-motion-studio' ),
+			'scroll-expand'     => __( 'Opens up from a smaller window to full size as it scrolls. Made for big images and videos.', 'bricks-motion-studio' ),
+			'horizontal-scroll' => __( 'Scrolling down moves a row of cards sideways while the section stays in place. Put it on the section that holds the row.', 'bricks-motion-studio' ),
+			'pin'               => __( 'Stays in place on screen for a while as the page scrolls past it.', 'bricks-motion-studio' ),
+			'float'             => __( 'Gently bobs up and down, forever.', 'bricks-motion-studio' ),
+			'pulse'             => __( 'Softly grows and shrinks, like breathing. Draws the eye to a button.', 'bricks-motion-studio' ),
+			'sway'              => __( 'Rocks gently from side to side.', 'bricks-motion-studio' ),
+			'spin'              => __( 'Turns round and round. For loaders and decorative shapes.', 'bricks-motion-studio' ),
+			'marquee'           => __( 'An endless strip sliding sideways: logos, words, images. Pauses when hovered.', 'bricks-motion-studio' ),
+			'counter'           => __( 'Numbers count up from zero to their value, e.g. 1,250 clients.', 'bricks-motion-studio' ),
+			'draw-svg'          => __( 'A line drawing (an SVG icon or illustration with outlines) draws itself.', 'bricks-motion-studio' ),
+		);
+	}
+
+	/** Terms used across Motion Studio, in plain words (Guide). */
+	private static function glossary() {
+		return array(
+			__( 'Animation (preset)', 'bricks-motion-studio' ) => __( 'A ready-made movement, such as Fade up. You pick it, Motion Studio does the rest.', 'bricks-motion-studio' ),
+			__( 'Auto and Custom', 'bricks-motion-studio' ) => __( 'Auto: the element follows the site-wide rules (Auto-animate). Custom: it has its own animation, set in the builder.', 'bricks-motion-studio' ),
+			__( 'Recipe', 'bricks-motion-studio' )         => __( 'One choice on a section that animates everything inside it in a good order.', 'bricks-motion-studio' ),
+			__( 'Engine', 'bricks-motion-studio' )         => __( 'The code that plays the animation. Built-in is the fastest and needs no download; GSAP, Anime.js and Motion are optional extras some animations need (Libraries).', 'bricks-motion-studio' ),
+			__( 'Duration and delay', 'bricks-motion-studio' ) => __( 'How long the animation takes, and how long it waits before it starts, in seconds.', 'bricks-motion-studio' ),
+			__( 'Stagger', 'bricks-motion-studio' )        => __( 'The small pause between items that animate one after another (cards, words). Stagger order chooses who goes first.', 'bricks-motion-studio' ),
+			__( 'Easing', 'bricks-motion-studio' )         => __( 'How the movement speeds up and slows down. Smooth is a good default.', 'bricks-motion-studio' ),
+			__( 'Start line', 'bricks-motion-studio' )     => __( 'How far up the screen an element must come before it animates.', 'bricks-motion-studio' ),
+			__( 'Animation level', 'bricks-motion-studio' ) => __( 'Basic, Moderate or Advanced: how much movement the automatic animations use, site-wide or per page.', 'bricks-motion-studio' ),
+			__( 'Timeline (keyframes)', 'bricks-motion-studio' ) => __( 'For a movement of your own: say where an element is at the start, middle and end (for example while scrolling), and Motion Studio moves it in between.', 'bricks-motion-studio' ),
+			__( 'Reduced motion', 'bricks-motion-studio' ) => __( 'A setting on visitors\' devices asking for less movement. Motion Studio respects it (Accessibility).', 'bricks-motion-studio' ),
+		);
+	}
+
+	/**
+	 * A short note when an animation only works with an optional library (Guide).
+	 *
+	 * @param string $slug Preset slug.
+	 * @param array  $p    Preset.
+	 * @return string '' when the built-in engine plays it.
+	 */
+	private static function needs_library( $slug, array $p ) {
+		if ( ! empty( $p['core'] ) || ! empty( $p['draw'] ) || Presets::native_ok( $slug ) ) {
+			return ''; // the plugin plays it itself (line drawings draw without a library too)
+		}
+		$engines = Presets::engines_for( $slug );
+		if ( 'scroll' === ( $p['group'] ?? '' ) && array( 'gsap' ) !== array_values( $engines ) && Settings::get( 'perf.native_scroll' ) ) {
+			return __( 'Chrome, Edge and Safari 26 play it themselves; other browsers use one of the optional libraries.', 'bricks-motion-studio' );
+		}
+		if ( array( 'gsap' ) === array_values( $engines ) ) {
+			return Settings::library_enabled( 'gsap' ) ? __( 'Uses the GSAP library (on).', 'bricks-motion-studio' ) : __( 'Needs the GSAP library: turn it on in Libraries.', 'bricks-motion-studio' );
+		}
+		return __( 'Uses one of the optional libraries (GSAP, Anime.js or Motion).', 'bricks-motion-studio' );
+	}
+
 	private static function engine_list( $slug, array $p ) {
 		$names = array(
 			'gsap'   => 'GSAP',
@@ -858,9 +953,18 @@ class Admin {
 					<?php $this->preset_optgroups( (string) ( $rule['preset'] ?? '' ) ); ?>
 				</select>
 			</span>
-			<span role="cell">
+			<?php
+			$scope = (string) ( $rule['scope'] ?? 'self' );
+			$mode  = in_array( $scope, array( '', 'self', 'children' ), true ) ? ( 'children' === $scope ? 'children' : 'self' ) : 'inside';
+			?>
+			<span role="cell" class="bme-rule__scope">
 				<span class="bme-cap" aria-hidden="true"><?php esc_html_e( 'Animate', 'bricks-motion-studio' ); ?></span>
-				<input type="text" class="bme-text bme-mono" name="<?php echo esc_attr( $base . '[scope]' ); ?>" value="<?php echo esc_attr( (string) ( $rule['scope'] ?? 'self' ) ); ?>" list="bme-scope-list" placeholder="self" aria-label="<?php esc_attr_e( 'Animate: self, children or a selector', 'bricks-motion-studio' ); ?>" spellcheck="false">
+				<select class="bme-select" data-bme-scope-mode aria-label="<?php esc_attr_e( 'What to animate', 'bricks-motion-studio' ); ?>">
+					<option value="self" <?php selected( $mode, 'self' ); ?>><?php esc_html_e( 'The element', 'bricks-motion-studio' ); ?></option>
+					<option value="children" <?php selected( $mode, 'children' ); ?>><?php esc_html_e( 'Each child, in turn', 'bricks-motion-studio' ); ?></option>
+					<option value="inside" <?php selected( $mode, 'inside' ); ?>><?php esc_html_e( 'Elements inside', 'bricks-motion-studio' ); ?></option>
+				</select>
+				<input type="text" class="bme-text bme-mono" name="<?php echo esc_attr( $base . '[scope]' ); ?>" value="<?php echo esc_attr( 'inside' === $mode ? $scope : ( 'children' === $mode ? 'children' : 'self' ) ); ?>" placeholder=".card" aria-label="<?php esc_attr_e( 'Which elements inside: their class, e.g. .card', 'bricks-motion-studio' ); ?>" spellcheck="false" <?php echo 'inside' === $mode ? '' : 'hidden'; ?>>
 			</span>
 			<span role="cell">
 				<span class="bme-cap" aria-hidden="true"><?php esc_html_e( 'Engine', 'bricks-motion-studio' ); ?></span>
@@ -941,7 +1045,7 @@ class Admin {
 			'label'  => __( 'Elements with Motion controls', 'bricks-motion-studio' ),
 			'value'  => (string) $count,
 			'status' => $count > 0 ? 'ok' : 'fail',
-			'note'   => __( 'Every registered Bricks element receives the Motion Studio control group.', 'bricks-motion-studio' ),
+			'note'   => __( 'Every Bricks element has the Motion Studio settings in the builder.', 'bricks-motion-studio' ),
 		);
 
 		// PHP drops form fields past max_input_vars: a long rule list could be cut off on save.
@@ -953,7 +1057,7 @@ class Admin {
 				/* translators: 1: fields the settings form sends, 2: PHP max_input_vars */
 				'value'  => sprintf( __( '%1$d of %2$d fields', 'bricks-motion-studio' ), $needed, $max_vars ),
 				'status' => $needed < $max_vars * 0.8 ? 'ok' : ( $needed < $max_vars ? 'warn' : 'fail' ),
-				'note'   => __( 'PHP max_input_vars. Each rule adds 10 fields and each of My presets 14; ask your host to raise the limit before adding many more.', 'bricks-motion-studio' ),
+				'note'   => __( 'Your server limits how many settings one save can hold (PHP max_input_vars). Each rule uses 10 and each of My presets 14; before adding many more, ask your host to raise the limit.', 'bricks-motion-studio' ),
 			);
 		}
 
@@ -970,14 +1074,14 @@ class Admin {
 			'label'  => __( 'Bundled libraries', 'bricks-motion-studio' ),
 			'value'  => $missing ? sprintf( /* translators: %d: number of files */ _n( '%d file missing', '%d files missing', count( $missing ), 'bricks-motion-studio' ), count( $missing ) ) : __( 'All present', 'bricks-motion-studio' ),
 			'status' => $missing ? 'fail' : 'ok',
-			'note'   => $missing ? implode( ', ', $missing ) : __( 'Pinned versions ship with the plugin, so library releases never change your site unexpectedly.', 'bricks-motion-studio' ),
+			'note'   => $missing ? implode( ', ', $missing ) : __( 'The libraries come with the plugin in a fixed version, so an outside update can never change your site by surprise.', 'bricks-motion-studio' ),
 		);
 
 		$checks[] = array(
 			'label'  => __( 'Script loading', 'bricks-motion-studio' ),
 			'value'  => version_compare( $wp_version, '6.3', '>=' ) ? __( 'Deferred', 'bricks-motion-studio' ) : __( 'Footer', 'bricks-motion-studio' ),
 			'status' => 'ok',
-			'note'   => __( 'Scripts load in the footer with the defer strategy and only on pages that use them.', 'bricks-motion-studio' ),
+			'note'   => __( 'Animation files load at the end of the page without slowing it down, and only on pages that use them.', 'bricks-motion-studio' ),
 		);
 
 		return $checks;
@@ -1012,6 +1116,7 @@ class Admin {
 			__( 'Set up', 'bricks-motion-studio' )    => array(
 				'libraries' => array( __( 'Libraries', 'bricks-motion-studio' ), 'libraries' ),
 				'auto'      => array( __( 'Auto-animate', 'bricks-motion-studio' ), 'auto' ),
+				'features'  => array( __( 'Features', 'bricks-motion-studio' ), 'stack' ),
 			),
 			__( 'Fine-tune', 'bricks-motion-studio' ) => array(
 				'defaults' => array( __( 'Timing & feel', 'bricks-motion-studio' ), 'defaults' ),
@@ -1022,7 +1127,7 @@ class Admin {
 			__( 'Resources', 'bricks-motion-studio' ) => array(
 				'usage'  => array( __( 'Usage', 'bricks-motion-studio' ), 'chart' ),
 				'system' => array( __( 'System', 'bricks-motion-studio' ), 'tools' ),
-				'help'   => array( __( 'Reference', 'bricks-motion-studio' ), 'help' ),
+				'help'   => array( __( 'Guide', 'bricks-motion-studio' ), 'help' ),
 			),
 		);
 		$passed  = count( $checks ) - $issues;
@@ -1101,10 +1206,10 @@ class Admin {
 									<div class="bme-hero__text">
 										<span class="bme-eyebrow"><?php esc_html_e( 'Overview', 'bricks-motion-studio' ); ?></span>
 										<h2 id="bme-h-overview"><?php esc_html_e( 'Motion for every Bricks element', 'bricks-motion-studio' ); ?></h2>
-										<p><?php esc_html_e( 'Pick your engines, let rules animate the whole site, and fine-tune any element in the builder under Motion Studio.', 'bricks-motion-studio' ); ?></p>
+										<p><?php esc_html_e( 'Animate the whole site in one go with Auto-animate, then fine-tune any element in Bricks under Motion Studio. The Guide explains everything in plain words.', 'bricks-motion-studio' ); ?></p>
 										<div class="bme-hero__actions">
 											<a class="bme-btn bme-btn--light" href="#auto" data-bme-go="auto"><?php echo self::icon( 'auto' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Auto-animate rules', 'bricks-motion-studio' ); ?></a>
-											<a class="bme-btn bme-btn--glass" href="#help" data-bme-go="help"><?php esc_html_e( 'Browse presets', 'bricks-motion-studio' ); ?><?php echo self::icon( 'arrow' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
+											<a class="bme-btn bme-btn--glass" href="#help" data-bme-go="help"><?php esc_html_e( 'Open the Guide', 'bricks-motion-studio' ); ?><?php echo self::icon( 'arrow' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></a>
 										</div>
 									</div>
 									<div class="bme-hero__art" aria-hidden="true">
@@ -1156,7 +1261,7 @@ class Admin {
 										</fieldset>
 										<div class="bme-card__field">
 											<label class="bme-row__label" for="bme-perf-off_paths"><?php esc_html_e( 'Turn off on these pages', 'bricks-motion-studio' ); ?></label>
-											<p class="bme-row__help" id="bme-off-paths-help"><?php esc_html_e( 'One URL path per line. End with * for a whole section, e.g. /checkout/ or /shop/*. These pages load no Motion Studio scripts at all.', 'bricks-motion-studio' ); ?></p>
+											<p class="bme-row__help" id="bme-off-paths-help"><?php esc_html_e( 'One page address per line, the part after your domain, e.g. /checkout/. End with * for a whole section, e.g. /shop/*. These pages get no animations and no Motion Studio files at all.', 'bricks-motion-studio' ); ?></p>
 											<textarea id="bme-perf-off_paths" class="bme-textarea bme-mono" name="<?php echo esc_attr( $this->name( 'perf.off_paths' ) ); ?>" rows="3" spellcheck="false" aria-describedby="bme-off-paths-help" placeholder="/checkout/&#10;/my-account/*"><?php echo esc_textarea( (string) $s['perf']['off_paths'] ); ?></textarea>
 										</div>
 										<div class="bme-card__switch">
@@ -1166,10 +1271,10 @@ class Admin {
 
 									<div class="bme-card">
 										<h3 class="bme-card__title"><?php echo self::icon( 'bolt' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Quick start', 'bricks-motion-studio' ); ?></h3>
-										<ol class="bme-steps">
+										<ol class="bme-guide-steps">
 											<li data-bme-step="libs">
 												<span class="bme-steps__num" aria-hidden="true"></span>
-												<span class="bme-steps__text"><strong><?php esc_html_e( 'Choose your engines', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'GSAP covers every effect. Add Anime.js or Motion for variety.', 'bricks-motion-studio' ); ?></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Choose your libraries', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'GSAP can play every animation. Anime.js and Motion are optional alternatives.', 'bricks-motion-studio' ); ?></span>
 												<a href="#libraries" data-bme-go="libraries" class="bme-steps__go"><?php esc_html_e( 'Libraries', 'bricks-motion-studio' ); ?></a>
 											</li>
 											<li data-bme-step="auto">
@@ -1179,11 +1284,11 @@ class Admin {
 											</li>
 											<li>
 												<span class="bme-steps__num" aria-hidden="true"></span>
-												<span class="bme-steps__text"><strong><?php esc_html_e( 'Fine-tune in Bricks', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'Select any element and open its Motion Studio controls: presets, scroll effects, hover and 3D.', 'bricks-motion-studio' ); ?></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Fine-tune in Bricks', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'In Bricks, select any element and open Motion Studio (Content tab): animations, scroll effects, hover effects and 3D.', 'bricks-motion-studio' ); ?></span>
 											</li>
 											<li>
 												<span class="bme-steps__num" aria-hidden="true"></span>
-												<span class="bme-steps__text"><strong><?php esc_html_e( 'Set the feel', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'Speed, easing and distance for the whole site, with a live preview.', 'bricks-motion-studio' ); ?></span>
+												<span class="bme-steps__text"><strong><?php esc_html_e( 'Set the feel', 'bricks-motion-studio' ); ?></strong><?php esc_html_e( 'How fast and how far things move across the whole site, with a live preview.', 'bricks-motion-studio' ); ?></span>
 												<a href="#defaults" data-bme-go="defaults" class="bme-steps__go"><?php esc_html_e( 'Timing', 'bricks-motion-studio' ); ?></a>
 											</li>
 										</ol>
@@ -1193,7 +1298,7 @@ class Admin {
 
 							<!-- Libraries -->
 							<section class="bme-panel" id="bme-panel-libraries" data-bme-panel="libraries" aria-labelledby="bme-h-libraries" hidden>
-								<?php $this->panel_head( 'libraries', __( 'Libraries', 'bricks-motion-studio' ), __( 'Turn on any combination. Each element is animated by one engine, and a page only downloads the libraries it uses.', 'bricks-motion-studio' ), 'libraries' ); ?>
+								<?php $this->panel_head( 'libraries', __( 'Libraries', 'bricks-motion-studio' ), __( 'Libraries are optional add-ons that play some animations (the Guide says which). Turn on any of them: each page only downloads the ones it actually uses.', 'bricks-motion-studio' ), 'libraries' ); ?>
 
 								<ul class="bme-libs">
 									<?php foreach ( $meta as $lib => $info ) : ?>
@@ -1222,21 +1327,21 @@ class Admin {
 								</ul>
 
 								<div class="bme-group">
-									<?php $this->switch_row( 'perf.native', __( 'Lightweight engine for simple effects', 'bricks-motion-studio' ), __( 'Reveals, loops and word/character text run on the browser\'s built-in animation engine: no library download and smoother scrolling. Your libraries still run everything that needs them (scroll-linked, pinning, SVG drawing, scramble, lines) and any element or rule set to a specific engine. Recommended.', 'bricks-motion-studio' ) ); ?>
+									<?php $this->switch_row( 'perf.native', __( 'Lightweight engine for simple effects', 'bricks-motion-studio' ), __( 'Most animations (things appearing, word-by-word text, loops) play with the browser\'s own animation tools: nothing extra to download, and smoother scrolling. The libraries still play what needs them (scroll effects, pinning, line drawings, scramble text, text line by line) and wherever you picked a library yourself. Recommended.', 'bricks-motion-studio' ) ); ?>
 								</div>
 
 								<div class="bme-group">
 									<div class="bme-row bme-row--stack">
 										<div class="bme-row__text">
 											<span class="bme-row__label"><?php esc_html_e( 'Default engine', 'bricks-motion-studio' ); ?></span>
-											<p class="bme-row__help"><?php esc_html_e( 'Runs effects that need a library (and every effect when the lightweight engine is off) for rules and elements set to Default. If it cannot run a preset, the next enabled engine that can takes over.', 'bricks-motion-studio' ); ?></p>
+											<p class="bme-row__help"><?php esc_html_e( 'The library used when an animation needs one and you haven\'t picked one yourself. If it can\'t play an animation, another library you turned on takes over.', 'bricks-motion-studio' ); ?></p>
 										</div>
 										<?php $this->segmented( 'default_engine', $engines, __( 'Default engine', 'bricks-motion-studio' ), 'bme-seg--engines' ); ?>
 									</div>
 									<div class="bme-row bme-row--stack">
 										<div class="bme-row__text">
 											<span class="bme-row__label"><?php esc_html_e( 'Load libraries from', 'bricks-motion-studio' ); ?></span>
-											<p class="bme-row__help"><?php esc_html_e( 'Bundled files keep visitors off third-party servers and cannot change under you. The CDN option shares visitor IP addresses with jsDelivr; its files are integrity-checked.', 'bricks-motion-studio' ); ?></p>
+											<p class="bme-row__help"><?php esc_html_e( 'This site (recommended): the files come with the plugin, load from your own site and never change. jsDelivr: the files load from an outside server, which then sees your visitors\' IP addresses; they are checked so they can\'t be tampered with.', 'bricks-motion-studio' ); ?></p>
 										</div>
 										<?php
 										$this->segmented(
@@ -1254,10 +1359,10 @@ class Admin {
 
 							<!-- Auto-animate -->
 							<section class="bme-panel" id="bme-panel-auto" data-bme-panel="auto" aria-labelledby="bme-h-auto" hidden>
-								<?php $this->panel_head( 'auto', __( 'Auto-animate', 'bricks-motion-studio' ), __( 'Rules apply presets to Bricks elements across the whole site. Settings on an element in the builder always win.', 'bricks-motion-studio' ), 'auto' ); ?>
+								<?php $this->panel_head( 'auto', __( 'Auto-animate', 'bricks-motion-studio' ), __( 'Rules give each kind of element an animation across the whole site, e.g. every heading: Words fade up. What you set on an element in the builder always wins.', 'bricks-motion-studio' ), 'auto' ); ?>
 
 								<div class="bme-group">
-									<?php $this->switch_row( 'auto.enabled', __( 'Animate elements automatically', 'bricks-motion-studio' ), __( 'Class rules are checked before element rules. Set an element to Disabled in the builder to opt it out.', 'bricks-motion-studio' ) ); ?>
+									<?php $this->switch_row( 'auto.enabled', __( 'Animate elements automatically', 'bricks-motion-studio' ), __( 'A rule can target a kind of element (Heading) or a class you gave elements in Bricks (e.g. card); class rules come first. To leave one element out, set its Animation to Disabled in the builder.', 'bricks-motion-studio' ) ); ?>
 								</div>
 
 								<fieldset class="bme-choices bme-choices--levels">
@@ -1275,7 +1380,7 @@ class Admin {
 											</span>
 										</label>
 									<?php endforeach; ?>
-									<p class="bme-choices__note"><?php esc_html_e( 'Applies to element-type rules. Class rules keep the exact preset you chose unless the element picks its own level, and Custom animations keep their own settings. A page (Page settings) or an element can pick its own level in the builder.', 'bricks-motion-studio' ); ?></p>
+									<p class="bme-choices__note"><?php esc_html_e( 'Changes how much the rules for kinds of elements move. Rules for classes keep exactly what you chose, and elements set to Custom keep their own animation. A page (Bricks page settings) or a single element can pick its own level.', 'bricks-motion-studio' ); ?></p>
 								</fieldset>
 
 								<?php // Marks the rule list as submitted, so removing every rule really clears it. ?>
@@ -1289,7 +1394,7 @@ class Admin {
 										<input type="search" class="bme-text" data-bme-rule-filter placeholder="<?php esc_attr_e( 'Filter rules', 'bricks-motion-studio' ); ?>" autocomplete="off">
 									</label>
 								</div>
-								<p class="bme-row__help bme-rules__order"><?php esc_html_e( 'Which rule wins: an element\'s own Motion Studio settings in the builder, then class rules, then element rules, then the * rule for any other content element.', 'bricks-motion-studio' ); ?></p>
+								<p class="bme-row__help bme-rules__order"><?php esc_html_e( 'Which wins: what you set on the element in the builder, then rules for classes, then rules for kinds of elements, then the * rule (any other content).', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-rules">
 									<div role="table" aria-label="<?php esc_attr_e( 'Auto-animate rules', 'bricks-motion-studio' ); ?>">
 									<div role="rowgroup">
@@ -1313,11 +1418,11 @@ class Admin {
 										?>
 									</div>
 									</div>
-									<p class="bme-empty" data-bme-empty <?php echo $rules ? 'hidden' : ''; ?>><?php esc_html_e( 'No rules yet. Add one to animate an element type or class everywhere.', 'bricks-motion-studio' ); ?></p>
+									<p class="bme-empty" data-bme-empty <?php echo $rules ? 'hidden' : ''; ?>><?php esc_html_e( 'No rules yet. Add one to animate a kind of element (or a class) everywhere.', 'bricks-motion-studio' ); ?></p>
 									<p class="bme-empty" data-bme-filter-empty hidden><?php esc_html_e( 'No rules match the filter.', 'bricks-motion-studio' ); ?></p>
 									<div class="bme-rules__foot">
 										<button type="button" class="bme-btn" data-bme-add-rule><?php echo self::icon( 'plus' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Add rule', 'bricks-motion-studio' ); ?></button>
-										<span class="bme-rules__hint"><?php esc_html_e( 'Animate accepts self, children, or a CSS selector inside the element.', 'bricks-motion-studio' ); ?></span>
+										<span class="bme-rules__hint"><?php esc_html_e( 'Animate: the element itself, its children one after another, or only some elements inside it (by their class).', 'bricks-motion-studio' ); ?></span>
 									</div>
 								</div>
 								<template id="bme-rule-template">
@@ -1347,7 +1452,7 @@ class Admin {
 								</datalist>
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Exclusions', 'bricks-motion-studio' ); ?></h3>
-								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Auto rules never animate these. Elements set to Custom in the builder still animate.', 'bricks-motion-studio' ); ?></p>
+								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'The automatic rules leave these alone. Elements you set to Custom in the builder still animate.', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-group">
 									<?php
 									$this->switch_row( 'auto.skip_header', __( 'Header template', 'bricks-motion-studio' ), __( 'Sticky headers and menus should never be transformed.', 'bricks-motion-studio' ) );
@@ -1358,7 +1463,7 @@ class Admin {
 									<div class="bme-row bme-row--stack">
 										<div class="bme-row__text">
 											<label class="bme-row__label" for="bme-auto-exclude"><?php esc_html_e( 'Never animate inside', 'bricks-motion-studio' ); ?></label>
-											<p class="bme-row__help"><?php esc_html_e( 'Comma-separated selectors. Sliders, off-canvas panels and menus are covered by default.', 'bricks-motion-studio' ); ?></p>
+											<p class="bme-row__help"><?php esc_html_e( 'Classes or IDs as written in Bricks, separated by commas (e.g. .no-motion, #pricing). Sliders, off-canvas panels and menus are already left alone.', 'bricks-motion-studio' ); ?></p>
 										</div>
 										<textarea id="bme-auto-exclude" class="bme-textarea bme-mono" name="<?php echo esc_attr( $this->name( 'auto.exclude' ) ); ?>" rows="3" spellcheck="false"><?php echo esc_textarea( (string) $s['auto']['exclude'] ); ?></textarea>
 									</div>
@@ -1367,13 +1472,13 @@ class Admin {
 
 							<!-- Timing & feel -->
 							<section class="bme-panel" id="bme-panel-defaults" data-bme-panel="defaults" aria-labelledby="bme-h-defaults" hidden>
-								<?php $this->panel_head( 'defaults', __( 'Timing & feel', 'bricks-motion-studio' ), __( 'Site-wide defaults. Presets and elements can override them. Changes play in the preview as you type.', 'bricks-motion-studio' ), 'defaults' ); ?>
+								<?php $this->panel_head( 'defaults', __( 'Timing & feel', 'bricks-motion-studio' ), __( 'Defaults for the whole site; a single animation or element can have its own. Changes play in the preview as you type.', 'bricks-motion-studio' ), 'defaults' ); ?>
 
 								<div class="bme-split">
 									<div>
 										<div class="bme-group">
 											<?php
-											$this->number_row( 'defaults.pace', __( 'Animation speed', 'bricks-motion-studio' ), 0.25, 4, 0.05, 'x', __( 'Plays every preset faster or slower across the whole site: 2 is twice as fast, 0.5 half speed. Scroll-linked effects follow the scrollbar either way.', 'bricks-motion-studio' ) );
+											$this->number_row( 'defaults.pace', __( 'Animation speed', 'bricks-motion-studio' ), 0.25, 4, 0.05, 'x', __( 'Makes every animation faster or slower across the site: 2 is twice as fast, 0.5 half speed. Scroll effects still follow the scrollbar.', 'bricks-motion-studio' ) );
 											$this->number_row( 'defaults.duration', __( 'Duration', 'bricks-motion-studio' ), 0, 10, 0.05, 's' );
 											$this->number_row( 'defaults.delay', __( 'Delay', 'bricks-motion-studio' ), 0, 10, 0.05, 's' );
 											$this->select_row( 'defaults.ease', __( 'Easing', 'bricks-motion-studio' ), $eases );
@@ -1383,15 +1488,15 @@ class Admin {
 										<div class="bme-group">
 											<?php
 											$this->number_row( 'defaults.stagger', __( 'Stagger', 'bricks-motion-studio' ), 0, 2, 0.01, 's', __( 'Between children and between words or letters.', 'bricks-motion-studio' ) );
-											$this->number_row( 'defaults.batch', __( 'Cascade', 'bricks-motion-studio' ), 0, 1, 0.01, 's', __( 'Between elements that enter the screen together, like grid items.', 'bricks-motion-studio' ) );
-											$this->number_row( 'defaults.offset', __( 'Start line', 'bricks-motion-studio' ), 0, 50, 1, '%', __( 'How far above the bottom of the screen an element starts.', 'bricks-motion-studio' ) );
-											$this->number_row( 'defaults.speed', __( 'Parallax strength', 'bricks-motion-studio' ), -2, 2, 0.05, '', __( 'How far parallax elements drift while you scroll. Negative values drift the other way.', 'bricks-motion-studio' ) );
+											$this->number_row( 'defaults.batch', __( 'Cascade', 'bricks-motion-studio' ), 0, 1, 0.01, 's', __( 'The pause between separate elements that come into view together, like cards in a grid.', 'bricks-motion-studio' ) );
+											$this->number_row( 'defaults.offset', __( 'Start line', 'bricks-motion-studio' ), 0, 50, 1, '%', __( 'How far up the screen an element must come before it animates.', 'bricks-motion-studio' ) );
+											$this->number_row( 'defaults.speed', __( 'Parallax strength', 'bricks-motion-studio' ), -2, 2, 0.05, '', __( 'How far parallax elements drift while scrolling. Negative values drift the other way.', 'bricks-motion-studio' ) );
 											$this->switch_row( 'defaults.replay', __( 'Replay when scrolled back into view', 'bricks-motion-studio' ) );
 											?>
 										</div>
 
 										<h3 class="bme-subhead" id="bme-h-mine"><?php esc_html_e( 'My presets', 'bricks-motion-studio' ); ?></h3>
-										<p class="bme-row__help"><?php esc_html_e( 'A preset with your own timing, saved under your name. It appears in every preset list: rules here and the Motion Studio panel in Bricks. Empty fields follow the preset and the defaults above.', 'bricks-motion-studio' ); ?></p>
+										<p class="bme-row__help"><?php esc_html_e( 'An animation with your own timing, saved under your name. It appears in every animation list (rules here and Motion Studio in Bricks). Empty fields keep the original animation\'s values and the defaults above.', 'bricks-motion-studio' ); ?></p>
 										<?php // Marks the list as submitted, so removing every preset really clears it. ?>
 										<input type="hidden" name="<?php echo esc_attr( BME_OPTION . '[custom_presets]' ); ?>" value="">
 										<div id="bme-mine-body" aria-labelledby="bme-h-mine">
@@ -1425,11 +1530,11 @@ class Admin {
 
 							<!-- Scroll & 3D -->
 							<section class="bme-panel" id="bme-panel-scroll3d" data-bme-panel="scroll3d" aria-labelledby="bme-h-scroll3d" hidden>
-								<?php $this->panel_head( 'scroll3d', __( 'Scroll & 3D', 'bricks-motion-studio' ), __( 'Smooth scrolling with Lenis and rendering limits for Three.js scenes.', 'bricks-motion-studio' ), 'scroll3d' ); ?>
+								<?php $this->panel_head( 'scroll3d', __( 'Scroll & 3D', 'bricks-motion-studio' ), __( 'Scroll effects, smooth scrolling and the quality of 3D backgrounds.', 'bricks-motion-studio' ), 'scroll3d' ); ?>
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Scroll effects', 'bricks-motion-studio' ); ?></h3>
 								<div class="bme-group">
-									<?php $this->switch_row( 'perf.native_scroll', __( 'Run on the browser\'s scroll timeline', 'bricks-motion-studio' ), __( 'Parallax, scroll fade, scale, rotate and expand run on the browser\'s own scroll timeline where it has one (Chrome, Edge, Safari 26): no scroll handling in JavaScript, smoother on busy pages. Other browsers use your animation library as before. Needs the lightweight engine (Libraries). Recommended.', 'bricks-motion-studio' ) ); ?>
+									<?php $this->switch_row( 'perf.native_scroll', __( 'Run on the browser\'s scroll timeline', 'bricks-motion-studio' ), __( 'Parallax and the other scroll effects use the browser\'s built-in scroll tools where it has them (Chrome, Edge, Safari 26): smoother, especially on busy pages. Other browsers use your animation library as before. Needs Lightweight engine for simple effects (Libraries). Recommended.', 'bricks-motion-studio' ) ); ?>
 								</div>
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Smooth scroll', 'bricks-motion-studio' ); ?></h3>
@@ -1447,7 +1552,7 @@ class Admin {
 								<p class="bme-inline-note" data-bme-when-off="libraries.three"><?php esc_html_e( 'Three.js is off. Turn it on under Libraries to use 3D backgrounds and the 3D Scene element.', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-group" data-bme-depends="libraries.three">
 									<?php
-									$this->number_row( 'three.dpr', __( 'Max pixel ratio', 'bricks-motion-studio' ), 0.5, 3, 0.25, 'x', __( 'Caps resolution on high-density screens. 1.5 balances sharpness and battery.', 'bricks-motion-studio' ) );
+									$this->number_row( 'three.dpr', __( '3D sharpness limit', 'bricks-motion-studio' ), 0.5, 3, 0.25, 'x', __( 'How sharp 3D is drawn on very sharp screens. 1.5 balances quality and battery life.', 'bricks-motion-studio' ) );
 									$this->switch_row( 'three.mobile', __( 'Render on phones', 'bricks-motion-studio' ), __( 'When off, phones show the poster image or section background.', 'bricks-motion-studio' ) );
 									?>
 								</div>
@@ -1476,7 +1581,7 @@ class Admin {
 								</div>
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Page intro', 'bricks-motion-studio' ); ?></h3>
-								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'A short full-screen intro that clears itself after about a second, even if scripts are blocked. It never waits for anything.', 'bricks-motion-studio' ); ?></p>
+								<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'A short full-screen intro that clears itself after about a second, even if something blocks the page\'s scripts. It never makes visitors wait.', 'bricks-motion-studio' ); ?></p>
 								<div class="bme-group">
 									<?php
 									$this->select_row(
@@ -1515,20 +1620,64 @@ class Admin {
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Scroll progress', 'bricks-motion-studio' ); ?></h3>
 								<div class="bme-group">
-									<?php $this->switch_row( 'effects.page_progress', __( 'Page progress variable', 'bricks-motion-studio' ), __( 'Sets --bme-page-progress on the page, from 0 at the top to 1 at the bottom, for your own CSS: e.g. a reading bar with transform: scaleX(var(--bme-page-progress)). Single elements: Scroll progress variable in the builder (Motion Studio → Extras).', 'bricks-motion-studio' ) ); ?>
+									<?php $this->switch_row( 'effects.page_progress', __( 'Page progress variable', 'bricks-motion-studio' ), __( 'For designers who write their own CSS: a number that goes from 0 at the top of the page to 1 at the bottom while scrolling (--bme-page-progress), e.g. for a reading progress bar: transform: scaleX(var(--bme-page-progress)). For single elements: Scroll progress variable in the builder (Motion Studio, Extras).', 'bricks-motion-studio' ) ); ?>
 								</div>
+							</section>
+
+							<!-- Features -->
+							<section class="bme-panel" id="bme-panel-features" data-bme-panel="features" aria-labelledby="bme-h-features" hidden>
+								<?php $this->panel_head( 'features', __( 'Features', 'bricks-motion-studio' ), __( 'Switch any feature off for the whole site. Elements that use it then show as designed; their builder settings are kept, so switching it back on restores them. Libraries, auto-animate and the Effects each have their own switch in their panels.', 'bricks-motion-studio' ), 'stack' ); ?>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Animations', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php
+									$this->switch_row( 'features.timeline', __( 'Timeline (keyframes)', 'bricks-motion-studio' ), __( 'Your own movements set on elements in the builder (Timeline): while scrolling, when in view, on hover, on click or looping.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.recipes', __( 'Animation recipes', 'bricks-motion-studio' ), __( 'Hero intro, card grid, gallery and the other recipes on sections. Off: the elements inside follow the auto-animate rules again.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.click', __( 'Start when clicked', 'bricks-motion-studio' ), __( 'Off: animations set to start when clicked play when scrolled into view instead (nothing waits hidden).', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.stagger_order', __( 'Stagger order', 'bricks-motion-studio' ), __( 'From the last, center, edges, random. Off: every cascade runs first to last.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.boost', __( 'Marquee: speed up with scrolling', 'bricks-motion-studio' ), __( 'Off: marquees keep their own speed.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Hover and pointer', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php
+									$this->switch_row( 'features.hover', __( 'Hover effects', 'bricks-motion-studio' ), __( 'Lift, grow, magnetic and 3D tilt.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.roll', __( 'Text roll', 'bricks-motion-studio' ), __( 'Letters that roll up on hover.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.mouse', __( 'Move with the pointer', 'bricks-motion-studio' ), __( 'Layers that shift as the pointer moves.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.follow', __( 'Image that follows the pointer', 'bricks-motion-studio' ), __( 'Hover previews next to the pointer.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Scroll', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php
+									$this->switch_row( 'features.skew', __( 'Skew with scroll speed', 'bricks-motion-studio' ), __( 'Elements that lean while the page scrolls fast.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.inview', __( 'Class when in view', 'bricks-motion-studio' ), __( 'A class added to elements when they scroll into view, for designers who style it with their own CSS.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.progress', __( 'Element scroll progress variable', 'bricks-motion-studio' ), __( 'A scroll value (0 to 1) on single elements, for your own CSS. The page-wide one is in Effects.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+
+								<h3 class="bme-subhead"><?php esc_html_e( 'Elements', 'bricks-motion-studio' ); ?></h3>
+								<div class="bme-group">
+									<?php
+									$this->switch_row( 'features.lottie', __( 'Lottie animation element', 'bricks-motion-studio' ), __( 'Off: each Lottie element shows its still frame.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'features.sequence', __( 'Image sequence element', 'bricks-motion-studio' ), __( 'Off: each sequence shows its still frame.', 'bricks-motion-studio' ) );
+									?>
+								</div>
+								<p class="bme-row__help"><?php esc_html_e( 'One element only: set its Animation to Disabled, or use Turn off on for some screen sizes (Motion Studio group in the builder).', 'bricks-motion-studio' ); ?></p>
 							</section>
 
 							<!-- Accessibility & performance -->
 							<section class="bme-panel" id="bme-panel-a11y" data-bme-panel="a11y" aria-labelledby="bme-h-a11y" hidden>
-								<?php $this->panel_head( 'a11y', __( 'Accessibility', 'bricks-motion-studio' ), __( 'Reduced motion, screen sizes, and what happens when scripts are slow or blocked.', 'bricks-motion-studio' ), 'a11y' ); ?>
+								<?php $this->panel_head( 'a11y', __( 'Accessibility', 'bricks-motion-studio' ), __( 'Visitors who prefer less motion, screen sizes, and keeping content visible when something goes wrong.', 'bricks-motion-studio' ), 'a11y' ); ?>
 
 								<fieldset class="bme-choices">
 									<legend class="bme-row__label bme-legend"><?php esc_html_e( 'Visitors who prefer reduced motion', 'bricks-motion-studio' ); ?></legend>
 									<?php
 									$reduced = array(
-										'respect' => array( __( 'No animation', 'bricks-motion-studio' ), __( 'Content appears instantly; scroll-driven timelines still follow the scrollbar. Recommended.', 'bricks-motion-studio' ) ),
-										'fade'    => array( __( 'Gentle fades', 'bricks-motion-studio' ), __( 'Opacity only; scroll-driven timelines still follow the scrollbar.', 'bricks-motion-studio' ) ),
+										'respect' => array( __( 'No animation', 'bricks-motion-studio' ), __( 'Content appears straight away, without movement; effects tied to the scrollbar still follow it. Recommended.', 'bricks-motion-studio' ) ),
+										'fade'    => array( __( 'Gentle fades', 'bricks-motion-studio' ), __( 'Content softly fades in instead of moving; effects tied to the scrollbar still follow it.', 'bricks-motion-studio' ) ),
 										'ignore'  => array( __( 'Full animation', 'bricks-motion-studio' ), __( 'Ignores the visitor setting. Not recommended.', 'bricks-motion-studio' ) ),
 									);
 									foreach ( $reduced as $value => $text ) :
@@ -1551,15 +1700,15 @@ class Admin {
 								<h3 class="bme-subhead"><?php esc_html_e( 'Loading and safety', 'bricks-motion-studio' ); ?></h3>
 								<div class="bme-group">
 									<?php
-									$this->switch_row( 'perf.fouc', __( 'Hide elements until they animate', 'bricks-motion-studio' ), __( 'Prevents a flash of the final state. Content stays readable by screen readers and search engines.', 'bricks-motion-studio' ) );
-									$this->number_row( 'perf.failsafe', __( 'Show everything after', 'bricks-motion-studio' ), 500, 15000, 100, 'ms', __( 'If scripts are blocked or delayed by an optimization plugin, content appears anyway.', 'bricks-motion-studio' ) );
-									$this->switch_row( 'perf.always', __( 'Load engines on every page', 'bricks-motion-studio' ), __( 'Only needed for content added by custom code or other plugins after the page loads.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'perf.fouc', __( 'Hide elements until they animate', 'bricks-motion-studio' ), __( 'Keeps elements hidden for a split second until their animation starts, so they don\'t flash into view first. Screen readers and search engines still read everything.', 'bricks-motion-studio' ) );
+									$this->number_row( 'perf.failsafe', __( 'Show everything after', 'bricks-motion-studio' ), 500, 15000, 100, 'ms', __( 'If a speed or caching plugin blocks or delays the animation files, content appears anyway after this time.', 'bricks-motion-studio' ) );
+									$this->switch_row( 'perf.always', __( 'Load engines on every page', 'bricks-motion-studio' ), __( 'Only needed when other plugins or custom code add content to the page after it has loaded. Usually best off.', 'bricks-motion-studio' ) );
 									?>
 								</div>
 
 								<h3 class="bme-subhead"><?php esc_html_e( 'Developer', 'bricks-motion-studio' ); ?></h3>
 								<div class="bme-group">
-									<?php $this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'Logs decisions to the browser console and shows scroll trigger markers. Turn off on live sites. To label every animation on a page (preset, engine, why something is skipped), use Inspect animations in the admin bar\'s Motion menu, or add ?bme-debug to the page address.', 'bricks-motion-studio' ) ); ?>
+									<?php $this->switch_row( 'debug', __( 'Debug mode', 'bricks-motion-studio' ), __( 'For troubleshooting: writes what Motion Studio does to the browser\'s developer console and shows the scroll start lines. Turn off on live sites. To see every animation on a page with a label, use Inspect animations in the Motion menu of the admin bar.', 'bricks-motion-studio' ) ); ?>
 								</div>
 							</section>
 						</form>
@@ -1584,50 +1733,61 @@ class Admin {
 							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'The settings as they were before each of the last saves, imports and resets. Restore one to undo a change; restoring can be undone the same way.', 'bricks-motion-studio' ); ?></p>
 							<?php $this->history_list( $s ); ?>
 
-							<h3 class="bme-subhead"><?php esc_html_e( 'Export', 'bricks-motion-studio' ); ?></h3>
-							<div class="bme-code">
-								<textarea class="bme-textarea bme-mono" rows="6" readonly data-bme-export aria-label="<?php esc_attr_e( 'Settings JSON', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( (string) Plugin::json( $s, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></textarea>
-								<span class="bme-code__actions">
-									<button type="button" class="bme-btn" data-bme-copy><?php esc_html_e( 'Copy', 'bricks-motion-studio' ); ?></button>
-									<button type="button" class="bme-btn" data-bme-download="<?php echo esc_attr( 'motion-studio-settings-' . sanitize_title( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) . '.json' ); ?>"><?php echo self::icon( 'download' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Download', 'bricks-motion-studio' ); ?></button>
-								</span>
+							<h3 class="bme-subhead"><?php esc_html_e( 'Back up your settings', 'bricks-motion-studio' ); ?></h3>
+							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Download a file with all Motion Studio settings, to keep as a backup or to set up another site the same way. Animation settings saved on elements in Bricks are part of your pages, not of this file.', 'bricks-motion-studio' ); ?></p>
+							<div class="bme-actions-row">
+								<button type="button" class="bme-btn bme-btn--primary" data-bme-download="<?php echo esc_attr( 'motion-studio-settings-' . sanitize_title( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) . '.json' ); ?>"><?php echo self::icon( 'download' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Download backup', 'bricks-motion-studio' ); ?></button>
+								<button type="button" class="bme-btn" data-bme-copy><?php esc_html_e( 'Copy as text', 'bricks-motion-studio' ); ?></button>
 							</div>
+							<details class="bme-dev bme-dev--inline">
+								<summary><?php esc_html_e( 'Show the settings as text', 'bricks-motion-studio' ); ?></summary>
+								<textarea class="bme-textarea bme-mono" rows="6" readonly data-bme-export aria-label="<?php esc_attr_e( 'All settings as text', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( (string) Plugin::json( $s, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></textarea>
+							</details>
 
-							<h3 class="bme-subhead"><?php esc_html_e( 'Import', 'bricks-motion-studio' ); ?></h3>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bme-code">
+							<h3 class="bme-subhead"><?php esc_html_e( 'Restore from a backup', 'bricks-motion-studio' ); ?></h3>
+							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Choose a backup file you downloaded, or paste its text, then click Restore. Only the settings in the backup change; you can undo it in Recent changes.', 'bricks-motion-studio' ); ?></p>
+							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bme-restore">
 								<input type="hidden" name="action" value="bme_import">
 								<?php wp_nonce_field( 'bme_import' ); ?>
-								<textarea class="bme-textarea bme-mono" name="bme_import" rows="5" placeholder="{ }" aria-label="<?php esc_attr_e( 'Paste exported JSON', 'bricks-motion-studio' ); ?>" aria-describedby="bme-import-msg" spellcheck="false" data-bme-import></textarea>
-								<span class="bme-code__actions">
-									<button class="bme-btn" data-bme-import-submit><?php esc_html_e( 'Import', 'bricks-motion-studio' ); ?></button>
-									<label class="bme-btn bme-file">
-										<?php echo self::icon( 'upload' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'From file', 'bricks-motion-studio' ); ?>
-										<input type="file" accept=".json,application/json" data-bme-import-file>
-									</label>
-								</span>
-								</form>
+								<label class="bme-btn bme-file">
+									<?php echo self::icon( 'upload' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Choose backup file', 'bricks-motion-studio' ); ?>
+									<input type="file" accept=".json,application/json" data-bme-import-file>
+								</label>
+								<label class="bme-field-label" for="bme-import-text"><?php esc_html_e( 'Or paste the backup text', 'bricks-motion-studio' ); ?></label>
+								<textarea id="bme-import-text" class="bme-textarea bme-mono" name="bme_import" rows="3" aria-describedby="bme-import-msg" spellcheck="false" data-bme-import></textarea>
 								<p class="bme-field-msg" id="bme-import-msg" data-bme-import-msg role="status"></p>
-
-							<h3 class="bme-subhead"><?php esc_html_e( 'Share presets and rules', 'bricks-motion-studio' ); ?></h3>
-							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Your presets and auto-animate rules as one code, to paste into Motion Studio on another site (the other settings stay as they are there).', 'bricks-motion-studio' ); ?></p>
-							<div class="bme-code">
-								<textarea class="bme-textarea bme-mono" rows="3" readonly data-bme-share-code aria-label="<?php esc_attr_e( 'This site\'s share code', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( Share::code() ); ?></textarea>
-								<span class="bme-code__actions">
-									<button type="button" class="bme-btn" data-bme-share-copy><?php esc_html_e( 'Copy code', 'bricks-motion-studio' ); ?></button>
-								</span>
-							</div>
-							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bme-code bme-share-in">
-								<input type="hidden" name="action" value="bme_share_import">
-								<?php wp_nonce_field( 'bme_share_import' ); ?>
-								<textarea class="bme-textarea bme-mono" name="bme_share_code" rows="3" placeholder="BMS1.…" aria-label="<?php esc_attr_e( 'Paste a share code', 'bricks-motion-studio' ); ?>" spellcheck="false" required></textarea>
-								<span class="bme-code__actions">
-									<select class="bme-select" name="bme_share_mode" aria-label="<?php esc_attr_e( 'How to apply it', 'bricks-motion-studio' ); ?>">
-										<option value="add"><?php esc_html_e( 'Add to mine', 'bricks-motion-studio' ); ?></option>
-										<option value="replace"><?php esc_html_e( 'Replace mine', 'bricks-motion-studio' ); ?></option>
-									</select>
-									<button class="bme-btn"><?php esc_html_e( 'Apply code', 'bricks-motion-studio' ); ?></button>
-								</span>
+								<div class="bme-actions-row">
+									<button class="bme-btn bme-btn--primary" data-bme-import-submit><?php esc_html_e( 'Restore', 'bricks-motion-studio' ); ?></button>
+								</div>
 							</form>
+
+							<h3 class="bme-subhead"><?php esc_html_e( 'Copy your animations to another site', 'bricks-motion-studio' ); ?></h3>
+							<p class="bme-row__help bme-subhead__help"><?php esc_html_e( 'Your own presets (My presets) and the auto-animate rules as one code. Copy it here and paste it on the other site, in the same place. Other settings there stay as they are.', 'bricks-motion-studio' ); ?></p>
+							<div class="bme-share">
+								<div class="bme-share__block">
+									<label class="bme-field-label" for="bme-share-out"><?php esc_html_e( 'Your code', 'bricks-motion-studio' ); ?></label>
+									<div class="bme-code">
+										<textarea id="bme-share-out" class="bme-textarea bme-mono bme-textarea--code" rows="2" readonly data-bme-share-code><?php echo esc_textarea( Share::code() ); ?></textarea>
+										<span class="bme-code__actions">
+											<button type="button" class="bme-btn" data-bme-share-copy><?php esc_html_e( 'Copy code', 'bricks-motion-studio' ); ?></button>
+										</span>
+									</div>
+								</div>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="bme-share__block bme-share-in">
+									<input type="hidden" name="action" value="bme_share_import">
+									<?php wp_nonce_field( 'bme_share_import' ); ?>
+									<label class="bme-field-label" for="bme-share-in"><?php esc_html_e( 'Paste a code from another site', 'bricks-motion-studio' ); ?></label>
+									<textarea id="bme-share-in" class="bme-textarea bme-mono bme-textarea--code" name="bme_share_code" rows="2" placeholder="BMS1.…" spellcheck="false" required></textarea>
+									<fieldset class="bme-share__mode">
+										<legend class="screen-reader-text"><?php esc_html_e( 'How to apply it', 'bricks-motion-studio' ); ?></legend>
+										<label><input type="radio" name="bme_share_mode" value="add" checked> <?php esc_html_e( 'Add to mine (keep my presets and rules)', 'bricks-motion-studio' ); ?></label>
+										<label><input type="radio" name="bme_share_mode" value="replace"> <?php esc_html_e( 'Replace my presets and rules with these', 'bricks-motion-studio' ); ?></label>
+									</fieldset>
+									<div class="bme-actions-row">
+										<button class="bme-btn bme-btn--primary"><?php esc_html_e( 'Apply code', 'bricks-motion-studio' ); ?></button>
+									</div>
+								</form>
+							</div>
 
 							<div class="bme-danger">
 								<div>
@@ -1644,9 +1804,9 @@ class Admin {
 
 						<!-- Usage -->
 						<section class="bme-panel" id="bme-panel-usage" data-bme-panel="usage" aria-labelledby="bme-h-usage" hidden>
-							<?php $this->panel_head( 'usage', __( 'Usage & weight', 'bricks-motion-studio' ), __( 'Which pages use which engines and presets, and how much Motion Studio script each one loads.', 'bricks-motion-studio' ), 'chart' ); ?>
+							<?php $this->panel_head( 'usage', __( 'Usage & weight', 'bricks-motion-studio' ), __( 'Which pages use which animations and libraries, and how much Motion Studio has to download on each.', 'bricks-motion-studio' ), 'chart' ); ?>
 
-							<p class="bme-row__help bme-usage__intro"><?php esc_html_e( 'Pages are recorded as they are viewed. Scan site opens your published pages, recent posts and an archive once, so the report covers the whole site. Sizes are minified scripts before compression.', 'bricks-motion-studio' ); ?></p>
+							<p class="bme-row__help bme-usage__intro"><?php esc_html_e( 'Pages are recorded as they are viewed. Scan site opens your published pages, recent posts and an archive once, so the report covers the whole site. Sizes are the download sizes before your server compresses them.', 'bricks-motion-studio' ); ?></p>
 							<div class="bme-usage__bar">
 								<button type="button" class="bme-btn bme-btn--primary" data-bme-usage-scan><?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Scan site', 'bricks-motion-studio' ); ?></button>
 								<button type="button" class="bme-btn" data-bme-usage-clear><?php esc_html_e( 'Clear report', 'bricks-motion-studio' ); ?></button>
@@ -1657,49 +1817,94 @@ class Admin {
 
 						<!-- Reference -->
 						<section class="bme-panel" id="bme-panel-help" data-bme-panel="help" aria-labelledby="bme-h-help" hidden>
-							<?php $this->panel_head( 'help', __( 'Reference', 'bricks-motion-studio' ), __( 'Hover, focus or tap a preset to watch it. Use the slug in attributes and rules: click it to copy.', 'bricks-motion-studio' ), 'help' ); ?>
+							<?php $this->panel_head( 'help', __( 'Guide', 'bricks-motion-studio' ), __( 'What Motion Studio can do and where to set it, in plain words. Hover (or tap) an animation card to watch it.', 'bricks-motion-studio' ), 'help' ); ?>
 
+							<h3 class="bme-subhead"><?php esc_html_e( 'Getting started', 'bricks-motion-studio' ); ?></h3>
+							<ol class="bme-guide-steps">
+								<li class="bme-guide-step">
+									<strong><?php esc_html_e( 'Animate the whole site at once', 'bricks-motion-studio' ); ?></strong>
+									<span><?php esc_html_e( 'Auto-animate is on from the start: headings, text, images and buttons appear smoothly as visitors scroll to them. You choose what each kind of element does in Auto-animate, and how lively it all feels with the animation level.', 'bricks-motion-studio' ); ?></span>
+								</li>
+								<li class="bme-guide-step">
+									<strong><?php esc_html_e( 'Animate one section', 'bricks-motion-studio' ); ?></strong>
+									<span><?php esc_html_e( 'In Bricks, select a section (or the block holding your cards), open the Content tab, then Motion Studio, and pick an Animation recipe: hero intro, card grid, gallery, pricing cards and more. Everything inside follows in order.', 'bricks-motion-studio' ); ?></span>
+								</li>
+								<li class="bme-guide-step">
+									<strong><?php esc_html_e( 'Animate one element your way', 'bricks-motion-studio' ); ?></strong>
+									<span><?php esc_html_e( 'Select the element, open Content, then Motion Studio, set Animation to Custom and pick one of the animations below. Change when it starts (scrolling, page load, a click), how long it takes and more. It plays on the canvas as you change it.', 'bricks-motion-studio' ); ?></span>
+								</li>
+								<li class="bme-guide-step">
+									<strong><?php esc_html_e( 'Turn things off', 'bricks-motion-studio' ); ?></strong>
+									<span><?php esc_html_e( 'One element: Animation, Disabled (or Turn off on for phones, tablets or desktops). One page: Bricks page settings, Motion Studio. One feature for the whole site: Features. Everything: Overview, Site status.', 'bricks-motion-studio' ); ?></span>
+								</li>
+							</ol>
+
+							<h3 class="bme-subhead"><?php esc_html_e( 'Animations you can pick', 'bricks-motion-studio' ); ?></h3>
 								<label class="bme-search bme-search--wide">
-									<span class="screen-reader-text"><?php esc_html_e( 'Search presets', 'bricks-motion-studio' ); ?></span>
+									<span class="screen-reader-text"><?php esc_html_e( 'Search animations', 'bricks-motion-studio' ); ?></span>
 									<?php echo self::icon( 'search' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
-									<input type="search" class="bme-text" data-bme-preset-filter placeholder="<?php esc_attr_e( 'Search presets: fade, text, scroll, GSAP…', 'bricks-motion-studio' ); ?>" autocomplete="off">
+									<input type="search" class="bme-text" data-bme-preset-filter placeholder="<?php esc_attr_e( 'Search: fade, words, scroll, count, image…', 'bricks-motion-studio' ); ?>" autocomplete="off">
 								</label>
-								<p class="bme-empty" data-bme-preset-empty hidden><?php esc_html_e( 'No presets match.', 'bricks-motion-studio' ); ?></p>
+								<p class="bme-empty" data-bme-preset-empty hidden><?php esc_html_e( 'No animations match.', 'bricks-motion-studio' ); ?></p>
 
-							<?php foreach ( Presets::group_labels() as $group => $group_label ) : ?>
+							<?php
+							$group_help = self::group_help();
+							$desc       = self::preset_help();
+							foreach ( Presets::group_labels() as $group => $group_label ) :
+								?>
 								<h3 class="bme-subhead" data-bme-preset-group="<?php echo esc_attr( $group ); ?>"><?php echo esc_html( $group_label ); ?></h3>
+								<?php if ( isset( $group_help[ $group ] ) ) : ?>
+									<p class="bme-row__help bme-subhead__help" data-bme-preset-group="<?php echo esc_attr( $group ); ?>"><?php echo esc_html( $group_help[ $group ] ); ?></p>
+								<?php endif; ?>
 								<div class="bme-presets" data-bme-preset-grid="<?php echo esc_attr( $group ); ?>">
 									<?php
 									foreach ( Presets::all() as $slug => $p ) :
 										if ( ( $p['group'] ?? '' ) !== $group ) {
 											continue;
 										}
+										$text = $desc[ $slug ] ?? ( ! empty( $p['custom'] ) ? __( 'One of your own presets (Timing & feel, My presets).', 'bricks-motion-studio' ) : '' );
+										$need = self::needs_library( $slug, $p );
 										?>
-										<button type="button" class="bme-preset" data-bme-demo="<?php echo esc_attr( $slug ); ?>" data-bme-search="<?php echo esc_attr( strtolower( $slug . ' ' . $p['label'] . ' ' . $group_label . ' ' . self::engine_list( $slug, $p ) ) ); ?>">
+										<button type="button" class="bme-preset" data-bme-demo="<?php echo esc_attr( $slug ); ?>" data-bme-search="<?php echo esc_attr( strtolower( $slug . ' ' . $p['label'] . ' ' . $group_label . ' ' . $text . ' ' . self::engine_list( $slug, $p ) ) ); ?>">
 											<span class="bme-preset__stage" aria-hidden="true"><span class="bme-preset__shape">Aa</span></span>
 											<span class="bme-preset__name"><?php echo esc_html( $p['label'] ); ?></span>
-											<code class="bme-preset__slug"><?php echo esc_html( $slug ); ?></code>
-											<span class="bme-preset__engines"><?php echo esc_html( self::engine_list( $slug, $p ) ); ?></span>
+											<?php if ( '' !== $text ) : ?>
+												<span class="bme-preset__desc"><?php echo esc_html( $text ); ?></span>
+											<?php endif; ?>
+											<?php if ( '' !== $need ) : ?>
+												<span class="bme-preset__need"><?php echo esc_html( $need ); ?></span>
+											<?php endif; ?>
+											<span class="bme-preset__slug"><?php esc_html_e( 'Code name:', 'bricks-motion-studio' ); ?> <code><?php echo esc_html( $slug ); ?></code></span>
 										</button>
 									<?php endforeach; ?>
 								</div>
 							<?php endforeach; ?>
 
-							<h3 class="bme-subhead"><?php esc_html_e( 'Attributes (no code)', 'bricks-motion-studio' ); ?></h3>
-							<p class="bme-panel__text"><?php esc_html_e( 'Add these under Style, Attributes on any element:', 'bricks-motion-studio' ); ?></p>
+							<h3 class="bme-subhead"><?php esc_html_e( 'Words you will see', 'bricks-motion-studio' ); ?></h3>
+							<dl class="bme-glossary">
+								<?php foreach ( self::glossary() as $term => $meaning ) : ?>
+									<div><dt><?php echo esc_html( $term ); ?></dt><dd><?php echo esc_html( $meaning ); ?></dd></div>
+								<?php endforeach; ?>
+							</dl>
+
+							<details class="bme-dev">
+								<summary><?php esc_html_e( 'For developers: attributes and JavaScript', 'bricks-motion-studio' ); ?></summary>
+								<p class="bme-panel__text"><?php esc_html_e( 'Not needed for anything in the builder. To animate without the Motion Studio controls, add these under Style, Attributes on any element (the code name of an animation is on its card):', 'bricks-motion-studio' ); ?></p>
 <pre class="bme-pre"><code>data-bme         fade-up
 data-bme-engine  motion
-data-bme-opts    {"duration":1.2,"delay":0.2,"scope":"children","stagger":0.1}
-data-bme-hover   magnetic
+data-bme-opts    {"duration":1.2,"delay":0.2,"scope":"children","stagger":0.1,"from":"center"}
+data-bme-hover   magnetic        (lift, grow, magnetic, tilt, roll)
+data-bme-inview  {"c":"is-inview","r":1}
+data-bme-mouse   {"s":24,"a":"section"}
 data-bme-skip    (no value, opts the element out)</code></pre>
-
-							<h3 class="bme-subhead"><?php esc_html_e( 'JavaScript', 'bricks-motion-studio' ); ?></h3>
 <pre class="bme-pre"><code>BricksMotion.refresh();        // re-scan after custom AJAX
 BricksMotion.play( el );       // replay an element (also from Interactions → JavaScript (Function), %brx%)
 BricksMotion.reset( el );      // back to the start state
 BricksMotion.destroy( el );    // stop and restore
+BricksMotion.pauseAll();       // pause everything that keeps moving (resumeAll() to resume)
 BricksMotion.lenis;            // Lenis instance, when enabled
 document.addEventListener( 'bme:ready', ( e ) =&gt; console.log( e.detail ) );</code></pre>
+							</details>
 						</section>
 					</main>
 				</div>

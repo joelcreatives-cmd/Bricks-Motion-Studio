@@ -91,6 +91,9 @@ class Settings {
 				'intro_every'         => 0,     // 0: first page of a visit only
 				'page_progress'       => 0,     // --bme-page-progress (0..1) on <html> while scrolling
 			),
+			// Motion Studio → Features: each per-element feature can be switched off site-wide; off,
+			// the elements that use it show as designed (their settings are kept).
+			'features'       => array_fill_keys( self::FEATURES, 1 ),
 			'admin_bar'      => 1, // Motion Studio menu in the admin bar on the frontend
 			'debug'          => 0,
 			// "My presets": a built-in preset with your own timing, picked like any other preset.
@@ -319,6 +322,20 @@ class Settings {
 		return in_array( $status, array( 'live', 'editors', 'off' ), true ) ? $status : 'live';
 	}
 
+	/** Per-element features with their own site-wide switch (Motion Studio → Features). */
+	const FEATURES = array( 'hover', 'roll', 'timeline', 'recipes', 'click', 'stagger_order', 'boost', 'mouse', 'follow', 'inview', 'skew', 'progress', 'lottie', 'sequence' );
+
+	/**
+	 * Is a per-element feature switched on (Motion Studio → Features)?
+	 *
+	 * @param string $key One of FEATURES.
+	 * @return bool
+	 */
+	public static function feature( $key ) {
+		$f = self::get( 'features', array() );
+		return ! is_array( $f ) || ! array_key_exists( $key, $f ) || ! empty( $f[ $key ] );
+	}
+
 	/** Preset builder: start values a preset of your own can set (min, max). */
 	const MOTION_RANGES = array(
 		'opacity' => array( 0, 1 ),
@@ -427,6 +444,12 @@ class Settings {
 		$out['perf']['native_scroll'] = array_key_exists( 'native_scroll', $p ) ? ( empty( $p['native_scroll'] ) ? 0 : 1 ) : (int) $d['perf']['native_scroll'];
 
 		// Effects.
+		// Features: an export from before a feature existed keeps it on.
+		$feat            = is_array( $in['features'] ?? null ) ? $in['features'] : array();
+		$out['features'] = array();
+		foreach ( self::FEATURES as $key ) {
+			$out['features'][ $key ] = array_key_exists( $key, $feat ) ? ( empty( $feat[ $key ] ) ? 0 : 1 ) : 1;
+		}
 		$fx                                    = is_array( $in['effects'] ?? null ) ? $in['effects'] : array();
 		$out['effects']['transition']          = self::pick( $fx['transition'] ?? '', array( 'off', 'fade', 'slide', 'zoom' ), 'off' );
 		$out['effects']['transition_duration'] = self::num( $fx['transition_duration'] ?? null, 0.1, 1.5, $d['effects']['transition_duration'] );

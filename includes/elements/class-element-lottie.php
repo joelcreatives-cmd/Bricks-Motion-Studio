@@ -30,11 +30,11 @@ class BME_Element_Lottie extends \Bricks\Element {
 	public function set_controls() {
 		$this->controls['src'] = array(
 			'tab'            => 'content',
-			'label'          => esc_html__( 'Lottie file (JSON URL)', 'bricks-motion-studio' ),
+			'label'          => esc_html__( 'Lottie file (.json address)', 'bricks-motion-studio' ),
 			'type'           => 'text',
 			'placeholder'    => 'https://…/animation.json',
 			'hasDynamicData' => true,
-			'description'    => esc_html__( 'The URL of a Lottie .json file: upload it to the Media Library (administrators can upload .json there) or use a file from LottieFiles. Other sites must allow it to be loaded (CORS).', 'bricks-motion-studio' ),
+			'description'    => esc_html__( 'The address of a Lottie animation (a .json file). Upload it to the Media Library (administrators can upload .json files) and copy its address, or use a link from LottieFiles. Files from other websites only load if that website allows it.', 'bricks-motion-studio' ),
 		);
 
 		$this->controls['trigger'] = array(
@@ -46,7 +46,7 @@ class BME_Element_Lottie extends \Bricks\Element {
 				'view'     => esc_html__( 'When scrolled into view', 'bricks-motion-studio' ),
 				'hover'    => esc_html__( 'On hover (reverses on leave)', 'bricks-motion-studio' ),
 				'click'    => esc_html__( 'On click (play / pause)', 'bricks-motion-studio' ),
-				'scroll'   => esc_html__( 'With scrolling (scrubbed)', 'bricks-motion-studio' ),
+				'scroll'   => esc_html__( 'Follows scrolling', 'bricks-motion-studio' ),
 			),
 			'placeholder' => esc_html__( 'On load', 'bricks-motion-studio' ),
 			'inline'      => true,
@@ -114,7 +114,7 @@ class BME_Element_Lottie extends \Bricks\Element {
 			if ( function_exists( 'bricks_is_builder' ) && ( bricks_is_builder() || bricks_is_builder_iframe() || bricks_is_builder_call() ) ) {
 				return $this->render_element_placeholder(
 					array(
-						'title' => esc_html__( 'Add the URL of a Lottie .json file.', 'bricks-motion-studio' ),
+						'title' => esc_html__( 'Add the address of a Lottie animation (.json file).', 'bricks-motion-studio' ),
 					)
 				);
 			}
@@ -128,7 +128,7 @@ class BME_Element_Lottie extends \Bricks\Element {
 			'speed'   => $speed,
 			'still'   => isset( $s['still'] ) && 'last' === $s['still'] ? 'last' : 'first',
 			// Motion Studio off for this page or visitor (status, excluded path): a still frame.
-			'static'  => class_exists( '\BricksMotionStudio\Bricks_Integration' ) && \BricksMotionStudio\Bricks_Integration::is_passive_context(),
+			'static'  => ( class_exists( '\BricksMotionStudio\Bricks_Integration' ) && \BricksMotionStudio\Bricks_Integration::is_passive_context() ) || ( class_exists( '\BricksMotionStudio\Settings' ) && ! \BricksMotionStudio\Settings::feature( 'lottie' ) ),
 		);
 
 		$this->set_attribute( '_root', 'class', 'bme-lottie' );

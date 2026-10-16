@@ -897,18 +897,24 @@
 			offset: Math.max( 0, Math.min( 50, num( o.offset, D.offset ) ) ),
 			speed: num( o.speed, D.speed ),
 			ease: o.ease || p.ease || D.ease,
-			trigger: o.trigger === 'load' || o.trigger === 'manual' || o.trigger === 'click' ? o.trigger : 'scroll',
+			// A click trigger switched off (Motion Studio → Features) plays when scrolled into view.
+			trigger: o.trigger === 'load' || o.trigger === 'manual' || ( o.trigger === 'click' && ! featureOff( 'click' ) ) ? o.trigger : 'scroll',
 			// Click: a selector for what starts it (anywhere on the page); empty = the element itself.
 			click: typeof o.click === 'string' ? o.click.trim() : '',
 			// Stagger order across the animated children / words: start, end, center, edges, random.
-			from: /^(end|center|edges|random)$/.test( o.from ) ? o.from : 'start',
-			boost: o.boost !== undefined && flag( o.boost ), // marquee: faster while the page scrolls
+			from: /^(end|center|edges|random)$/.test( o.from ) && ! featureOff( 'stagger_order' ) ? o.from : 'start',
+			boost: o.boost !== undefined && flag( o.boost ) && ! featureOff( 'boost' ), // marquee: faster while the page scrolls
 			scope: o.scope || 'self',
 			replay: o.replay !== undefined ? flag( o.replay ) : !! D.replay,
 			minWidth: num( o.minWidth, 0 ),
 			auto: !! o.auto,
 			recipe: !! o.recipe,
 		};
+	}
+
+	/** Switched off site-wide in Motion Studio → Features. */
+	function featureOff( name ) {
+		return Array.isArray( cfg.off ) && cfg.off.indexOf( name ) !== -1;
 	}
 
 	/** "", true, "true", "yes", "on", 1 → true; "false", "no", "0" → false. */

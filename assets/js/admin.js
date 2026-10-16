@@ -1206,6 +1206,29 @@
 		}, Math.min( 6000, Math.max( 2400, ms ) ) );
 	}
 
+	// Rules: "Animate" is a plain choice; the selector field only shows for "Some elements inside".
+	document.addEventListener( 'change', function ( e ) {
+		var mode = e.target.closest && e.target.closest( '[data-bme-scope-mode]' );
+		if ( ! mode ) {
+			return;
+		}
+		var field = $( 'input[name$="[scope]"]', mode.parentNode );
+		if ( ! field ) {
+			return;
+		}
+		if ( mode.value === 'inside' ) {
+			if ( field.value === 'self' || field.value === 'children' ) {
+				field.value = '';
+			}
+			field.hidden = false;
+			field.focus();
+		} else {
+			field.value = mode.value;
+			field.hidden = true;
+		}
+		field.dispatchEvent( new Event( 'input', { bubbles: true } ) ); // unsaved-changes tracking, previews
+	} );
+
 	// Reference cards: play on hover / focus.
 	$$( '[data-bme-demo]' ).forEach( function ( card ) {
 		var shape = $( '.bme-preset__shape', card );
@@ -1222,17 +1245,12 @@
 		};
 		card.addEventListener( 'mouseenter', run );
 		card.addEventListener( 'focus', run );
+		// A click (or tap) plays it again; the code name on the card can be selected to copy it.
 		card.addEventListener( 'click', function () {
+			if ( window.getSelection && String( window.getSelection() ).trim() ) {
+				return; // selecting the code name, not asking for a replay
+			}
 			run();
-			copyText( slug, function () {
-				say( String( i18n.copySlug || 'Copied %s' ).replace( '%s', slug ) );
-				toast( String( i18n.copySlug || 'Copied %s' ).replace( '%s', slug ) );
-				card.classList.add( 'is-copied' );
-				clearTimeout( card.__bmeCopied );
-				card.__bmeCopied = setTimeout( function () {
-					card.classList.remove( 'is-copied' );
-				}, 1400 );
-			} );
 		} );
 	} );
 
@@ -1362,7 +1380,7 @@
 		if ( text ) {
 			try {
 				var obj = JSON.parse( text );
-				ok = !! obj && typeof obj === 'object' && ! Array.isArray( obj ) && [ 'libraries', 'auto', 'defaults', 'a11y', 'perf', 'level' ].some( function ( k ) {
+				ok = !! obj && typeof obj === 'object' && ! Array.isArray( obj ) && [ 'libraries', 'auto', 'defaults', 'a11y', 'perf', 'level', 'effects', 'features', 'custom_presets', 'lenis', 'three', 'status' ].some( function ( k ) {
 					return k in obj;
 				} );
 			} catch ( err ) {

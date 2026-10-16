@@ -208,7 +208,7 @@ class BME_Element_Image_Sequence extends \Bricks\Element {
 			'fit'    => isset( $s['fit'] ) && 'contain' === $s['fit'] ? 'contain' : 'cover',
 			'still'  => $still,
 			// Motion Studio off for this page or visitor (status, excluded path): the still frame.
-			'static' => class_exists( '\BricksMotionStudio\Bricks_Integration' ) && \BricksMotionStudio\Bricks_Integration::is_passive_context(),
+			'static' => ( class_exists( '\BricksMotionStudio\Bricks_Integration' ) && \BricksMotionStudio\Bricks_Integration::is_passive_context() ) || ( class_exists( '\BricksMotionStudio\Settings' ) && ! \BricksMotionStudio\Settings::feature( 'sequence' ) ),
 		);
 
 		$this->set_attribute( '_root', 'class', 'bme-seq' );

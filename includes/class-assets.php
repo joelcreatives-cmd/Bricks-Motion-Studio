@@ -451,6 +451,15 @@ class Assets {
 			'engines'          => $engines,
 			'native'           => (bool) $s['perf']['native'],
 			'nativeScroll'     => (bool) $s['perf']['native_scroll'],
+			// Features switched off in Motion Studio → Features (also when written by hand).
+			'off'              => array_values(
+				array_filter(
+					array( 'click', 'stagger_order', 'boost' ),
+					static function ( $f ) {
+						return ! Settings::feature( $f );
+					}
+				)
+			),
 			'builder'          => Builder::canvas(), // the canvas animates only what the live preview plays
 			'ownGsap'          => ! in_array( 'gsap', $engines, true ) || 'bme-gsap' === $this->external_gsap_handle(),
 			'defaults'         => $s['defaults'],

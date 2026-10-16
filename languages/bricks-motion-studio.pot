@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-10-16T10:50:47+00:00\n"
+"POT-Creation-Date: 2026-10-16T14:35:25+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: bricks-motion-studio\n"
@@ -61,7 +61,7 @@ msgid "Inspect animations"
 msgstr ""
 
 #: includes/class-admin.php:107
-msgid "Label every animation on this page with its preset, engine and source, and show why other elements are skipped."
+msgid "Show a label on every animation on this page (which animation it is and where it comes from), and why some elements don't animate."
 msgstr ""
 
 #: includes/class-admin.php:115
@@ -86,9 +86,9 @@ msgid "Only logged-in editors see them. Visitors get the page as designed, witho
 msgstr ""
 
 #: includes/class-admin.php:130
-#: includes/class-admin.php:1468
-#: includes/class-admin.php:1486
-#: includes/class-admin.php:1505
+#: includes/class-admin.php:1573
+#: includes/class-admin.php:1591
+#: includes/class-admin.php:1610
 msgid "Off"
 msgstr ""
 
@@ -97,8 +97,8 @@ msgid "No Motion Studio output on the frontend for anyone. Your rules and elemen
 msgstr ""
 
 #: includes/class-admin.php:180
-#: includes/class-admin.php:1042
-#: includes/class-admin.php:1048
+#: includes/class-admin.php:1147
+#: includes/class-admin.php:1153
 #: includes/class-bricks-integration.php:102
 #: includes/class-bricks-integration.php:779
 msgid "Motion Studio"
@@ -125,11 +125,11 @@ msgid "Not a Bricks element on this site"
 msgstr ""
 
 #: includes/class-admin.php:218
-msgid "Valid settings file. Click Import to apply it."
+msgid "This is a valid backup. Click Restore to apply it."
 msgstr ""
 
 #: includes/class-admin.php:219
-msgid "This is not a Motion Studio settings export (invalid JSON)."
+msgid "This doesn't look like a Motion Studio backup. Choose the file you downloaded with Download backup, or paste all of its text."
 msgstr ""
 
 #. translators: %s: preset slug, e.g. fade-up
@@ -143,7 +143,7 @@ msgid "Unsaved changes"
 msgstr ""
 
 #: includes/class-admin.php:223
-#: includes/class-admin.php:1059
+#: includes/class-admin.php:1164
 msgid "All changes saved"
 msgstr ""
 
@@ -156,9 +156,9 @@ msgid "Section"
 msgstr ""
 
 #: includes/class-admin.php:226
-#: includes/class-admin.php:856
-#: includes/class-admin.php:857
-#: includes/class-admin.php:1299
+#: includes/class-admin.php:951
+#: includes/class-admin.php:952
+#: includes/class-admin.php:1404
 #: includes/class-bricks-integration.php:227
 msgid "Preset"
 msgstr ""
@@ -213,6 +213,7 @@ msgid "Page"
 msgstr ""
 
 #: includes/class-admin.php:240
+#: includes/class-admin.php:1631
 #: includes/class-bricks-integration.php:790
 msgid "Animations"
 msgstr ""
@@ -234,11 +235,11 @@ msgstr ""
 #. translators: %s: library name, e.g. Anime.js
 #: includes/class-admin.php:246
 #, php-format
-msgid "%s is on, but no recorded page uses it. Pages only download the engines they use, so it costs nothing; switch it off if you don't plan to use it."
+msgid "%s is on, but no recorded page uses it. Pages only download the libraries they use, so it costs nothing; switch it off if you don't plan to use it."
 msgstr ""
 
 #: includes/class-admin.php:247
-msgid "\"Load engines on every page\" is on (Scroll & 3D): every page downloads all enabled engines, used or not."
+msgid "\"Load engines on every page\" is on (Accessibility): every page downloads all libraries you turned on, used or not."
 msgstr ""
 
 #: includes/class-admin.php:248
@@ -246,7 +247,7 @@ msgid "Smooth scrolling is on, so every page loads Lenis."
 msgstr ""
 
 #: includes/class-admin.php:249
-msgid "Libraries load from the CDN: their sizes are those of the bundled copies of the same version."
+msgid "Libraries load from an outside server (Libraries, Load libraries from): the sizes shown are those of the same files included with the plugin."
 msgstr ""
 
 #. translators: 1: pages done, 2: pages to scan
@@ -294,7 +295,7 @@ msgid "Copied"
 msgstr ""
 
 #: includes/class-admin.php:263
-#: includes/class-admin.php:1062
+#: includes/class-admin.php:1167
 msgctxt "keyboard shortcut"
 msgid "Ctrl S"
 msgstr ""
@@ -362,11 +363,11 @@ msgid "Settings saved."
 msgstr ""
 
 #: includes/class-admin.php:314
-msgid "Settings imported."
+msgid "Settings restored from the backup. You can undo it in Recent changes."
 msgstr ""
 
 #: includes/class-admin.php:315
-msgid "Import failed: paste a valid Motion Studio JSON export."
+msgid "Restore failed: choose a Motion Studio backup file, or paste all of its text."
 msgstr ""
 
 #: includes/class-admin.php:316
@@ -393,7 +394,7 @@ msgstr ""
 
 #: includes/class-admin.php:342
 #: includes/class-admin.php:373
-#: includes/class-history.php:195
+#: includes/class-history.php:196
 #: includes/class-share.php:123
 msgid "Sorry, you are not allowed to do that."
 msgstr ""
@@ -425,343 +426,642 @@ msgid "Restore the settings as they were before the change of %s? Your current s
 msgstr ""
 
 #: includes/class-admin.php:443
+#: includes/class-admin.php:1760
 msgid "Restore"
 msgstr ""
 
-#: includes/class-admin.php:466
-#: includes/class-admin.php:835
-msgid "Built-in"
+#: includes/class-admin.php:461
+msgid "The element appears as the visitor scrolls to it, once. Good for almost anything: cards, images, buttons, sections."
 msgstr ""
 
-#. translators: separator between engine names
+#: includes/class-admin.php:462
+msgid "Headings and text appear line by line, word by word or letter by letter. Best on short text such as headings."
+msgstr ""
+
+#: includes/class-admin.php:463
+msgid "Moves with the scrollbar: forward as the visitor scrolls down, back as they scroll up. Good for depth and storytelling."
+msgstr ""
+
+#: includes/class-admin.php:464
+msgid "Keeps moving gently to draw the eye (it pauses when off screen, and visitors can pause it with the Pause animations button). Use sparingly."
+msgstr ""
+
+#: includes/class-admin.php:465
+msgid "For numbers and line drawings."
+msgstr ""
+
+#: includes/class-admin.php:472
+msgid "Softly appears in place. The calmest choice; works everywhere."
+msgstr ""
+
+#: includes/class-admin.php:473
+msgid "Appears while rising a little. The classic, for text, cards and buttons."
+msgstr ""
+
 #: includes/class-admin.php:474
-msgctxt "list separator"
-msgid ", "
+msgid "Appears while dropping in from slightly above."
 msgstr ""
 
-#. translators: %s: setting name
-#: includes/class-admin.php:618
-#, php-format
-msgid "%s: pick a colour"
+#: includes/class-admin.php:475
+msgid "Slides in from the right while appearing. Nice for the right column."
 msgstr ""
 
-#. translators: %s: setting name
-#: includes/class-admin.php:619
-#: includes/class-bricks-integration.php:220
-msgid "Automatic"
+#: includes/class-admin.php:476
+msgid "Slides in from the left while appearing. Nice for the left column."
 msgstr ""
 
-#: includes/class-admin.php:659
-msgid "Any other content element"
+#: includes/class-admin.php:477
+msgid "Grows from slightly smaller to full size. Good for buttons, icons and cards."
 msgstr ""
 
-#. translators: %s: preset slug.
-#: includes/class-admin.php:667
-#, php-format
-msgid "%s (unavailable)"
+#: includes/class-admin.php:478
+msgid "Settles from slightly larger to full size. Good for big images."
 msgstr ""
 
-#: includes/class-admin.php:690
-msgid "As the preset"
+#: includes/class-admin.php:479
+msgid "Tips up into place like a card turning over. Playful."
 msgstr ""
 
-#: includes/class-admin.php:699
-msgid "auto"
+#: includes/class-admin.php:480
+msgid "Swings in from the side like a door opening."
 msgstr ""
 
-#: includes/class-admin.php:708
-msgid "Preset name"
+#: includes/class-admin.php:481
+msgid "Turns slightly as it appears. For badges and icons."
 msgstr ""
 
-#: includes/class-admin.php:709
-msgid "e.g. Brand fade"
+#: includes/class-admin.php:482
+msgid "Rises with a slight lean that straightens out. Energetic."
 msgstr ""
 
-#: includes/class-admin.php:712
-msgid "Based on"
+#: includes/class-admin.php:483
+msgid "Comes into focus, from blurry to sharp."
 msgstr ""
 
-#: includes/class-admin.php:717
-#: includes/class-admin.php:875
-msgid "Preview this preset"
+#: includes/class-admin.php:484
+msgid "Comes into focus while rising. Elegant for headings and quotes."
 msgstr ""
 
-#: includes/class-admin.php:717
-#: includes/class-admin.php:875
-msgid "Preview"
+#: includes/class-admin.php:485
+msgid "Revealed from the bottom up, as if a cover slides away."
 msgstr ""
 
-#: includes/class-admin.php:718
-msgid "Remove preset"
+#: includes/class-admin.php:486
+msgid "Revealed from the top down."
 msgstr ""
 
-#: includes/class-admin.php:718
-#: includes/class-admin.php:876
-msgid "Remove"
+#: includes/class-admin.php:487
+msgid "Revealed from right to left."
 msgstr ""
 
-#: includes/class-admin.php:722
-#: includes/class-admin.php:1377
-#: includes/class-admin.php:1474
-msgid "Duration"
+#: includes/class-admin.php:488
+msgid "Revealed from left to right."
 msgstr ""
 
-#: includes/class-admin.php:723
-#: includes/class-admin.php:1378
-msgid "Delay"
+#: includes/class-admin.php:489
+msgid "The image is uncovered while gently zooming. Made for photos."
 msgstr ""
 
-#: includes/class-admin.php:724
-msgid "Distance"
+#: includes/class-admin.php:490
+msgid "Each line of text slides up from behind an invisible edge. Striking on big headings."
 msgstr ""
 
-#: includes/class-admin.php:725
-#: includes/class-admin.php:1385
+#: includes/class-admin.php:491
+msgid "Words appear one after another, rising a little. The go-to for headings."
+msgstr ""
+
+#: includes/class-admin.php:492
+msgid "Words come into focus one after another. Soft and premium."
+msgstr ""
+
+#: includes/class-admin.php:493
+msgid "Letters appear one by one. Best on a few short words."
+msgstr ""
+
+#: includes/class-admin.php:494
+msgid "Letters appear one at a time, as if typed."
+msgstr ""
+
+#: includes/class-admin.php:495
+msgid "Letters shuffle like a code breaker before settling into the real text."
+msgstr ""
+
+#: includes/class-admin.php:496
+msgid "Words light up one by one as the visitor scrolls through a paragraph. Good for a statement."
+msgstr ""
+
+#: includes/class-admin.php:497
+msgid "Moves at a different speed than the page, for a feeling of depth. Great on background images."
+msgstr ""
+
+#: includes/class-admin.php:498
+msgid "Drifts sideways as the page scrolls."
+msgstr ""
+
+#: includes/class-admin.php:499
+msgid "Fades in gradually as it scrolls up the screen."
+msgstr ""
+
+#: includes/class-admin.php:500
+msgid "Grows gradually as it scrolls up the screen."
+msgstr ""
+
+#: includes/class-admin.php:501
+msgid "Turns slowly as the page scrolls. For decorative shapes."
+msgstr ""
+
+#: includes/class-admin.php:502
+msgid "Opens up from a smaller window to full size as it scrolls. Made for big images and videos."
+msgstr ""
+
+#: includes/class-admin.php:503
+msgid "Scrolling down moves a row of cards sideways while the section stays in place. Put it on the section that holds the row."
+msgstr ""
+
+#: includes/class-admin.php:504
+msgid "Stays in place on screen for a while as the page scrolls past it."
+msgstr ""
+
+#: includes/class-admin.php:505
+msgid "Gently bobs up and down, forever."
+msgstr ""
+
+#: includes/class-admin.php:506
+msgid "Softly grows and shrinks, like breathing. Draws the eye to a button."
+msgstr ""
+
+#: includes/class-admin.php:507
+msgid "Rocks gently from side to side."
+msgstr ""
+
+#: includes/class-admin.php:508
+msgid "Turns round and round. For loaders and decorative shapes."
+msgstr ""
+
+#: includes/class-admin.php:509
+msgid "An endless strip sliding sideways: logos, words, images. Pauses when hovered."
+msgstr ""
+
+#: includes/class-admin.php:510
+msgid "Numbers count up from zero to their value, e.g. 1,250 clients."
+msgstr ""
+
+#: includes/class-admin.php:511
+msgid "A line drawing (an SVG icon or illustration with outlines) draws itself."
+msgstr ""
+
+#: includes/class-admin.php:518
+msgid "Animation (preset)"
+msgstr ""
+
+#: includes/class-admin.php:518
+msgid "A ready-made movement, such as Fade up. You pick it, Motion Studio does the rest."
+msgstr ""
+
+#: includes/class-admin.php:519
+msgid "Auto and Custom"
+msgstr ""
+
+#: includes/class-admin.php:519
+msgid "Auto: the element follows the site-wide rules (Auto-animate). Custom: it has its own animation, set in the builder."
+msgstr ""
+
+#: includes/class-admin.php:520
+msgid "Recipe"
+msgstr ""
+
+#: includes/class-admin.php:520
+msgid "One choice on a section that animates everything inside it in a good order."
+msgstr ""
+
+#: includes/class-admin.php:521
+#: includes/class-admin.php:970
+#: includes/class-admin.php:971
+#: includes/class-admin.php:1406
+#: includes/class-bricks-integration.php:238
+msgid "Engine"
+msgstr ""
+
+#: includes/class-admin.php:521
+msgid "The code that plays the animation. Built-in is the fastest and needs no download; GSAP, Anime.js and Motion are optional extras some animations need (Libraries)."
+msgstr ""
+
+#: includes/class-admin.php:522
+msgid "Duration and delay"
+msgstr ""
+
+#: includes/class-admin.php:522
+msgid "How long the animation takes, and how long it waits before it starts, in seconds."
+msgstr ""
+
+#: includes/class-admin.php:523
+#: includes/class-admin.php:820
+#: includes/class-admin.php:1490
 msgid "Stagger"
 msgstr ""
 
-#: includes/class-admin.php:727
-#: includes/class-admin.php:1379
+#: includes/class-admin.php:523
+msgid "The small pause between items that animate one after another (cards, words). Stagger order chooses who goes first."
+msgstr ""
+
+#: includes/class-admin.php:524
+#: includes/class-admin.php:822
+#: includes/class-admin.php:1484
 #: includes/class-bricks-integration.php:350
 #: includes/class-bricks-integration.php:499
 msgid "Easing"
 msgstr ""
 
-#: includes/class-admin.php:738
+#: includes/class-admin.php:524
+msgid "How the movement speeds up and slows down. Smooth is a good default."
+msgstr ""
+
+#: includes/class-admin.php:525
+#: includes/class-admin.php:1492
+msgid "Start line"
+msgstr ""
+
+#: includes/class-admin.php:525
+#: includes/class-admin.php:1492
+msgid "How far up the screen an element must come before it animates."
+msgstr ""
+
+#: includes/class-admin.php:526
+#: includes/class-admin.php:1369
+#: includes/class-bricks-integration.php:801
+#: includes/class-history.php:148
+msgid "Animation level"
+msgstr ""
+
+#: includes/class-admin.php:526
+msgid "Basic, Moderate or Advanced: how much movement the automatic animations use, site-wide or per page."
+msgstr ""
+
+#: includes/class-admin.php:527
+#: includes/class-admin.php:1634
+#: includes/class-bricks-integration.php:439
+msgid "Timeline (keyframes)"
+msgstr ""
+
+#: includes/class-admin.php:527
+msgid "For a movement of your own: say where an element is at the start, middle and end (for example while scrolling), and Motion Studio moves it in between."
+msgstr ""
+
+#: includes/class-admin.php:528
+msgid "Reduced motion"
+msgstr ""
+
+#: includes/class-admin.php:528
+msgid "A setting on visitors' devices asking for less movement. Motion Studio respects it (Accessibility)."
+msgstr ""
+
+#: includes/class-admin.php:545
+msgid "Chrome, Edge and Safari 26 play it themselves; other browsers use one of the optional libraries."
+msgstr ""
+
+#: includes/class-admin.php:548
+msgid "Uses the GSAP library (on)."
+msgstr ""
+
+#: includes/class-admin.php:548
+msgid "Needs the GSAP library: turn it on in Libraries."
+msgstr ""
+
+#: includes/class-admin.php:550
+msgid "Uses one of the optional libraries (GSAP, Anime.js or Motion)."
+msgstr ""
+
+#: includes/class-admin.php:561
+#: includes/class-admin.php:930
+msgid "Built-in"
+msgstr ""
+
+#. translators: separator between engine names
+#: includes/class-admin.php:569
+msgctxt "list separator"
+msgid ", "
+msgstr ""
+
+#. translators: %s: setting name
+#: includes/class-admin.php:713
+#, php-format
+msgid "%s: pick a colour"
+msgstr ""
+
+#. translators: %s: setting name
+#: includes/class-admin.php:714
+#: includes/class-bricks-integration.php:220
+msgid "Automatic"
+msgstr ""
+
+#: includes/class-admin.php:754
+msgid "Any other content element"
+msgstr ""
+
+#. translators: %s: preset slug.
+#: includes/class-admin.php:762
+#, php-format
+msgid "%s (unavailable)"
+msgstr ""
+
+#: includes/class-admin.php:785
+msgid "As the preset"
+msgstr ""
+
+#: includes/class-admin.php:794
+msgid "auto"
+msgstr ""
+
+#: includes/class-admin.php:803
+msgid "Preset name"
+msgstr ""
+
+#: includes/class-admin.php:804
+msgid "e.g. Brand fade"
+msgstr ""
+
+#: includes/class-admin.php:807
+msgid "Based on"
+msgstr ""
+
+#: includes/class-admin.php:812
+#: includes/class-admin.php:979
+msgid "Preview this preset"
+msgstr ""
+
+#: includes/class-admin.php:812
+#: includes/class-admin.php:979
+msgid "Preview"
+msgstr ""
+
+#: includes/class-admin.php:813
+msgid "Remove preset"
+msgstr ""
+
+#: includes/class-admin.php:813
+#: includes/class-admin.php:980
+msgid "Remove"
+msgstr ""
+
+#: includes/class-admin.php:817
+#: includes/class-admin.php:1482
+#: includes/class-admin.php:1579
+msgid "Duration"
+msgstr ""
+
+#: includes/class-admin.php:818
+#: includes/class-admin.php:1483
+msgid "Delay"
+msgstr ""
+
+#: includes/class-admin.php:819
+msgid "Distance"
+msgstr ""
+
+#: includes/class-admin.php:833
 #: includes/class-bricks-integration.php:597
-#: includes/class-bricks-integration.php:1392
+#: includes/class-bricks-integration.php:1429
 #: includes/elements/class-element-3d-scene.php:108
 msgid "Opacity"
 msgstr ""
 
-#: includes/class-admin.php:739
+#: includes/class-admin.php:834
 msgid "Move X"
 msgstr ""
 
-#: includes/class-admin.php:740
+#: includes/class-admin.php:835
 msgid "Move Y"
 msgstr ""
 
-#: includes/class-admin.php:741
-#: includes/class-bricks-integration.php:1393
+#: includes/class-admin.php:836
+#: includes/class-bricks-integration.php:1430
 msgid "Scale"
 msgstr ""
 
-#: includes/class-admin.php:742
-#: includes/class-bricks-integration.php:1396
+#: includes/class-admin.php:837
+#: includes/class-bricks-integration.php:1433
 msgid "Rotate"
 msgstr ""
 
-#: includes/class-admin.php:743
-#: includes/class-bricks-integration.php:1401
+#: includes/class-admin.php:838
+#: includes/class-bricks-integration.php:1438
 msgid "Blur"
 msgstr ""
 
-#: includes/class-admin.php:749
+#: includes/class-admin.php:844
 msgid "Shape the motion"
 msgstr ""
 
-#: includes/class-admin.php:754
+#: includes/class-admin.php:849
 msgid "Where the element starts before it animates into place. Empty fields keep the base preset's value, shown in grey."
 msgstr ""
 
-#: includes/class-admin.php:765
+#: includes/class-admin.php:860
 msgid "Clear motion changes"
 msgstr ""
 
-#: includes/class-admin.php:770
+#: includes/class-admin.php:865
 msgid "Play again"
 msgstr ""
 
-#: includes/class-admin.php:773
+#: includes/class-admin.php:868
 msgid "This base preset moves with scrolling or loops: its motion can't be shaped here. Pick an entrance preset (fade, zoom, slide, blur, text) to shape it."
 msgstr ""
 
-#: includes/class-admin.php:788
+#: includes/class-admin.php:883
 msgid "Front page"
 msgstr ""
 
-#: includes/class-admin.php:789
+#: includes/class-admin.php:884
 msgid "Blog (posts page)"
 msgstr ""
 
-#: includes/class-admin.php:790
+#: includes/class-admin.php:885
 msgid "Any single post or page"
 msgstr ""
 
 #. translators: %s: post type name, e.g. "Posts"
-#: includes/class-admin.php:797
+#: includes/class-admin.php:892
 #, php-format
 msgid "Single: %s"
 msgstr ""
 
-#: includes/class-admin.php:799
+#: includes/class-admin.php:894
 msgid "Archives (categories, tags, authors…)"
 msgstr ""
 
-#: includes/class-admin.php:800
+#: includes/class-admin.php:895
 msgid "Search results"
 msgstr ""
 
-#: includes/class-admin.php:801
+#: includes/class-admin.php:896
 msgid "404 page"
 msgstr ""
 
-#: includes/class-admin.php:813
+#: includes/class-admin.php:908
 msgid "All screen sizes"
 msgstr ""
 
-#: includes/class-admin.php:814
+#: includes/class-admin.php:909
 msgid "Desktop only (992px+)"
 msgstr ""
 
-#: includes/class-admin.php:815
+#: includes/class-admin.php:910
 msgid "Tablet and up (768px+)"
 msgstr ""
 
-#: includes/class-admin.php:816
+#: includes/class-admin.php:911
 msgid "Phone and tablet (under 992px)"
 msgstr ""
 
-#: includes/class-admin.php:817
+#: includes/class-admin.php:912
 msgid "Phone only (under 768px)"
 msgstr ""
 
 #. translators: %s: stored condition, e.g. pt:product
-#: includes/class-admin.php:830
+#: includes/class-admin.php:925
 #, php-format
 msgid "%s (not available)"
 msgstr ""
 
-#: includes/class-admin.php:834
+#: includes/class-admin.php:929
 #: includes/class-bricks-integration.php:241
 msgid "Site default"
 msgstr ""
 
-#: includes/class-admin.php:844
+#: includes/class-admin.php:939
 msgid "Rule enabled"
 msgstr ""
 
-#: includes/class-admin.php:848
+#: includes/class-admin.php:943
 msgid "Match by"
 msgstr ""
 
-#: includes/class-admin.php:849
+#: includes/class-admin.php:944
 msgid "Element"
 msgstr ""
 
-#: includes/class-admin.php:850
+#: includes/class-admin.php:945
 msgid "Class"
 msgstr ""
 
-#: includes/class-admin.php:852
+#: includes/class-admin.php:947
 msgid "Element name or class"
 msgstr ""
 
-#: includes/class-admin.php:862
-#: includes/class-admin.php:1300
+#: includes/class-admin.php:961
+#: includes/class-admin.php:1405
 #: includes/class-bricks-integration.php:280
 msgid "Animate"
 msgstr ""
 
-#: includes/class-admin.php:863
-msgid "Animate: self, children or a selector"
+#: includes/class-admin.php:962
+msgid "What to animate"
 msgstr ""
 
-#: includes/class-admin.php:866
-#: includes/class-admin.php:867
-#: includes/class-admin.php:1301
-#: includes/class-bricks-integration.php:238
-msgid "Engine"
+#: includes/class-admin.php:963
+msgid "The element"
 msgstr ""
 
-#: includes/class-admin.php:874
-#: includes/class-admin.php:1303
+#: includes/class-admin.php:964
+msgid "Each child, in turn"
+msgstr ""
+
+#: includes/class-admin.php:965
+msgid "Elements inside"
+msgstr ""
+
+#: includes/class-admin.php:967
+msgid "Which elements inside: their class, e.g. .card"
+msgstr ""
+
+#: includes/class-admin.php:978
+#: includes/class-admin.php:1408
 msgid "Conditions"
 msgstr ""
 
-#: includes/class-admin.php:874
+#: includes/class-admin.php:978
 msgid "Where and on which screens"
 msgstr ""
 
-#: includes/class-admin.php:876
+#: includes/class-admin.php:980
 msgid "Remove rule"
 msgstr ""
 
-#: includes/class-admin.php:880
+#: includes/class-admin.php:984
 msgid "Where"
 msgstr ""
 
-#: includes/class-admin.php:882
+#: includes/class-admin.php:986
 msgid "Everywhere"
 msgstr ""
 
-#: includes/class-admin.php:883
+#: includes/class-admin.php:987
 msgid "Only on"
 msgstr ""
 
-#: includes/class-admin.php:888
+#: includes/class-admin.php:992
 msgid "Everywhere except"
 msgstr ""
 
 #. translators: %s: page kind, e.g. "Front page"
-#: includes/class-admin.php:891
+#: includes/class-admin.php:995
 #, php-format
 msgid "Not: %s"
 msgstr ""
 
-#: includes/class-admin.php:897
+#: includes/class-admin.php:1001
 msgid "Screens"
 msgstr ""
 
-#: includes/class-admin.php:904
+#: includes/class-admin.php:1008
 msgid "Elsewhere the next matching rule applies. On other screens the element shows as designed."
 msgstr ""
 
-#: includes/class-admin.php:923
+#: includes/class-admin.php:1027
 msgid "Requires 6.5 or newer."
 msgstr ""
 
-#: includes/class-admin.php:929
+#: includes/class-admin.php:1033
 msgid "Requires 7.4 or newer."
 msgstr ""
 
-#: includes/class-admin.php:934
+#: includes/class-admin.php:1038
 msgid "Not active"
 msgstr ""
 
-#: includes/class-admin.php:936
+#: includes/class-admin.php:1040
 msgid "Built and tested for Bricks 2.x (verified on 2.4.2)."
 msgstr ""
 
-#: includes/class-admin.php:941
+#: includes/class-admin.php:1045
 msgid "Elements with Motion controls"
 msgstr ""
 
-#: includes/class-admin.php:944
-msgid "Every registered Bricks element receives the Motion Studio control group."
+#: includes/class-admin.php:1048
+msgid "Every Bricks element has the Motion Studio settings in the builder."
 msgstr ""
 
-#: includes/class-admin.php:952
+#: includes/class-admin.php:1056
 msgid "Form size limit"
 msgstr ""
 
 #. translators: 1: fields the settings form sends, 2: PHP max_input_vars
-#: includes/class-admin.php:954
+#: includes/class-admin.php:1058
 #, php-format
 msgid "%1$d of %2$d fields"
 msgstr ""
 
-#: includes/class-admin.php:956
-msgid "PHP max_input_vars. Each rule adds 10 fields and each of My presets 14; ask your host to raise the limit before adding many more."
+#: includes/class-admin.php:1060
+msgid "Your server limits how many settings one save can hold (PHP max_input_vars). Each rule uses 10 and each of My presets 14; before adding many more, ask your host to raise the limit."
 msgstr ""
 
-#: includes/class-admin.php:970
+#: includes/class-admin.php:1074
 msgid "Bundled libraries"
 msgstr ""
 
 #. translators: %d: number of files
-#: includes/class-admin.php:971
+#: includes/class-admin.php:1075
 #, php-format
 msgid "%d file missing"
 msgid_plural "%d files missing"
@@ -769,160 +1069,166 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of files
-#: includes/class-admin.php:971
+#: includes/class-admin.php:1075
 msgid "All present"
 msgstr ""
 
-#: includes/class-admin.php:973
-msgid "Pinned versions ship with the plugin, so library releases never change your site unexpectedly."
+#: includes/class-admin.php:1077
+msgid "The libraries come with the plugin in a fixed version, so an outside update can never change your site by surprise."
 msgstr ""
 
-#: includes/class-admin.php:977
+#: includes/class-admin.php:1081
 msgid "Script loading"
 msgstr ""
 
-#: includes/class-admin.php:978
+#: includes/class-admin.php:1082
 msgid "Deferred"
 msgstr ""
 
-#: includes/class-admin.php:978
+#: includes/class-admin.php:1082
 msgid "Footer"
 msgstr ""
 
-#: includes/class-admin.php:980
-msgid "Scripts load in the footer with the defer strategy and only on pages that use them."
+#: includes/class-admin.php:1084
+msgid "Animation files load at the end of the page without slowing it down, and only on pages that use them."
 msgstr ""
 
-#: includes/class-admin.php:1010
-#: includes/class-admin.php:1102
+#: includes/class-admin.php:1114
+#: includes/class-admin.php:1207
 msgid "Overview"
 msgstr ""
 
-#: includes/class-admin.php:1012
+#: includes/class-admin.php:1116
 msgid "Set up"
 msgstr ""
 
-#: includes/class-admin.php:1013
-#: includes/class-admin.php:1173
-#: includes/class-admin.php:1196
+#: includes/class-admin.php:1117
+#: includes/class-admin.php:1278
+#: includes/class-admin.php:1301
 #: includes/class-history.php:145
 msgid "Libraries"
 msgstr ""
 
-#: includes/class-admin.php:1014
-#: includes/class-admin.php:1257
+#: includes/class-admin.php:1118
+#: includes/class-admin.php:1362
 #: includes/class-history.php:150
 msgid "Auto-animate"
 msgstr ""
 
-#: includes/class-admin.php:1016
+#: includes/class-admin.php:1119
+#: includes/class-admin.php:1629
+#: includes/class-history.php:161
+msgid "Features"
+msgstr ""
+
+#: includes/class-admin.php:1121
 msgid "Fine-tune"
 msgstr ""
 
-#: includes/class-admin.php:1017
-#: includes/class-admin.php:1370
+#: includes/class-admin.php:1122
+#: includes/class-admin.php:1475
 #: includes/class-history.php:151
 msgid "Timing & feel"
 msgstr ""
 
-#: includes/class-admin.php:1018
-#: includes/class-admin.php:1428
+#: includes/class-admin.php:1123
+#: includes/class-admin.php:1533
 msgid "Scroll & 3D"
 msgstr ""
 
-#: includes/class-admin.php:1019
-#: includes/class-admin.php:1458
+#: includes/class-admin.php:1124
+#: includes/class-admin.php:1563
 #: includes/class-history.php:160
 msgid "Effects"
 msgstr ""
 
-#: includes/class-admin.php:1020
-#: includes/class-admin.php:1524
+#: includes/class-admin.php:1125
+#: includes/class-admin.php:1673
 #: includes/class-history.php:154
 msgid "Accessibility"
 msgstr ""
 
-#: includes/class-admin.php:1022
+#: includes/class-admin.php:1127
 msgid "Resources"
 msgstr ""
 
-#: includes/class-admin.php:1023
+#: includes/class-admin.php:1128
 msgid "Usage"
 msgstr ""
 
-#: includes/class-admin.php:1024
-#: includes/class-admin.php:1569
+#: includes/class-admin.php:1129
+#: includes/class-admin.php:1718
 msgid "System"
 msgstr ""
 
-#: includes/class-admin.php:1025
-#: includes/class-admin.php:1660
-msgid "Reference"
+#: includes/class-admin.php:1130
+#: includes/class-admin.php:1820
+msgid "Guide"
 msgstr ""
 
-#: includes/class-admin.php:1056
+#: includes/class-admin.php:1161
 msgid "Search"
 msgstr ""
 
-#: includes/class-admin.php:1061
+#: includes/class-admin.php:1166
 msgid "Save"
 msgstr ""
 
-#: includes/class-admin.php:1068
+#: includes/class-admin.php:1173
 msgid "Motion Studio settings"
 msgstr ""
 
 #. translators: %d: number of system checks that need attention
-#: includes/class-admin.php:1081
+#: includes/class-admin.php:1186
 #, php-format
 msgid "%d issue"
 msgid_plural "%d issues"
 msgstr[0] ""
 msgstr[1] ""
 
-#: includes/class-admin.php:1090
+#: includes/class-admin.php:1195
 msgid "View site"
 msgstr ""
 
-#: includes/class-admin.php:1090
+#: includes/class-admin.php:1195
 msgid "(opens in a new tab)"
 msgstr ""
 
-#: includes/class-admin.php:1103
+#: includes/class-admin.php:1208
 msgid "Motion for every Bricks element"
 msgstr ""
 
-#: includes/class-admin.php:1104
-msgid "Pick your engines, let rules animate the whole site, and fine-tune any element in the builder under Motion Studio."
+#: includes/class-admin.php:1209
+msgid "Animate the whole site in one go with Auto-animate, then fine-tune any element in Bricks under Motion Studio. The Guide explains everything in plain words."
 msgstr ""
 
-#: includes/class-admin.php:1106
-#: includes/class-admin.php:1294
+#: includes/class-admin.php:1211
+#: includes/class-admin.php:1399
 msgid "Auto-animate rules"
 msgstr ""
 
-#: includes/class-admin.php:1107
-msgid "Browse presets"
+#: includes/class-admin.php:1212
+msgid "Open the Guide"
 msgstr ""
 
-#: includes/class-admin.php:1120
+#: includes/class-admin.php:1225
 msgid "Libraries on"
 msgstr ""
 
-#: includes/class-admin.php:1126
+#: includes/class-admin.php:1231
 msgid "Active rules"
 msgstr ""
 
-#: includes/class-admin.php:1132
+#: includes/class-admin.php:1237
 msgid "Presets"
 msgstr ""
 
-#: includes/class-admin.php:1138
+#: includes/class-admin.php:1243
 msgid "System checks"
 msgstr ""
 
 #. translators: %d: number of checks
-#: includes/class-admin.php:1140
+#: includes/class-admin.php:1245
 #, php-format
 msgid "%d needs attention"
 msgid_plural "%d need attention"
@@ -930,759 +1236,935 @@ msgstr[0] ""
 msgstr[1] ""
 
 #. translators: %d: number of checks
-#: includes/class-admin.php:1140
+#: includes/class-admin.php:1245
 msgid "All passed"
 msgstr ""
 
-#: includes/class-admin.php:1146
+#: includes/class-admin.php:1251
 #: includes/class-history.php:143
 msgid "Site status"
 msgstr ""
 
-#: includes/class-admin.php:1148
+#: includes/class-admin.php:1253
 msgid "Who sees animations"
 msgstr ""
 
-#: includes/class-admin.php:1158
+#: includes/class-admin.php:1263
 msgid "Turn off on these pages"
 msgstr ""
 
-#: includes/class-admin.php:1159
-msgid "One URL path per line. End with * for a whole section, e.g. /checkout/ or /shop/*. These pages load no Motion Studio scripts at all."
+#: includes/class-admin.php:1264
+msgid "One page address per line, the part after your domain, e.g. /checkout/. End with * for a whole section, e.g. /shop/*. These pages get no animations and no Motion Studio files at all."
 msgstr ""
 
-#: includes/class-admin.php:1163
+#: includes/class-admin.php:1268
 msgid "Motion Studio in the admin bar"
 msgstr ""
 
-#: includes/class-admin.php:1163
+#: includes/class-admin.php:1268
 msgid "On the frontend: the page's status, a link to view it without animations, and these settings."
 msgstr ""
 
-#: includes/class-admin.php:1168
+#: includes/class-admin.php:1273
 msgid "Quick start"
 msgstr ""
 
-#: includes/class-admin.php:1172
-msgid "Choose your engines"
+#: includes/class-admin.php:1277
+msgid "Choose your libraries"
 msgstr ""
 
-#: includes/class-admin.php:1172
-msgid "GSAP covers every effect. Add Anime.js or Motion for variety."
+#: includes/class-admin.php:1277
+msgid "GSAP can play every animation. Anime.js and Motion are optional alternatives."
 msgstr ""
 
-#: includes/class-admin.php:1177
+#: includes/class-admin.php:1282
 msgid "Let rules do the work"
 msgstr ""
 
-#: includes/class-admin.php:1177
+#: includes/class-admin.php:1282
 msgid "Headings, images and text animate across the site, with no clicks per element."
 msgstr ""
 
-#: includes/class-admin.php:1178
-#: includes/class-admin.php:1284
+#: includes/class-admin.php:1283
+#: includes/class-admin.php:1389
 #: includes/class-history.php:149
 msgid "Rules"
 msgstr ""
 
-#: includes/class-admin.php:1182
+#: includes/class-admin.php:1287
 msgid "Fine-tune in Bricks"
 msgstr ""
 
-#: includes/class-admin.php:1182
-msgid "Select any element and open its Motion Studio controls: presets, scroll effects, hover and 3D."
+#: includes/class-admin.php:1287
+msgid "In Bricks, select any element and open Motion Studio (Content tab): animations, scroll effects, hover effects and 3D."
 msgstr ""
 
-#: includes/class-admin.php:1186
+#: includes/class-admin.php:1291
 msgid "Set the feel"
 msgstr ""
 
-#: includes/class-admin.php:1186
-msgid "Speed, easing and distance for the whole site, with a live preview."
+#: includes/class-admin.php:1291
+msgid "How fast and how far things move across the whole site, with a live preview."
 msgstr ""
 
-#: includes/class-admin.php:1187
+#: includes/class-admin.php:1292
 msgid "Timing"
 msgstr ""
 
-#: includes/class-admin.php:1196
-msgid "Turn on any combination. Each element is animated by one engine, and a page only downloads the libraries it uses."
+#: includes/class-admin.php:1301
+msgid "Libraries are optional add-ons that play some animations (the Guide says which). Turn on any of them: each page only downloads the ones it actually uses."
 msgstr ""
 
-#: includes/class-admin.php:1207
-#: includes/class-admin.php:1231
-#: includes/class-admin.php:1234
+#: includes/class-admin.php:1312
+#: includes/class-admin.php:1336
+#: includes/class-admin.php:1339
 #: includes/class-history.php:146
 msgid "Default engine"
 msgstr ""
 
-#: includes/class-admin.php:1214
+#: includes/class-admin.php:1319
 msgid "Free for your own and client sites, including commercial work. It is not GPL, and selling or publicly distributing a plugin that bundles it needs written consent from GSAP."
 msgstr ""
 
-#: includes/class-admin.php:1218
+#: includes/class-admin.php:1323
 msgid "GSAP Standard License"
 msgstr ""
 
-#: includes/class-admin.php:1225
+#: includes/class-admin.php:1330
 msgid "Lightweight engine for simple effects"
 msgstr ""
 
-#: includes/class-admin.php:1225
-msgid "Reveals, loops and word/character text run on the browser's built-in animation engine: no library download and smoother scrolling. Your libraries still run everything that needs them (scroll-linked, pinning, SVG drawing, scramble, lines) and any element or rule set to a specific engine. Recommended."
+#: includes/class-admin.php:1330
+msgid "Most animations (things appearing, word-by-word text, loops) play with the browser's own animation tools: nothing extra to download, and smoother scrolling. The libraries still play what needs them (scroll effects, pinning, line drawings, scramble text, text line by line) and wherever you picked a library yourself. Recommended."
 msgstr ""
 
-#: includes/class-admin.php:1232
-msgid "Runs effects that need a library (and every effect when the lightweight engine is off) for rules and elements set to Default. If it cannot run a preset, the next enabled engine that can takes over."
+#: includes/class-admin.php:1337
+msgid "The library used when an animation needs one and you haven't picked one yourself. If it can't play an animation, another library you turned on takes over."
 msgstr ""
 
-#: includes/class-admin.php:1238
-#: includes/class-admin.php:1248
+#: includes/class-admin.php:1343
+#: includes/class-admin.php:1353
 msgid "Load libraries from"
 msgstr ""
 
-#: includes/class-admin.php:1239
-msgid "Bundled files keep visitors off third-party servers and cannot change under you. The CDN option shares visitor IP addresses with jsDelivr; its files are integrity-checked."
-msgstr ""
-
-#: includes/class-admin.php:1245
-msgid "This site"
-msgstr ""
-
-#: includes/class-admin.php:1257
-msgid "Rules apply presets to Bricks elements across the whole site. Settings on an element in the builder always win."
-msgstr ""
-
-#: includes/class-admin.php:1260
-msgid "Animate elements automatically"
-msgstr ""
-
-#: includes/class-admin.php:1260
-msgid "Class rules are checked before element rules. Set an element to Disabled in the builder to opt it out."
-msgstr ""
-
-#: includes/class-admin.php:1264
-#: includes/class-bricks-integration.php:801
-#: includes/class-history.php:148
-msgid "Animation level"
-msgstr ""
-
-#: includes/class-admin.php:1278
-msgid "Applies to element-type rules. Class rules keep the exact preset you chose unless the element picks its own level, and Custom animations keep their own settings. A page (Page settings) or an element can pick its own level in the builder."
-msgstr ""
-
-#: includes/class-admin.php:1287
-#: includes/class-admin.php:1289
-msgid "Filter rules"
-msgstr ""
-
-#: includes/class-admin.php:1292
-msgid "Which rule wins: an element's own Motion Studio settings in the builder, then class rules, then element rules, then the * rule for any other content element."
-msgstr ""
-
-#: includes/class-admin.php:1297
-msgid "On"
-msgstr ""
-
-#: includes/class-admin.php:1298
-msgid "Applies to"
-msgstr ""
-
-#: includes/class-admin.php:1302
-msgid "Actions"
-msgstr ""
-
-#: includes/class-admin.php:1316
-msgid "No rules yet. Add one to animate an element type or class everywhere."
-msgstr ""
-
-#: includes/class-admin.php:1317
-msgid "No rules match the filter."
-msgstr ""
-
-#: includes/class-admin.php:1319
-msgid "Add rule"
-msgstr ""
-
-#: includes/class-admin.php:1320
-msgid "Animate accepts self, children, or a CSS selector inside the element."
-msgstr ""
-
-#: includes/class-admin.php:1349
-msgid "Exclusions"
+#: includes/class-admin.php:1344
+msgid "This site (recommended): the files come with the plugin, load from your own site and never change. jsDelivr: the files load from an outside server, which then sees your visitors' IP addresses; they are checked so they can't be tampered with."
 msgstr ""
 
 #: includes/class-admin.php:1350
-msgid "Auto rules never animate these. Elements set to Custom in the builder still animate."
+msgid "This site"
 msgstr ""
 
-#: includes/class-admin.php:1353
+#: includes/class-admin.php:1362
+msgid "Rules give each kind of element an animation across the whole site, e.g. every heading: Words fade up. What you set on an element in the builder always wins."
+msgstr ""
+
+#: includes/class-admin.php:1365
+msgid "Animate elements automatically"
+msgstr ""
+
+#: includes/class-admin.php:1365
+msgid "A rule can target a kind of element (Heading) or a class you gave elements in Bricks (e.g. card); class rules come first. To leave one element out, set its Animation to Disabled in the builder."
+msgstr ""
+
+#: includes/class-admin.php:1383
+msgid "Changes how much the rules for kinds of elements move. Rules for classes keep exactly what you chose, and elements set to Custom keep their own animation. A page (Bricks page settings) or a single element can pick its own level."
+msgstr ""
+
+#: includes/class-admin.php:1392
+#: includes/class-admin.php:1394
+msgid "Filter rules"
+msgstr ""
+
+#: includes/class-admin.php:1397
+msgid "Which wins: what you set on the element in the builder, then rules for classes, then rules for kinds of elements, then the * rule (any other content)."
+msgstr ""
+
+#: includes/class-admin.php:1402
+msgid "On"
+msgstr ""
+
+#: includes/class-admin.php:1403
+msgid "Applies to"
+msgstr ""
+
+#: includes/class-admin.php:1407
+msgid "Actions"
+msgstr ""
+
+#: includes/class-admin.php:1421
+msgid "No rules yet. Add one to animate a kind of element (or a class) everywhere."
+msgstr ""
+
+#: includes/class-admin.php:1422
+msgid "No rules match the filter."
+msgstr ""
+
+#: includes/class-admin.php:1424
+msgid "Add rule"
+msgstr ""
+
+#: includes/class-admin.php:1425
+msgid "Animate: the element itself, its children one after another, or only some elements inside it (by their class)."
+msgstr ""
+
+#: includes/class-admin.php:1454
+msgid "Exclusions"
+msgstr ""
+
+#: includes/class-admin.php:1455
+msgid "The automatic rules leave these alone. Elements you set to Custom in the builder still animate."
+msgstr ""
+
+#: includes/class-admin.php:1458
 msgid "Header template"
 msgstr ""
 
-#: includes/class-admin.php:1353
+#: includes/class-admin.php:1458
 msgid "Sticky headers and menus should never be transformed."
 msgstr ""
 
-#: includes/class-admin.php:1354
+#: includes/class-admin.php:1459
 msgid "Footer template"
 msgstr ""
 
-#: includes/class-admin.php:1355
+#: includes/class-admin.php:1460
 msgid "Popups"
 msgstr ""
 
-#: includes/class-admin.php:1355
+#: includes/class-admin.php:1460
 msgid "When off, popup content animates every time the popup opens."
 msgstr ""
 
-#: includes/class-admin.php:1356
+#: includes/class-admin.php:1461
 msgid "Elements using Bricks \"Start animation\""
 msgstr ""
 
-#: includes/class-admin.php:1356
+#: includes/class-admin.php:1461
 msgid "Avoids animating an element twice."
 msgstr ""
 
-#: includes/class-admin.php:1360
+#: includes/class-admin.php:1465
 msgid "Never animate inside"
 msgstr ""
 
-#: includes/class-admin.php:1361
-msgid "Comma-separated selectors. Sliders, off-canvas panels and menus are covered by default."
+#: includes/class-admin.php:1466
+msgid "Classes or IDs as written in Bricks, separated by commas (e.g. .no-motion, #pricing). Sliders, off-canvas panels and menus are already left alone."
 msgstr ""
 
-#: includes/class-admin.php:1370
-msgid "Site-wide defaults. Presets and elements can override them. Changes play in the preview as you type."
+#: includes/class-admin.php:1475
+msgid "Defaults for the whole site; a single animation or element can have its own. Changes play in the preview as you type."
 msgstr ""
 
-#: includes/class-admin.php:1376
+#: includes/class-admin.php:1481
 #: includes/class-bricks-integration.php:811
 msgid "Animation speed"
 msgstr ""
 
-#: includes/class-admin.php:1376
-msgid "Plays every preset faster or slower across the whole site: 2 is twice as fast, 0.5 half speed. Scroll-linked effects follow the scrollbar either way."
+#: includes/class-admin.php:1481
+msgid "Makes every animation faster or slower across the site: 2 is twice as fast, 0.5 half speed. Scroll effects still follow the scrollbar."
 msgstr ""
 
-#: includes/class-admin.php:1380
+#: includes/class-admin.php:1485
 msgid "Travel distance"
 msgstr ""
 
-#: includes/class-admin.php:1385
+#: includes/class-admin.php:1490
 msgid "Between children and between words or letters."
 msgstr ""
 
-#: includes/class-admin.php:1386
+#: includes/class-admin.php:1491
 msgid "Cascade"
 msgstr ""
 
-#: includes/class-admin.php:1386
-msgid "Between elements that enter the screen together, like grid items."
+#: includes/class-admin.php:1491
+msgid "The pause between separate elements that come into view together, like cards in a grid."
 msgstr ""
 
-#: includes/class-admin.php:1387
-msgid "Start line"
-msgstr ""
-
-#: includes/class-admin.php:1387
-msgid "How far above the bottom of the screen an element starts."
-msgstr ""
-
-#: includes/class-admin.php:1388
+#: includes/class-admin.php:1493
 msgid "Parallax strength"
 msgstr ""
 
-#: includes/class-admin.php:1388
-msgid "How far parallax elements drift while you scroll. Negative values drift the other way."
+#: includes/class-admin.php:1493
+msgid "How far parallax elements drift while scrolling. Negative values drift the other way."
 msgstr ""
 
-#: includes/class-admin.php:1389
+#: includes/class-admin.php:1494
 #: includes/class-bricks-integration.php:396
 msgid "Replay when scrolled back into view"
 msgstr ""
 
-#: includes/class-admin.php:1393
-#: includes/class-history.php:163
+#: includes/class-admin.php:1498
+#: includes/class-history.php:164
 msgid "My presets"
 msgstr ""
 
-#: includes/class-admin.php:1394
-msgid "A preset with your own timing, saved under your name. It appears in every preset list: rules here and the Motion Studio panel in Bricks. Empty fields follow the preset and the defaults above."
+#: includes/class-admin.php:1499
+msgid "An animation with your own timing, saved under your name. It appears in every animation list (rules here and Motion Studio in Bricks). Empty fields keep the original animation's values and the defaults above."
 msgstr ""
 
-#: includes/class-admin.php:1404
+#: includes/class-admin.php:1509
 msgid "No presets of your own yet."
 msgstr ""
 
-#: includes/class-admin.php:1405
+#: includes/class-admin.php:1510
 msgid "Add preset"
 msgstr ""
 
-#: includes/class-admin.php:1409
+#: includes/class-admin.php:1514
 msgid "Live preview"
 msgstr ""
 
-#: includes/class-admin.php:1411
+#: includes/class-admin.php:1516
 msgid "Motion that feels intentional"
 msgstr ""
 
-#: includes/class-admin.php:1417
+#: includes/class-admin.php:1522
 msgid "Preset to preview"
 msgstr ""
 
-#: includes/class-admin.php:1420
+#: includes/class-admin.php:1525
 #: includes/elements/class-element-image-sequence.php:98
 #: includes/elements/class-element-lottie.php:42
 msgid "Play"
 msgstr ""
 
-#: includes/class-admin.php:1428
-msgid "Smooth scrolling with Lenis and rendering limits for Three.js scenes."
+#: includes/class-admin.php:1533
+msgid "Scroll effects, smooth scrolling and the quality of 3D backgrounds."
 msgstr ""
 
-#: includes/class-admin.php:1430
+#: includes/class-admin.php:1535
 #: includes/class-history.php:156
 msgid "Scroll effects"
 msgstr ""
 
-#: includes/class-admin.php:1432
+#: includes/class-admin.php:1537
 msgid "Run on the browser's scroll timeline"
 msgstr ""
 
-#: includes/class-admin.php:1432
-msgid "Parallax, scroll fade, scale, rotate and expand run on the browser's own scroll timeline where it has one (Chrome, Edge, Safari 26): no scroll handling in JavaScript, smoother on busy pages. Other browsers use your animation library as before. Needs the lightweight engine (Libraries). Recommended."
+#: includes/class-admin.php:1537
+msgid "Parallax and the other scroll effects use the browser's built-in scroll tools where it has them (Chrome, Edge, Safari 26): smoother, especially on busy pages. Other browsers use your animation library as before. Needs Lightweight engine for simple effects (Libraries). Recommended."
 msgstr ""
 
-#: includes/class-admin.php:1435
+#: includes/class-admin.php:1540
 msgid "Smooth scroll"
 msgstr ""
 
-#: includes/class-admin.php:1436
+#: includes/class-admin.php:1541
 msgid "Lenis is off. Turn it on under Libraries to use these settings."
 msgstr ""
 
-#: includes/class-admin.php:1439
+#: includes/class-admin.php:1544
 msgid "Smoothness"
 msgstr ""
 
-#: includes/class-admin.php:1439
+#: includes/class-admin.php:1544
 msgid "Lower is smoother. 0.1 suits most sites."
 msgstr ""
 
-#: includes/class-admin.php:1440
+#: includes/class-admin.php:1545
 msgid "Wheel speed"
 msgstr ""
 
-#: includes/class-admin.php:1441
+#: includes/class-admin.php:1546
 msgid "Smooth anchor links"
 msgstr ""
 
-#: includes/class-admin.php:1441
+#: includes/class-admin.php:1546
 msgid "Offsets for a sticky header automatically."
 msgstr ""
 
-#: includes/class-admin.php:1442
+#: includes/class-admin.php:1547
 msgid "Smooth touch scrolling"
 msgstr ""
 
-#: includes/class-admin.php:1442
+#: includes/class-admin.php:1547
 msgid "Usually better left off: phones already scroll smoothly."
 msgstr ""
 
-#: includes/class-admin.php:1446
+#: includes/class-admin.php:1551
 msgid "Three.js"
 msgstr ""
 
-#: includes/class-admin.php:1447
+#: includes/class-admin.php:1552
 msgid "Three.js is off. Turn it on under Libraries to use 3D backgrounds and the 3D Scene element."
 msgstr ""
 
-#: includes/class-admin.php:1450
-msgid "Max pixel ratio"
+#: includes/class-admin.php:1555
+msgid "3D sharpness limit"
 msgstr ""
 
-#: includes/class-admin.php:1450
-msgid "Caps resolution on high-density screens. 1.5 balances sharpness and battery."
+#: includes/class-admin.php:1555
+msgid "How sharp 3D is drawn on very sharp screens. 1.5 balances quality and battery life."
 msgstr ""
 
-#: includes/class-admin.php:1451
+#: includes/class-admin.php:1556
 msgid "Render on phones"
 msgstr ""
 
-#: includes/class-admin.php:1451
+#: includes/class-admin.php:1556
 msgid "When off, phones show the poster image or section background."
 msgstr ""
 
-#: includes/class-admin.php:1458
+#: includes/class-admin.php:1563
 msgid "Site-wide touches: page transitions, an intro, a custom cursor and scroll progress. Visitors who prefer reduced motion get none of the movement."
 msgstr ""
 
-#: includes/class-admin.php:1460
+#: includes/class-admin.php:1565
 #: includes/class-history.php:157
 msgid "Page transitions"
 msgstr ""
 
-#: includes/class-admin.php:1461
+#: includes/class-admin.php:1566
 msgid "Animated navigation between pages of this site, by the browser itself (Chrome, Edge and Safari 18.2 and newer; other browsers simply open the page). In the builder, give an element and an element on another page the same Page transition name (Motion Studio → Extras) and it morphs between them."
 msgstr ""
 
-#: includes/class-admin.php:1466
+#: includes/class-admin.php:1571
 msgid "Transition"
 msgstr ""
 
-#: includes/class-admin.php:1469
+#: includes/class-admin.php:1574
 msgid "Cross-fade"
 msgstr ""
 
-#: includes/class-admin.php:1470
+#: includes/class-admin.php:1575
 msgid "Slide"
 msgstr ""
 
-#: includes/class-admin.php:1471
+#: includes/class-admin.php:1576
 msgid "Zoom"
 msgstr ""
 
-#: includes/class-admin.php:1478
+#: includes/class-admin.php:1583
 #: includes/class-history.php:158
 msgid "Page intro"
 msgstr ""
 
-#: includes/class-admin.php:1479
-msgid "A short full-screen intro that clears itself after about a second, even if scripts are blocked. It never waits for anything."
+#: includes/class-admin.php:1584
+msgid "A short full-screen intro that clears itself after about a second, even if something blocks the page's scripts. It never makes visitors wait."
 msgstr ""
 
-#: includes/class-admin.php:1484
+#: includes/class-admin.php:1589
 msgid "Intro"
 msgstr ""
 
-#: includes/class-admin.php:1487
+#: includes/class-admin.php:1592
 msgid "Fade out"
 msgstr ""
 
-#: includes/class-admin.php:1488
+#: includes/class-admin.php:1593
 msgid "Curtain up"
 msgstr ""
 
-#: includes/class-admin.php:1491
+#: includes/class-admin.php:1596
 #: includes/class-presets.php:185
 msgid "Text"
 msgstr ""
 
-#: includes/class-admin.php:1491
+#: includes/class-admin.php:1596
 msgid "Shown in the middle, e.g. your name. Empty: just the colour."
 msgstr ""
 
-#: includes/class-admin.php:1492
+#: includes/class-admin.php:1597
 msgid "Background"
 msgstr ""
 
-#: includes/class-admin.php:1492
+#: includes/class-admin.php:1597
 msgid "The text picks black or white to suit it."
 msgstr ""
 
-#: includes/class-admin.php:1493
+#: includes/class-admin.php:1598
 msgid "On every page"
 msgstr ""
 
-#: includes/class-admin.php:1493
+#: includes/class-admin.php:1598
 msgid "Off: only the first page of a visit."
 msgstr ""
 
-#: includes/class-admin.php:1497
+#: includes/class-admin.php:1602
 #: includes/class-history.php:159
 msgid "Custom cursor"
 msgstr ""
 
-#: includes/class-admin.php:1498
+#: includes/class-admin.php:1603
 msgid "On computers with a mouse only. It grows over links and buttons, and shows the Cursor label set on an element in the builder (Motion Studio → Extras), e.g. View on a card."
 msgstr ""
 
-#: includes/class-admin.php:1503
+#: includes/class-admin.php:1608
 msgid "Cursor"
 msgstr ""
 
-#: includes/class-admin.php:1506
+#: includes/class-admin.php:1611
 msgid "Dot"
 msgstr ""
 
-#: includes/class-admin.php:1507
+#: includes/class-admin.php:1612
 msgid "Ring (trails the pointer)"
 msgstr ""
 
-#: includes/class-admin.php:1508
+#: includes/class-admin.php:1613
 msgid "Dot and ring"
 msgstr ""
 
-#: includes/class-admin.php:1511
+#: includes/class-admin.php:1616
 msgid "Colour"
 msgstr ""
 
-#: includes/class-admin.php:1511
+#: includes/class-admin.php:1616
 msgid "Automatic: inverts what is underneath, so it shows on light and dark."
 msgstr ""
 
-#: includes/class-admin.php:1512
+#: includes/class-admin.php:1617
 msgid "Hide the system cursor"
 msgstr ""
 
-#: includes/class-admin.php:1512
+#: includes/class-admin.php:1617
 msgid "Text fields keep their text cursor."
 msgstr ""
 
-#: includes/class-admin.php:1516
+#: includes/class-admin.php:1621
 msgid "Scroll progress"
 msgstr ""
 
-#: includes/class-admin.php:1518
+#: includes/class-admin.php:1623
 msgid "Page progress variable"
 msgstr ""
 
-#: includes/class-admin.php:1518
-msgid "Sets --bme-page-progress on the page, from 0 at the top to 1 at the bottom, for your own CSS: e.g. a reading bar with transform: scaleX(var(--bme-page-progress)). Single elements: Scroll progress variable in the builder (Motion Studio → Extras)."
+#: includes/class-admin.php:1623
+msgid "For designers who write their own CSS: a number that goes from 0 at the top of the page to 1 at the bottom while scrolling (--bme-page-progress), e.g. for a reading progress bar: transform: scaleX(var(--bme-page-progress)). For single elements: Scroll progress variable in the builder (Motion Studio, Extras)."
 msgstr ""
 
-#: includes/class-admin.php:1524
-msgid "Reduced motion, screen sizes, and what happens when scripts are slow or blocked."
+#: includes/class-admin.php:1629
+msgid "Switch any feature off for the whole site. Elements that use it then show as designed; their builder settings are kept, so switching it back on restores them. Libraries, auto-animate and the Effects each have their own switch in their panels."
 msgstr ""
 
-#: includes/class-admin.php:1527
+#: includes/class-admin.php:1634
+msgid "Your own movements set on elements in the builder (Timeline): while scrolling, when in view, on hover, on click or looping."
+msgstr ""
+
+#: includes/class-admin.php:1635
+msgid "Animation recipes"
+msgstr ""
+
+#: includes/class-admin.php:1635
+msgid "Hero intro, card grid, gallery and the other recipes on sections. Off: the elements inside follow the auto-animate rules again."
+msgstr ""
+
+#: includes/class-admin.php:1636
+msgid "Start when clicked"
+msgstr ""
+
+#: includes/class-admin.php:1636
+msgid "Off: animations set to start when clicked play when scrolled into view instead (nothing waits hidden)."
+msgstr ""
+
+#: includes/class-admin.php:1637
+#: includes/class-bricks-integration.php:335
+msgid "Stagger order"
+msgstr ""
+
+#: includes/class-admin.php:1637
+msgid "From the last, center, edges, random. Off: every cascade runs first to last."
+msgstr ""
+
+#: includes/class-admin.php:1638
+msgid "Marquee: speed up with scrolling"
+msgstr ""
+
+#: includes/class-admin.php:1638
+msgid "Off: marquees keep their own speed."
+msgstr ""
+
+#: includes/class-admin.php:1642
+msgid "Hover and pointer"
+msgstr ""
+
+#: includes/class-admin.php:1645
+msgid "Hover effects"
+msgstr ""
+
+#: includes/class-admin.php:1645
+msgid "Lift, grow, magnetic and 3D tilt."
+msgstr ""
+
+#: includes/class-admin.php:1646
+msgid "Text roll"
+msgstr ""
+
+#: includes/class-admin.php:1646
+msgid "Letters that roll up on hover."
+msgstr ""
+
+#: includes/class-admin.php:1647
+msgid "Move with the pointer"
+msgstr ""
+
+#: includes/class-admin.php:1647
+msgid "Layers that shift as the pointer moves."
+msgstr ""
+
+#: includes/class-admin.php:1648
+#: includes/class-bricks-integration.php:685
+msgid "Image that follows the pointer"
+msgstr ""
+
+#: includes/class-admin.php:1648
+msgid "Hover previews next to the pointer."
+msgstr ""
+
+#: includes/class-admin.php:1652
+msgid "Scroll"
+msgstr ""
+
+#: includes/class-admin.php:1655
+msgid "Skew with scroll speed"
+msgstr ""
+
+#: includes/class-admin.php:1655
+msgid "Elements that lean while the page scrolls fast."
+msgstr ""
+
+#: includes/class-admin.php:1656
+#: includes/class-bricks-integration.php:653
+msgid "Class when in view"
+msgstr ""
+
+#: includes/class-admin.php:1656
+msgid "A class added to elements when they scroll into view, for designers who style it with their own CSS."
+msgstr ""
+
+#: includes/class-admin.php:1657
+msgid "Element scroll progress variable"
+msgstr ""
+
+#: includes/class-admin.php:1657
+msgid "A scroll value (0 to 1) on single elements, for your own CSS. The page-wide one is in Effects."
+msgstr ""
+
+#: includes/class-admin.php:1661
+msgid "Elements"
+msgstr ""
+
+#: includes/class-admin.php:1664
+msgid "Lottie animation element"
+msgstr ""
+
+#: includes/class-admin.php:1664
+msgid "Off: each Lottie element shows its still frame."
+msgstr ""
+
+#: includes/class-admin.php:1665
+msgid "Image sequence element"
+msgstr ""
+
+#: includes/class-admin.php:1665
+msgid "Off: each sequence shows its still frame."
+msgstr ""
+
+#: includes/class-admin.php:1668
+msgid "One element only: set its Animation to Disabled, or use Turn off on for some screen sizes (Motion Studio group in the builder)."
+msgstr ""
+
+#: includes/class-admin.php:1673
+msgid "Visitors who prefer less motion, screen sizes, and keeping content visible when something goes wrong."
+msgstr ""
+
+#: includes/class-admin.php:1676
 msgid "Visitors who prefer reduced motion"
 msgstr ""
 
-#: includes/class-admin.php:1530
+#: includes/class-admin.php:1679
 msgid "No animation"
 msgstr ""
 
-#: includes/class-admin.php:1530
-msgid "Content appears instantly; scroll-driven timelines still follow the scrollbar. Recommended."
+#: includes/class-admin.php:1679
+msgid "Content appears straight away, without movement; effects tied to the scrollbar still follow it. Recommended."
 msgstr ""
 
-#: includes/class-admin.php:1531
+#: includes/class-admin.php:1680
 msgid "Gentle fades"
 msgstr ""
 
-#: includes/class-admin.php:1531
-msgid "Opacity only; scroll-driven timelines still follow the scrollbar."
+#: includes/class-admin.php:1680
+msgid "Content softly fades in instead of moving; effects tied to the scrollbar still follow it."
 msgstr ""
 
-#: includes/class-admin.php:1532
+#: includes/class-admin.php:1681
 msgid "Full animation"
 msgstr ""
 
-#: includes/class-admin.php:1532
+#: includes/class-admin.php:1681
 msgid "Ignores the visitor setting. Not recommended."
 msgstr ""
 
-#: includes/class-admin.php:1543
+#: includes/class-admin.php:1692
 #: includes/class-bricks-integration.php:534
 msgid "Screen sizes"
 msgstr ""
 
-#: includes/class-admin.php:1546
+#: includes/class-admin.php:1695
 msgid "Turn animations off below"
 msgstr ""
 
-#: includes/class-admin.php:1546
+#: includes/class-admin.php:1695
 msgid "0 keeps animations on every screen size. Single elements can also be turned off for phone, tablet or desktop in the builder."
 msgstr ""
 
-#: includes/class-admin.php:1547
+#: includes/class-admin.php:1696
 msgid "No sideways scrolling"
 msgstr ""
 
-#: includes/class-admin.php:1547
+#: includes/class-admin.php:1696
 msgid "Elements sliding, zooming or rotating in near the edge of the screen can make the page wider than the window for a moment, so it wobbles sideways on phones. This clips the page at the window edge on pages with animations (sticky and pinned sections keep working). Turn off only if your page is meant to scroll sideways."
 msgstr ""
 
-#: includes/class-admin.php:1551
+#: includes/class-admin.php:1700
 msgid "Loading and safety"
 msgstr ""
 
-#: includes/class-admin.php:1554
+#: includes/class-admin.php:1703
 msgid "Hide elements until they animate"
 msgstr ""
 
-#: includes/class-admin.php:1554
-msgid "Prevents a flash of the final state. Content stays readable by screen readers and search engines."
+#: includes/class-admin.php:1703
+msgid "Keeps elements hidden for a split second until their animation starts, so they don't flash into view first. Screen readers and search engines still read everything."
 msgstr ""
 
-#: includes/class-admin.php:1555
+#: includes/class-admin.php:1704
 msgid "Show everything after"
 msgstr ""
 
-#: includes/class-admin.php:1555
-msgid "If scripts are blocked or delayed by an optimization plugin, content appears anyway."
+#: includes/class-admin.php:1704
+msgid "If a speed or caching plugin blocks or delays the animation files, content appears anyway after this time."
 msgstr ""
 
-#: includes/class-admin.php:1556
+#: includes/class-admin.php:1705
 msgid "Load engines on every page"
 msgstr ""
 
-#: includes/class-admin.php:1556
-msgid "Only needed for content added by custom code or other plugins after the page loads."
+#: includes/class-admin.php:1705
+msgid "Only needed when other plugins or custom code add content to the page after it has loaded. Usually best off."
 msgstr ""
 
-#: includes/class-admin.php:1560
+#: includes/class-admin.php:1709
 msgid "Developer"
 msgstr ""
 
-#: includes/class-admin.php:1562
-#: includes/class-history.php:162
+#: includes/class-admin.php:1711
+#: includes/class-history.php:163
 msgid "Debug mode"
 msgstr ""
 
-#: includes/class-admin.php:1562
-msgid "Logs decisions to the browser console and shows scroll trigger markers. Turn off on live sites. To label every animation on a page (preset, engine, why something is skipped), use Inspect animations in the admin bar's Motion menu, or add ?bme-debug to the page address."
+#: includes/class-admin.php:1711
+msgid "For troubleshooting: writes what Motion Studio does to the browser's developer console and shows the scroll start lines. Turn off on live sites. To see every animation on a page with a label, use Inspect animations in the Motion menu of the admin bar."
 msgstr ""
 
-#: includes/class-admin.php:1569
+#: includes/class-admin.php:1718
 msgid "Compatibility checks, backup and restore."
 msgstr ""
 
-#: includes/class-admin.php:1578
+#: includes/class-admin.php:1727
 msgid "Passed"
 msgstr ""
 
-#: includes/class-admin.php:1578
+#: includes/class-admin.php:1727
 msgid "Needs attention"
 msgstr ""
 
-#: includes/class-admin.php:1583
+#: includes/class-admin.php:1732
 msgid "Recent changes"
 msgstr ""
 
-#: includes/class-admin.php:1584
+#: includes/class-admin.php:1733
 msgid "The settings as they were before each of the last saves, imports and resets. Restore one to undo a change; restoring can be undone the same way."
 msgstr ""
 
-#: includes/class-admin.php:1587
-msgid "Export"
+#: includes/class-admin.php:1736
+msgid "Back up your settings"
 msgstr ""
 
-#: includes/class-admin.php:1589
-msgid "Settings JSON"
+#: includes/class-admin.php:1737
+msgid "Download a file with all Motion Studio settings, to keep as a backup or to set up another site the same way. Animation settings saved on elements in Bricks are part of your pages, not of this file."
 msgstr ""
 
-#: includes/class-admin.php:1591
-msgid "Copy"
+#: includes/class-admin.php:1739
+msgid "Download backup"
 msgstr ""
 
-#: includes/class-admin.php:1592
-msgid "Download"
+#: includes/class-admin.php:1740
+msgid "Copy as text"
 msgstr ""
 
-#: includes/class-admin.php:1596
-#: includes/class-admin.php:1602
-msgid "Import"
+#: includes/class-admin.php:1743
+msgid "Show the settings as text"
 msgstr ""
 
-#: includes/class-admin.php:1600
-msgid "Paste exported JSON"
+#: includes/class-admin.php:1744
+msgid "All settings as text"
 msgstr ""
 
-#: includes/class-admin.php:1604
-msgid "From file"
+#: includes/class-admin.php:1747
+msgid "Restore from a backup"
 msgstr ""
 
-#: includes/class-admin.php:1611
-msgid "Share presets and rules"
+#: includes/class-admin.php:1748
+msgid "Choose a backup file you downloaded, or paste its text, then click Restore. Only the settings in the backup change; you can undo it in Recent changes."
 msgstr ""
 
-#: includes/class-admin.php:1612
-msgid "Your presets and auto-animate rules as one code, to paste into Motion Studio on another site (the other settings stay as they are there)."
+#: includes/class-admin.php:1753
+msgid "Choose backup file"
 msgstr ""
 
-#: includes/class-admin.php:1614
-msgid "This site's share code"
+#: includes/class-admin.php:1756
+msgid "Or paste the backup text"
 msgstr ""
 
-#: includes/class-admin.php:1616
+#: includes/class-admin.php:1764
+msgid "Copy your animations to another site"
+msgstr ""
+
+#: includes/class-admin.php:1765
+msgid "Your own presets (My presets) and the auto-animate rules as one code. Copy it here and paste it on the other site, in the same place. Other settings there stay as they are."
+msgstr ""
+
+#: includes/class-admin.php:1768
+msgid "Your code"
+msgstr ""
+
+#: includes/class-admin.php:1772
 msgid "Copy code"
 msgstr ""
 
-#: includes/class-admin.php:1622
-msgid "Paste a share code"
+#: includes/class-admin.php:1779
+msgid "Paste a code from another site"
 msgstr ""
 
-#: includes/class-admin.php:1624
+#: includes/class-admin.php:1782
 msgid "How to apply it"
 msgstr ""
 
-#: includes/class-admin.php:1625
-msgid "Add to mine"
+#: includes/class-admin.php:1783
+msgid "Add to mine (keep my presets and rules)"
 msgstr ""
 
-#: includes/class-admin.php:1626
-msgid "Replace mine"
+#: includes/class-admin.php:1784
+msgid "Replace my presets and rules with these"
 msgstr ""
 
-#: includes/class-admin.php:1628
+#: includes/class-admin.php:1787
 msgid "Apply code"
 msgstr ""
 
-#: includes/class-admin.php:1634
+#: includes/class-admin.php:1794
 msgid "Reset all settings"
 msgstr ""
 
-#: includes/class-admin.php:1635
+#: includes/class-admin.php:1795
 msgid "Restores the defaults. Animation settings saved on individual elements are not affected."
 msgstr ""
 
-#: includes/class-admin.php:1637
+#: includes/class-admin.php:1797
 msgid "Reset all Motion Studio settings to their defaults?"
 msgstr ""
 
-#: includes/class-admin.php:1640
+#: includes/class-admin.php:1800
 msgid "Reset"
 msgstr ""
 
-#: includes/class-admin.php:1647
+#: includes/class-admin.php:1807
 msgid "Usage & weight"
 msgstr ""
 
-#: includes/class-admin.php:1647
-msgid "Which pages use which engines and presets, and how much Motion Studio script each one loads."
+#: includes/class-admin.php:1807
+msgid "Which pages use which animations and libraries, and how much Motion Studio has to download on each."
 msgstr ""
 
-#: includes/class-admin.php:1649
-msgid "Pages are recorded as they are viewed. Scan site opens your published pages, recent posts and an archive once, so the report covers the whole site. Sizes are minified scripts before compression."
+#: includes/class-admin.php:1809
+msgid "Pages are recorded as they are viewed. Scan site opens your published pages, recent posts and an archive once, so the report covers the whole site. Sizes are the download sizes before your server compresses them."
 msgstr ""
 
-#: includes/class-admin.php:1651
+#: includes/class-admin.php:1811
 msgid "Scan site"
 msgstr ""
 
-#: includes/class-admin.php:1652
+#: includes/class-admin.php:1812
 msgid "Clear report"
 msgstr ""
 
-#: includes/class-admin.php:1660
-msgid "Hover, focus or tap a preset to watch it. Use the slug in attributes and rules: click it to copy."
+#: includes/class-admin.php:1820
+msgid "What Motion Studio can do and where to set it, in plain words. Hover (or tap) an animation card to watch it."
 msgstr ""
 
-#: includes/class-admin.php:1663
-msgid "Search presets"
+#: includes/class-admin.php:1822
+msgid "Getting started"
 msgstr ""
 
-#: includes/class-admin.php:1665
-msgid "Search presets: fade, text, scroll, GSAP…"
+#: includes/class-admin.php:1825
+msgid "Animate the whole site at once"
 msgstr ""
 
-#: includes/class-admin.php:1667
-msgid "No presets match."
+#: includes/class-admin.php:1826
+msgid "Auto-animate is on from the start: headings, text, images and buttons appear smoothly as visitors scroll to them. You choose what each kind of element does in Auto-animate, and how lively it all feels with the animation level."
 msgstr ""
 
-#: includes/class-admin.php:1688
-msgid "Attributes (no code)"
+#: includes/class-admin.php:1829
+msgid "Animate one section"
 msgstr ""
 
-#: includes/class-admin.php:1689
-msgid "Add these under Style, Attributes on any element:"
+#: includes/class-admin.php:1830
+msgid "In Bricks, select a section (or the block holding your cards), open the Content tab, then Motion Studio, and pick an Animation recipe: hero intro, card grid, gallery, pricing cards and more. Everything inside follows in order."
 msgstr ""
 
-#: includes/class-admin.php:1696
-msgid "JavaScript"
+#: includes/class-admin.php:1833
+msgid "Animate one element your way"
+msgstr ""
+
+#: includes/class-admin.php:1834
+msgid "Select the element, open Content, then Motion Studio, set Animation to Custom and pick one of the animations below. Change when it starts (scrolling, page load, a click), how long it takes and more. It plays on the canvas as you change it."
+msgstr ""
+
+#: includes/class-admin.php:1837
+msgid "Turn things off"
+msgstr ""
+
+#: includes/class-admin.php:1838
+msgid "One element: Animation, Disabled (or Turn off on for phones, tablets or desktops). One page: Bricks page settings, Motion Studio. One feature for the whole site: Features. Everything: Overview, Site status."
+msgstr ""
+
+#: includes/class-admin.php:1842
+msgid "Animations you can pick"
+msgstr ""
+
+#: includes/class-admin.php:1844
+msgid "Search animations"
+msgstr ""
+
+#: includes/class-admin.php:1846
+msgid "Search: fade, words, scroll, count, image…"
+msgstr ""
+
+#: includes/class-admin.php:1848
+msgid "No animations match."
+msgstr ""
+
+#: includes/class-admin.php:1865
+msgid "One of your own presets (Timing & feel, My presets)."
+msgstr ""
+
+#: includes/class-admin.php:1877
+msgid "Code name:"
+msgstr ""
+
+#: includes/class-admin.php:1883
+msgid "Words you will see"
+msgstr ""
+
+#: includes/class-admin.php:1891
+msgid "For developers: attributes and JavaScript"
+msgstr ""
+
+#: includes/class-admin.php:1892
+msgid "Not needed for anything in the builder. To animate without the Motion Studio controls, add these under Style, Attributes on any element (the code name of an animation is on its card):"
 msgstr ""
 
 #: includes/class-bricks-integration.php:189
@@ -1715,7 +2197,7 @@ msgid "Level"
 msgstr ""
 
 #: includes/class-bricks-integration.php:222
-msgid "Automatic: element rules follow the page / site level; class rules keep their exact preset."
+msgid "Automatic: follows the page or site level (rules for classes keep exactly what you chose)."
 msgstr ""
 
 #: includes/class-bricks-integration.php:230
@@ -1761,25 +2243,25 @@ msgid "This element"
 msgstr ""
 
 #: includes/class-bricks-integration.php:263
-msgid "A selector for what starts it, anywhere on the page (.show-team). This element waits hidden until then; every later click plays it again. Empty: this element shows as designed and plays again each time it is clicked."
+msgid "What starts it: the class of a button anywhere on the page, written with a dot, e.g. .show-team (give the button that class in Bricks). This element stays hidden until it is clicked, then plays again on every later click. Empty: this element shows normally and replays each time it is clicked itself."
 msgstr ""
 
 #. translators: %s: the Bricks token %brx% (shown as is)
 #: includes/class-bricks-integration.php:272
 #, php-format
-msgid "On the element that starts it: Interactions → add. Action: JavaScript (Function). Target: a CSS selector for this element: its class, or a custom attribute such as [data-reveal=\"hero\"] (inside query loops and components the element has no CSS ID). Function name: BricksMotion.play (or BricksMotion.reset). Arguments: click \"Add item\" (fills in %s)."
+msgid "Simpler for most cases: Start, When clicked. To use a Bricks interaction instead: on the element that should start it, add an interaction with the action JavaScript (Function). Target: this element, by a class you gave it (inside query loops and components use a class, not the ID). Function name: BricksMotion.play (or BricksMotion.reset to hide it again). Arguments: click \"Add item\" (Bricks fills in %s)."
 msgstr ""
 
 #: includes/class-bricks-integration.php:283
-msgid "Children (staggered)"
+msgid "Its children, one after another"
 msgstr ""
 
 #: includes/class-bricks-integration.php:284
-msgid "Custom selector (staggered)"
+msgid "Some elements inside (by class)"
 msgstr ""
 
 #: includes/class-bricks-integration.php:291
-msgid "Selector"
+msgid "Which elements (class)"
 msgstr ""
 
 #: includes/class-bricks-integration.php:299
@@ -1794,10 +2276,6 @@ msgstr ""
 
 #: includes/class-bricks-integration.php:323
 msgid "Stagger (s)"
-msgstr ""
-
-#: includes/class-bricks-integration.php:335
-msgid "Stagger order"
 msgstr ""
 
 #: includes/class-bricks-integration.php:338
@@ -1821,7 +2299,7 @@ msgid "From the first"
 msgstr ""
 
 #: includes/class-bricks-integration.php:344
-msgid "For children, a custom selector and words / letters. Center and edges follow the layout on screen, so a grid cascades from its middle."
+msgid "Who goes first when several items animate one after another (children, words, letters). From the center and from the edges follow the layout on screen, so a grid starts from its middle."
 msgstr ""
 
 #: includes/class-bricks-integration.php:359
@@ -1834,7 +2312,7 @@ msgid "Start line (%)"
 msgstr ""
 
 #: includes/class-bricks-integration.php:377
-msgid "Start when the element is this far above the bottom of the viewport."
+msgid "How far up the screen the element must come before it starts, in % of the screen height."
 msgstr ""
 
 #: includes/class-bricks-integration.php:384
@@ -1870,7 +2348,7 @@ msgid "Every screen size"
 msgstr ""
 
 #: includes/class-bricks-integration.php:418
-msgid "This element shows as designed there: no animation, hover effect or timeline."
+msgid "On those screens this element stays still and shows as designed: no animation, hover effect, timeline or moving extras."
 msgstr ""
 
 #: includes/class-bricks-integration.php:423
@@ -1903,12 +2381,8 @@ msgstr ""
 msgid "None"
 msgstr ""
 
-#: includes/class-bricks-integration.php:439
-msgid "Timeline (keyframes)"
-msgstr ""
-
 #: includes/class-bricks-integration.php:442
-msgid "Choreograph this element and anything inside it. Each row animates one property. Scroll rows follow this element's trip through the screen (0 = its top reaches the bottom of the screen, 100 = its bottom leaves the top), so a tall section can run a whole sequence."
+msgid "Make your own movement for this element and anything inside it. Each row changes one thing (position, size, colour…). Rows that follow scrolling run from 0 (the element's top comes in at the bottom of the screen) to 100 (its bottom leaves at the top), so a tall section can play a whole sequence."
 msgstr ""
 
 #: includes/class-bricks-integration.php:445
@@ -1949,7 +2423,7 @@ msgid "Target"
 msgstr ""
 
 #: includes/class-bricks-integration.php:467
-msgid "A selector inside this element (.card-image), or page:.selector for anywhere on the page."
+msgid "Empty: this element. To move something inside it instead, write its class with a dot, e.g. .card-image. Start with page: for an element anywhere on the page, e.g. page:.logo."
 msgstr ""
 
 #: includes/class-bricks-integration.php:470
@@ -1957,7 +2431,7 @@ msgid "Property"
 msgstr ""
 
 #: includes/class-bricks-integration.php:473
-#: includes/class-bricks-integration.php:1390
+#: includes/class-bricks-integration.php:1427
 msgid "Move up / down (y)"
 msgstr ""
 
@@ -1966,7 +2440,7 @@ msgid "Keyframes"
 msgstr ""
 
 #: includes/class-bricks-integration.php:479
-msgid "percent: value pairs. Values must suit the property: lengths (px, %, vw, vh, em, rem) for position and size, deg or turn for rotate, skew and 3D tilt, plain numbers or % for scale and opacity, % for wipe and circle reveals (100 = fully shown), px for blur, colors as #hex, rgb(), hsl(), a name or var(--color). auto = the element's own designed value; -overflow = slide until its far edge reaches its parent's edge. If one pair doesn't fit, the row is skipped."
+msgid "Where the element is at points along the way, as percent: value pairs, e.g. 0: 100px, 100: 0px (starts 100px lower, ends in place). Use px or % for position and size, deg for rotations, skew and 3D tilt, plain numbers for scale and opacity (0.5 = half), % for wipe and circle reveals (100 = fully shown), px for blur, and a colour (#ff0000, red, var(--brand)) for colours. auto = the element's own designed value; -overflow = slide until its far edge reaches its parent's edge. The builder tells you if a row doesn't fit."
 msgstr ""
 
 #: includes/class-bricks-integration.php:488
@@ -1974,7 +2448,7 @@ msgid "Not used by scroll rows."
 msgstr ""
 
 #: includes/class-bricks-integration.php:502
-#: includes/class-bricks-integration.php:1419
+#: includes/class-bricks-integration.php:1456
 msgid "Smooth"
 msgstr ""
 
@@ -1987,7 +2461,7 @@ msgid "Scroll range start"
 msgstr ""
 
 #: includes/class-bricks-integration.php:516
-msgid "Scroll rows: \"<element edge> <screen line>\" (top, center, bottom, 20% or 100px), e.g. top 15%. Default: the element's top reaches the bottom of the screen."
+msgid "Optional, for rows that follow scrolling: when to start, written as \"element edge, screen line\", e.g. top 15% (starts when the element's top reaches 15% from the top of the screen). Edges and lines: top, center, bottom, 20% or 100px. Default: when the element's top comes in at the bottom of the screen."
 msgstr ""
 
 #: includes/class-bricks-integration.php:519
@@ -2052,7 +2526,7 @@ msgid "Animation recipe"
 msgstr ""
 
 #: includes/class-bricks-integration.php:627
-msgid "Animates the elements inside, in order: no settings on each one. Elements set to Custom keep their own animation. Plays on the page, not in the builder canvas."
+msgid "One choice that animates everything inside, in a good order, with no settings on each element. Elements set to Custom keep their own animation. Plays on the live page, not in the builder."
 msgstr ""
 
 #: includes/class-bricks-integration.php:632
@@ -2064,7 +2538,7 @@ msgid "Page transition name"
 msgstr ""
 
 #: includes/class-bricks-integration.php:639
-msgid "Give this element and an element on another page the same name, and it morphs between them when the visitor navigates (needs Page transitions in Motion Studio → Effects). {post_id} adds the post of a query loop, e.g. a card image and the post's hero image. Names must be unique on a page."
+msgid "Give this element and one on another page the same name (e.g. hero-photo) and it morphs from one to the other when visitors go between the pages (needs Page transitions in Motion Studio, Effects). In a query loop, add {post_id} so each card gets its own name, e.g. product-{post_id} on the card image and on the post's hero image. Use a name only once per page."
 msgstr ""
 
 #: includes/class-bricks-integration.php:642
@@ -2076,7 +2550,7 @@ msgid "View"
 msgstr ""
 
 #: includes/class-bricks-integration.php:645
-msgid "Shown in the custom cursor while it is over this element (needs a cursor in Motion Studio → Effects)."
+msgid "Text shown in the custom cursor while it is over this element, e.g. View (needs Custom cursor in Motion Studio, Effects)."
 msgstr ""
 
 #: includes/class-bricks-integration.php:648
@@ -2084,15 +2558,11 @@ msgid "Scroll progress variable"
 msgstr ""
 
 #: includes/class-bricks-integration.php:650
-msgid "Sets --bme-progress on this element, from 0 (its top reaches the bottom of the screen) to 1 (its bottom leaves the top). Use it in your own CSS, e.g. opacity: var(--bme-progress)."
-msgstr ""
-
-#: includes/class-bricks-integration.php:653
-msgid "Class when in view"
+msgid "For designers who write their own CSS: adds --bme-progress to this element, a number from 0 (its top comes in at the bottom of the screen) to 1 (its bottom leaves at the top), e.g. opacity: var(--bme-progress)."
 msgstr ""
 
 #: includes/class-bricks-integration.php:656
-msgid "Adds this class when the element scrolls into view (at the start line set in Timing & feel), for your own CSS transitions. No animation needed."
+msgid "Adds this class to the element when it scrolls into view, so you can style that moment in Bricks or your CSS (e.g. a colour change on is-inview). No animation needed."
 msgstr ""
 
 #: includes/class-bricks-integration.php:659
@@ -2117,10 +2587,6 @@ msgstr ""
 
 #: includes/class-bricks-integration.php:680
 msgid "Anywhere on the page"
-msgstr ""
-
-#: includes/class-bricks-integration.php:685
-msgid "Image that follows the pointer"
 msgstr ""
 
 #: includes/class-bricks-integration.php:687
@@ -2168,7 +2634,7 @@ msgid "Site settings"
 msgstr ""
 
 #: includes/class-bricks-integration.php:797
-msgid "For pages and content templates. Header, footer and popup templates follow the setting of the page they appear on."
+msgid "For pages and content templates. Headers, footers and popups follow the setting of the page they appear on."
 msgstr ""
 
 #: includes/class-bricks-integration.php:804
@@ -2176,138 +2642,138 @@ msgid "Site level"
 msgstr ""
 
 #: includes/class-bricks-integration.php:807
-msgid "Overrides the site-wide level for element rules on this page. Class rules keep their exact preset."
+msgid "This page's own animation level for the automatic rules (rules for classes keep exactly what you chose)."
 msgstr ""
 
 #: includes/class-bricks-integration.php:819
 msgid "For this page only: 2 plays every animation twice as fast, 0.5 half as fast. Empty follows Timing & feel."
 msgstr ""
 
-#: includes/class-bricks-integration.php:1391
+#: includes/class-bricks-integration.php:1428
 msgid "Move left / right (x)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1394
+#: includes/class-bricks-integration.php:1431
 msgid "Scale width (scaleX)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1395
+#: includes/class-bricks-integration.php:1432
 msgid "Scale height (scaleY)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1397
+#: includes/class-bricks-integration.php:1434
 msgid "Width"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1398
+#: includes/class-bricks-integration.php:1435
 #: includes/elements/class-element-3d-scene.php:58
 msgid "Height"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1399
+#: includes/class-bricks-integration.php:1436
 msgid "Text color"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1400
+#: includes/class-bricks-integration.php:1437
 msgid "Background color"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1402
+#: includes/class-bricks-integration.php:1439
 msgid "Skew horizontally (skewX)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1403
+#: includes/class-bricks-integration.php:1440
 msgid "Skew vertically (skewY)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1404
+#: includes/class-bricks-integration.php:1441
 msgid "Tilt forward / back in 3D (rotateX)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1405
+#: includes/class-bricks-integration.php:1442
 msgid "Turn left / right in 3D (rotateY)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1406
+#: includes/class-bricks-integration.php:1443
 msgid "Corner radius"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1407
+#: includes/class-bricks-integration.php:1444
 msgid "Letter spacing"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1408
+#: includes/class-bricks-integration.php:1445
 msgid "Wipe reveal (% shown, from the bottom up)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1409
+#: includes/class-bricks-integration.php:1446
 msgid "Circle reveal (circle size %)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1420
-#: includes/class-settings.php:342
+#: includes/class-bricks-integration.php:1457
+#: includes/class-settings.php:359
 msgid "Linear"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1421
+#: includes/class-bricks-integration.php:1458
 msgid "Ease"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1422
+#: includes/class-bricks-integration.php:1459
 msgid "Ease in"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1423
+#: includes/class-bricks-integration.php:1460
 msgid "Ease out"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1424
+#: includes/class-bricks-integration.php:1461
 msgid "Ease in-out"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1425
+#: includes/class-bricks-integration.php:1462
 msgid "Soft"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1426
+#: includes/class-bricks-integration.php:1463
 msgid "Strong"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1427
-#: includes/class-settings.php:338
+#: includes/class-bricks-integration.php:1464
+#: includes/class-settings.php:355
 msgid "Back (overshoot)"
 msgstr ""
 
-#: includes/class-bricks-integration.php:1428
+#: includes/class-bricks-integration.php:1465
 msgid "Sine"
 msgstr ""
 
 #. translators: 1: direction (Out, In-out, In), 2: curve name.
-#: includes/class-bricks-integration.php:1448
+#: includes/class-bricks-integration.php:1485
 #, php-format
 msgid "%1$s: %2$s"
 msgstr ""
 
 #. translators: 1: direction (Out, In-out, In), 2: curve name.
-#: includes/class-bricks-integration.php:1448
+#: includes/class-bricks-integration.php:1485
 msgid "Out"
 msgstr ""
 
 #. translators: 1: direction (Out, In-out, In), 2: curve name.
-#: includes/class-bricks-integration.php:1448
+#: includes/class-bricks-integration.php:1485
 msgid "In"
 msgstr ""
 
 #. translators: 1: direction (Out, In-out, In), 2: curve name.
-#: includes/class-bricks-integration.php:1448
-#: includes/class-settings.php:337
+#: includes/class-bricks-integration.php:1485
+#: includes/class-settings.php:354
 msgid "In-out"
 msgstr ""
 
 #. translators: %s: the part of the keyframes text that is wrong
 #: includes/class-builder.php:49
 #, php-format
-msgid "This row is skipped. Values must suit the property: lengths for position and size, deg or turn for rotate, numbers or percent for scale and opacity, colors for colors. Check: \"%s\""
+msgid "This row is skipped: \"%s\" doesn't fit this property. Use px or % for position and size, deg for rotations, plain numbers for scale and opacity, and a colour for colours."
 msgstr ""
 
 #. translators: %s: the part of the keyframes text that is wrong
@@ -2358,35 +2824,35 @@ msgstr ""
 msgid "Pages turned off"
 msgstr ""
 
-#: includes/class-history.php:161
+#: includes/class-history.php:162
 msgid "Performance"
 msgstr ""
 
-#: includes/class-history.php:183
+#: includes/class-history.php:184
 msgid "Saved"
 msgstr ""
 
-#: includes/class-history.php:184
+#: includes/class-history.php:185
 msgid "Imported"
 msgstr ""
 
-#: includes/class-history.php:185
+#: includes/class-history.php:186
 msgid "Reset to defaults"
 msgstr ""
 
-#: includes/class-history.php:186
+#: includes/class-history.php:187
 msgid "Restored an earlier version"
 msgstr ""
 
-#: includes/class-history.php:187
+#: includes/class-history.php:188
 msgid "Applied a share code"
 msgstr ""
 
-#: includes/class-history.php:188
+#: includes/class-history.php:189
 msgid "Changed with WP-CLI"
 msgstr ""
 
-#: includes/class-history.php:189
+#: includes/class-history.php:190
 msgid "Changed"
 msgstr ""
 
@@ -2395,7 +2861,7 @@ msgid "Basic"
 msgstr ""
 
 #: includes/class-levels.php:79
-msgid "Short, subtle fades. No text splitting, blur, clipping, parallax or looping motion."
+msgid "Short, subtle fades only: no word-by-word text, blur, wipes, parallax or looping motion."
 msgstr ""
 
 #: includes/class-levels.php:80
@@ -2411,11 +2877,11 @@ msgid "Advanced"
 msgstr ""
 
 #: includes/class-levels.php:81
-msgid "Richer motion: blur reveals, blurred word headings, image curtain reveals, longer travel and staggers."
+msgid "Richer motion: things come into focus, headings blur in word by word, images are revealed like a curtain, with longer movements and cascades."
 msgstr ""
 
 #: includes/class-libraries.php:37
-msgid "Primary animation engine: reveals, text splitting (SplitText), scroll-linked scrubbing & pinning (ScrollTrigger), scramble text, SVG drawing."
+msgid "The most complete animation library. Needed for a few animations: text line by line, horizontal scroll, pinning, scramble text (the Guide marks them)."
 msgstr ""
 
 #: includes/class-libraries.php:38
@@ -2427,31 +2893,31 @@ msgid "GSAP Standard \"no charge\" License (free, including commercial use; not 
 msgstr ""
 
 #: includes/class-libraries.php:44
-msgid "Alternative lightweight tween engine for reveals, stagger, loops and scroll-synced animations."
+msgid "A lighter alternative library for things appearing, cascades, loops and scroll effects."
 msgstr ""
 
 #: includes/class-libraries.php:45
-msgid "≈ 49 KB bundled (slim build) · 118 KB from the CDN"
+msgid "≈ 49 KB included · 118 KB from jsDelivr"
 msgstr ""
 
 #: includes/class-libraries.php:51
-msgid "Alternative engine built on the Web Animations API (hardware accelerated): reveals, stagger, loops, scroll-linked animations."
+msgid "Another lighter alternative, using the browser's own animation tools: things appearing, cascades, loops and scroll effects."
 msgstr ""
 
 #: includes/class-libraries.php:52
-msgid "≈ 64 KB bundled (slim build) · 147 KB from the CDN"
+msgid "≈ 64 KB included · 147 KB from jsDelivr"
 msgstr ""
 
 #: includes/class-libraries.php:58
-msgid "WebGL 3D: animated backgrounds for sections/containers (gradient, particles, waves, orbs) and the \"3D Scene\" element (incl. GLB/GLTF models). Loaded lazily only when a 3D element nears the viewport."
+msgid "3D: animated backgrounds for sections and containers (gradient, particles, waves, shapes) and the 3D Scene element, including 3D models. Only downloaded when a 3D element is about to come into view."
 msgstr ""
 
 #: includes/class-libraries.php:59
-msgid "Tree-shaken bundle, lazy-loaded"
+msgid "Downloaded only when a 3D element is about to show"
 msgstr ""
 
 #: includes/class-libraries.php:65
-msgid "Smooth scrolling, synchronized with GSAP ScrollTrigger when GSAP is active. Automatically pauses for Bricks popups and off-canvas."
+msgid "Smooth, gliding scrolling for the whole page. Works together with GSAP scroll effects and pauses itself in Bricks popups and off-canvas panels."
 msgstr ""
 
 #: includes/class-libraries.php:66
@@ -2679,31 +3145,31 @@ msgstr ""
 msgid "Cascade: everything inside fades up in order"
 msgstr ""
 
-#: includes/class-settings.php:281
+#: includes/class-settings.php:284
 msgid "My preset"
 msgstr ""
 
-#: includes/class-settings.php:334
+#: includes/class-settings.php:351
 msgid "Smooth (cubic out)"
 msgstr ""
 
-#: includes/class-settings.php:335
+#: includes/class-settings.php:352
 msgid "Soft (quad out)"
 msgstr ""
 
-#: includes/class-settings.php:336
+#: includes/class-settings.php:353
 msgid "Strong (expo out)"
 msgstr ""
 
-#: includes/class-settings.php:339
+#: includes/class-settings.php:356
 msgid "Elastic"
 msgstr ""
 
-#: includes/class-settings.php:340
+#: includes/class-settings.php:357
 msgid "Bounce"
 msgstr ""
 
-#: includes/class-settings.php:341
+#: includes/class-settings.php:358
 msgid "Sine in-out"
 msgstr ""
 
@@ -2732,7 +3198,7 @@ msgid "Model URL (.glb / .gltf)"
 msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:133
-msgid "Upload the .glb to the Media Library (you may need to allow the file type) and paste its URL. Draco-compressed models are not supported."
+msgid "Upload the .glb file to the Media Library (you may need a plugin that allows this file type) and paste its address. Compressed (Draco) models are not supported."
 msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:139
@@ -2752,7 +3218,7 @@ msgid "Poster image"
 msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:169
-msgid "Shown until the scene (or its model) is ready, and instead of the scene when WebGL is unavailable, the model can't load, or 3D is off on phones. With reduced motion the scene shows as a still frame."
+msgid "Shown until the 3D scene is ready, and instead of it when the device can't show 3D, the model can't load, or 3D is off on phones. Visitors who prefer less motion see a still frame."
 msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:175
@@ -2768,7 +3234,7 @@ msgid "3D Scene"
 msgstr ""
 
 #: includes/elements/class-element-3d-scene.php:248
-msgid "renders on the frontend"
+msgid "shows on the live page"
 msgstr ""
 
 #: includes/elements/class-element-image-sequence.php:27
@@ -2886,11 +3352,11 @@ msgid "Lottie animation"
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:33
-msgid "Lottie file (JSON URL)"
+msgid "Lottie file (.json address)"
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:37
-msgid "The URL of a Lottie .json file: upload it to the Media Library (administrators can upload .json there) or use a file from LottieFiles. Other sites must allow it to be loaded (CORS)."
+msgid "The address of a Lottie animation (a .json file). Upload it to the Media Library (administrators can upload .json files) and copy its address, or use a link from LottieFiles. Files from other websites only load if that website allows it."
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:45
@@ -2907,7 +3373,7 @@ msgid "On click (play / pause)"
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:49
-msgid "With scrolling (scrubbed)"
+msgid "Follows scrolling"
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:85
@@ -2919,7 +3385,7 @@ msgid "Describe what the animation shows if it carries meaning. Empty: decorativ
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:117
-msgid "Add the URL of a Lottie .json file."
+msgid "Add the address of a Lottie animation (.json file)."
 msgstr ""
 
 #: includes/elements/class-element-lottie.php:141

@@ -76,9 +76,9 @@ class Levels {
 	 */
 	public static function all() {
 		return array(
-			'basic'    => array( __( 'Basic', 'bricks-motion-studio' ), __( 'Short, subtle fades. No text splitting, blur, clipping, parallax or looping motion.', 'bricks-motion-studio' ) ),
+			'basic'    => array( __( 'Basic', 'bricks-motion-studio' ), __( 'Short, subtle fades only: no word-by-word text, blur, wipes, parallax or looping motion.', 'bricks-motion-studio' ) ),
 			'moderate' => array( __( 'Moderate', 'bricks-motion-studio' ), __( 'The presets exactly as set in your rules. Balanced for most sites.', 'bricks-motion-studio' ) ),
-			'advanced' => array( __( 'Advanced', 'bricks-motion-studio' ), __( 'Richer motion: blur reveals, blurred word headings, image curtain reveals, longer travel and staggers.', 'bricks-motion-studio' ) ),
+			'advanced' => array( __( 'Advanced', 'bricks-motion-studio' ), __( 'Richer motion: things come into focus, headings blur in word by word, images are revealed like a curtain, with longer movements and cascades.', 'bricks-motion-studio' ) ),
 		);
 	}
 

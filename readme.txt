@@ -68,6 +68,9 @@ While logged in as an editor or admin, append `?bme-disable=1` to any URL.
 * New hover effect: Text roll. Marquees can speed up with scrolling (every engine).
 * New element: Image sequence (scroll), frames from the Media Library or a numbered URL pattern, played while crossing the screen or pinned for a scroll length; still frame for reduced motion.
 * New recipes: gallery grid (from the center), pricing cards, logo wall (random), alternating rows, testimonials, split hero, call to action.
+* New: Motion Studio → Features, a site-wide switch for every per-element feature (timeline, recipes, click trigger, stagger order, marquee speed-up, hover effects, text roll, pointer and scroll extras, scroll progress variable, Lottie and Image sequence elements); off, elements show as designed and keep their settings, and hand-written attributes for it are ignored too.
+* Dashboard in plain words: the Reference tab is now a Guide (getting started, what every animation does and when to use it, a glossary; developer notes folded away), and every help text in the dashboard, the builder controls and the elements was rewritten without developer jargon. System: Back up / Restore from a backup / Copy your animations to another site, with labelled fields and clear choices. Auto-animate rules: Animate is a plain choice (the element, each child in turn, elements inside) and no field is cut off at any screen width.
+* An element set to Animation → Disabled no longer runs its moving extras (move with the pointer, follow image, skew), and Turn off on (phone / tablet / desktop) also stops them and the text roll on those screen sizes, including after a resize.
 
 = 1.0.0 =
 * Initial release.

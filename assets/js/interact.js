@@ -12,7 +12,9 @@
  * - data-bme-skew="6"  skews up to 6deg with the scroll speed and settles back when scrolling stops.
  *
  * Pointer effects only run on devices that can hover with a fine pointer. Reduced motion: no
- * movement (the in-view class still applies: what it changes is your CSS).
+ * movement (the in-view class still applies: what it changes is your CSS). "Turn off on"
+ * (data-bme-off-on="phone tablet desktop") stops the moving ones on those screen sizes, also
+ * after a resize across a breakpoint (same breakpoints as the runtime).
  *
  * @package BricksMotionStudio
  */
@@ -46,6 +48,15 @@
 		return isFinite( n ) ? Math.max( lo, Math.min( hi, n ) ) : def;
 	};
 	var bound = new WeakSet();
+	// "Turn off on" this screen size (the element shows as designed there).
+	var band = function () {
+		var vw = w.innerWidth;
+		return vw < 768 ? 'phone' : vw < 992 ? 'tablet' : 'desktop';
+	};
+	var offHere = function ( el ) {
+		var list = el.getAttribute( 'data-bme-off-on' );
+		return !! list && ( ' ' + list + ' ' ).indexOf( ' ' + band() + ' ' ) !== -1;
+	};
 	var raf = w.requestAnimationFrame ? w.requestAnimationFrame.bind( w ) : function ( f ) {
 		return setTimeout( f, 16 );
 	};
@@ -80,7 +91,7 @@
 		layers.forEach( function ( L ) {
 			var fx = 0;
 			var fy = 0;
-			if ( px >= 0 && ! reduced() ) {
+			if ( px >= 0 && ! reduced() && ! offHere( L.el ) ) {
 				if ( L.area ) {
 					var r = L.area.getBoundingClientRect();
 					if ( px >= r.left && px <= r.right && py >= r.top && py <= r.bottom && r.width && r.height ) {
@@ -147,7 +158,7 @@
 	var NO_SPLIT = /[֐-ࣿיִ-﷿ﹰ-﻿ऀ-෿฀-࿿က-႟]/;
 
 	function roll( el ) {
-		if ( reduced() || el.__bmeRoll ) {
+		if ( reduced() || el.__bmeRoll || offHere( el ) ) {
 			return;
 		}
 		// Its own entrance animation still to come or playing (split words, a fade): it owns the
@@ -268,7 +279,7 @@
 		}
 		var width = num( o.w, 280, 60, 800 );
 		var enter = function ( e ) {
-			if ( e.pointerType === 'touch' || reduced() || ! fineQuery.matches ) {
+			if ( e.pointerType === 'touch' || reduced() || ! fineQuery.matches || offHere( el ) ) {
 				return;
 			}
 			var f = followerEl();
@@ -368,7 +379,7 @@
 			if ( ! el.isConnected || el.getAttribute( 'data-bme-state' ) === 'ready' ) {
 				return;
 			}
-			var target = still || reduced() ? 0 : Math.max( -S.max, Math.min( S.max, speed * 4 * S.max ) );
+			var target = still || reduced() || offHere( el ) ? 0 : Math.max( -S.max, Math.min( S.max, speed * 4 * S.max ) );
 			S.cur += ( target - S.cur ) * 0.2;
 			if ( Math.abs( S.cur ) < 0.01 && ! target ) {
 				if ( S.inline !== null ) {
@@ -449,6 +460,27 @@
 				kickLayers();
 			} );
 			w.addEventListener( 'scroll', onScroll, { passive: true } );
+			var lastBand = band();
+			w.addEventListener( 'resize', function () {
+				if ( band() === lastBand ) {
+					return;
+				}
+				lastBand = band();
+				kickLayers();
+				toArray( d.querySelectorAll( '[data-bme-hover="roll"][data-bme-off-on]' ) ).forEach( function ( el ) {
+					if ( offHere( el ) ) {
+						if ( el.__bmeRoll ) {
+							el.__bmeRoll();
+						}
+					} else if ( fineQuery.matches ) {
+						roll( el );
+					}
+				} );
+				if ( follower && follower.owner && offHere( follower.owner ) ) {
+					follower.on = false;
+					follower.img.classList.remove( 'is-on' );
+				}
+			} );
 			reduceQuery.addEventListener && reduceQuery.addEventListener( 'change', function () {
 				kickLayers();
 				if ( reduced() ) {

@@ -158,6 +158,7 @@ class History {
 			'effects.intro'      => __( 'Page intro', 'bricks-motion-studio' ),
 			'effects.cursor'     => __( 'Custom cursor', 'bricks-motion-studio' ),
 			'effects'            => __( 'Effects', 'bricks-motion-studio' ),
+			'features'           => __( 'Features', 'bricks-motion-studio' ),
 			'perf'               => __( 'Performance', 'bricks-motion-studio' ),
 			'debug'              => __( 'Debug mode', 'bricks-motion-studio' ),
 			'custom_presets'     => __( 'My presets', 'bricks-motion-studio' ),

@@ -130,7 +130,7 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 			'type'           => 'text',
 			'placeholder'    => 'https://example.com/wp-content/uploads/model.glb',
 			'hasDynamicData' => true,
-			'description'    => esc_html__( 'Upload the .glb to the Media Library (you may need to allow the file type) and paste its URL. Draco-compressed models are not supported.', 'bricks-motion-studio' ),
+			'description'    => esc_html__( 'Upload the .glb file to the Media Library (you may need a plugin that allows this file type) and paste its address. Compressed (Draco) models are not supported.', 'bricks-motion-studio' ),
 		);
 
 		$this->controls['autoRotate'] = array(
@@ -166,7 +166,7 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 			'group'       => 'fallback',
 			'label'       => esc_html__( 'Poster image', 'bricks-motion-studio' ),
 			'type'        => 'image',
-			'description' => esc_html__( 'Shown until the scene (or its model) is ready, and instead of the scene when WebGL is unavailable, the model can\'t load, or 3D is off on phones. With reduced motion the scene shows as a still frame.', 'bricks-motion-studio' ),
+			'description' => esc_html__( 'Shown until the 3D scene is ready, and instead of it when the device can\'t show 3D, the model can\'t load, or 3D is off on phones. Visitors who prefer less motion see a still frame.', 'bricks-motion-studio' ),
 		);
 
 		$this->controls['ariaLabel'] = array(
@@ -245,7 +245,7 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 			$labels = \BricksMotionStudio\Bricks_Integration::scene_options( true );
 			$this->set_attribute( '_root', 'style', 'position:relative;min-height:120px;overflow:hidden' );
 			$box = 'position:absolute;inset:0;display:grid;place-content:center;gap:4px;text-align:center;font:500 13px/1.4 system-ui,sans-serif;color:#fff;background:linear-gradient(135deg,#1b1a2e,#3a2a86 55%,#5b3fc4)';
-			echo '<div ' . $this->render_attributes( '_root' ) . '>' . $poster . '<div class="bme-3d-placeholder" style="' . esc_attr( $box ) . '"><strong>' . esc_html__( '3D Scene', 'bricks-motion-studio' ) . '</strong><span style="opacity:.75;font-weight:400">' . esc_html( $labels[ $scene ] ) . ' — ' . esc_html__( 'renders on the frontend', 'bricks-motion-studio' ) . '</span></div></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			echo '<div ' . $this->render_attributes( '_root' ) . '>' . $poster . '<div class="bme-3d-placeholder" style="' . esc_attr( $box ) . '"><strong>' . esc_html__( '3D Scene', 'bricks-motion-studio' ) . '</strong><span style="opacity:.75;font-weight:400">' . esc_html( $labels[ $scene ] ) . ' — ' . esc_html__( 'shows on the live page', 'bricks-motion-studio' ) . '</span></div></div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 			return;
 		}
 

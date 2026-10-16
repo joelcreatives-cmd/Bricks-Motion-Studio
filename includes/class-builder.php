@@ -46,7 +46,7 @@ class Builder {
 					'postId' => (int) get_the_ID(),
 					'i18n'   => array(
 						/* translators: %s: the part of the keyframes text that is wrong */
-						'fits'      => __( 'This row is skipped. Values must suit the property: lengths for position and size, deg or turn for rotate, numbers or percent for scale and opacity, colors for colors. Check: "%s"', 'bricks-motion-studio' ),
+						'fits'      => __( 'This row is skipped: "%s" doesn\'t fit this property. Use px or % for position and size, deg for rotations, plain numbers for scale and opacity, and a colour for colours.', 'bricks-motion-studio' ),
 						/* translators: %s: the part of the keyframes text that is wrong */
 						'pair'      => __( 'This row is skipped. Write keyframes as percent: value, separated by commas, e.g. 0: 40px, 100: 0px. Check: "%s"', 'bricks-motion-studio' ),
 						'empty'     => __( 'This row is skipped. Add at least one keyframe, e.g. 0: 0, 100: 1', 'bricks-motion-studio' ),
