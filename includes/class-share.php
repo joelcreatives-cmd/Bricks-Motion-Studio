@@ -35,7 +35,7 @@ class Share {
 			'p' => array_values( (array) Settings::get( 'custom_presets', array() ) ),
 			'r' => array_values( (array) Settings::get( 'auto.rules', array() ) ),
 		);
-		return self::PREFIX . rtrim( strtr( base64_encode( (string) wp_json_encode( $data ) ), '+/', '-_' ), '=' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- encodes the share code (JSON of presets and rules), nothing executable.
+		return self::PREFIX . rtrim( strtr( base64_encode( (string) Plugin::json( $data ) ), '+/', '-_' ), '=' ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode -- encodes the share code (JSON of presets and rules), nothing executable.
 	}
 
 	/**

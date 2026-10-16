@@ -175,6 +175,26 @@ class Plugin {
 	 *
 	 * @return bool
 	 */
+	/**
+	 * JSON for the page (attributes, inline config, exports) with numbers as typed: hosts with an
+	 * old php.ini (serialize_precision = 17) would print 1.4 as 1.3999999999999999.
+	 *
+	 * @param mixed $data  Value.
+	 * @param int   $flags json_encode flags.
+	 * @return string|false
+	 */
+	public static function json( $data, $flags = 0 ) {
+		$prev = ini_get( 'serialize_precision' );
+		if ( '-1' !== $prev ) {
+			ini_set( 'serialize_precision', '-1' ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- restored right below.
+		}
+		$out = wp_json_encode( $data, $flags );
+		if ( '-1' !== $prev && false !== $prev ) {
+			ini_set( 'serialize_precision', $prev ); // phpcs:ignore WordPress.PHP.IniSet.Risky -- restoring the host's value.
+		}
+		return $out;
+	}
+
 	public static function bricks_active() {
 		return 'bricks' === get_template() || defined( 'BRICKS_VERSION' );
 	}

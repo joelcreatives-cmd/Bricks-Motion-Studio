@@ -132,7 +132,7 @@ class BME_Element_Lottie extends \Bricks\Element {
 		);
 
 		$this->set_attribute( '_root', 'class', 'bme-lottie' );
-		$this->set_attribute( '_root', 'data-bme-lottie', wp_json_encode( $config ) );
+		$this->set_attribute( '_root', 'data-bme-lottie', \BricksMotionStudio\Plugin::json( $config ) );
 		if ( 'click' === $trigger ) {
 			// A real control: focusable, announced as a toggle.
 			$this->set_attribute( '_root', 'role', 'button' );

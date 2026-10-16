@@ -39,7 +39,7 @@ class Builder {
 		wp_enqueue_script( 'bme-builder-panel', BME_URL . 'assets/js/builder-panel.js', array(), Assets::asset_version(), true );
 		wp_add_inline_script(
 			'bme-builder-panel',
-			'window.BME_BUILDER=' . wp_json_encode(
+			'window.BME_BUILDER=' . Plugin::json(
 				array(
 					'ajax'   => admin_url( 'admin-ajax.php' ),
 					'nonce'  => wp_create_nonce( self::NONCE ),

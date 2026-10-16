@@ -260,7 +260,7 @@ class BME_Element_3D_Scene extends \Bricks\Element {
 			return;
 		}
 
-		$this->set_attribute( '_root', 'data-bme-3d', wp_json_encode( $config ) );
+		$this->set_attribute( '_root', 'data-bme-3d', \BricksMotionStudio\Plugin::json( $config ) );
 		\BricksMotionStudio\Usage::feature( 'three' );
 
 		echo '<div ' . $this->render_attributes( '_root' ) . '>' . $poster . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped

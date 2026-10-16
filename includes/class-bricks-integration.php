@@ -1026,7 +1026,7 @@ class Bricks_Integration {
 
 		// Timeline rows (their own lightweight script; no animation library).
 		if ( $tl_rows ) {
-			$attributes['data-bme-tl'] = wp_json_encode( $tl_rows );
+			$attributes['data-bme-tl'] = Plugin::json( $tl_rows );
 			$this->track( 'feature', 'timeline' );
 			// Starts invisible (no flash of the final state before the deferred script runs) when
 			// the element itself fades in from its first keyframe. timeline.js removes the flag.
@@ -1039,7 +1039,7 @@ class Bricks_Integration {
 		$scene = self::str( $settings, 'bme3d' );
 		if ( '' !== $scene && Settings::library_enabled( 'three' ) && in_array( $name, self::LAYOUT_ELEMENTS, true ) ) {
 			if ( array_key_exists( $scene, self::scene_options( false ) ) ) {
-				$attributes['data-bme-3d'] = wp_json_encode( self::scene_config( $settings, $scene, 'bme3d' ) );
+				$attributes['data-bme-3d'] = Plugin::json( self::scene_config( $settings, $scene, 'bme3d' ) );
 				$attributes['class']       = isset( $attributes['class'] ) ? (array) $attributes['class'] : array();
 				$attributes['class'][]     = 'bme-3d-host';
 				$this->track( 'feature', 'three' );
@@ -2048,7 +2048,7 @@ class Bricks_Integration {
 			$attributes['data-bme-engine'] = $res['engine'];
 		}
 		if ( ! empty( $config['opts'] ) ) {
-			$attributes['data-bme-opts'] = wp_json_encode( $config['opts'] );
+			$attributes['data-bme-opts'] = Plugin::json( $config['opts'] );
 		}
 		if ( Settings::get( 'perf.fouc' ) && Presets::needs_hide( $res['preset'] ) ) {
 			$attributes['data-bme-hide'] = '';

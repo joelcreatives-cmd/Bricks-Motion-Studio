@@ -196,7 +196,7 @@ class Admin {
 		wp_enqueue_script( 'bme-admin', BME_URL . 'assets/js/admin.js', array(), $ver( 'assets/js/admin.js' ), true );
 		wp_add_inline_script(
 			'bme-admin',
-			'window.BME_ADMIN=' . wp_json_encode(
+			'window.BME_ADMIN=' . Plugin::json(
 				array(
 					'presets' => Presets::all(),
 					'rev'     => self::settings_rev(),
@@ -1586,7 +1586,7 @@ class Admin {
 
 							<h3 class="bme-subhead"><?php esc_html_e( 'Export', 'bricks-motion-studio' ); ?></h3>
 							<div class="bme-code">
-								<textarea class="bme-textarea bme-mono" rows="6" readonly data-bme-export aria-label="<?php esc_attr_e( 'Settings JSON', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( (string) wp_json_encode( $s, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></textarea>
+								<textarea class="bme-textarea bme-mono" rows="6" readonly data-bme-export aria-label="<?php esc_attr_e( 'Settings JSON', 'bricks-motion-studio' ); ?>"><?php echo esc_textarea( (string) Plugin::json( $s, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES ) ); ?></textarea>
 								<span class="bme-code__actions">
 									<button type="button" class="bme-btn" data-bme-copy><?php esc_html_e( 'Copy', 'bricks-motion-studio' ); ?></button>
 									<button type="button" class="bme-btn" data-bme-download="<?php echo esc_attr( 'motion-studio-settings-' . sanitize_title( (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) . '.json' ); ?>"><?php echo self::icon( 'download' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?><?php esc_html_e( 'Download', 'bricks-motion-studio' ); ?></button>

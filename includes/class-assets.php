@@ -318,7 +318,7 @@ class Assets {
 		// Timelines run on their own small script (no runtime, no library).
 		if ( $needs_tl ) {
 			wp_enqueue_script( 'bme-timeline' );
-			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . wp_json_encode( self::timeline_config() ) . ';', 'before' );
+			wp_add_inline_script( 'bme-timeline', 'window.BME_TL=' . Plugin::json( self::timeline_config() ) . ';', 'before' );
 			if ( ! $needs_anim && ! $needs_three && ! $lenis ) {
 				return;
 			}
@@ -395,7 +395,7 @@ class Assets {
 		}
 
 		wp_enqueue_script( 'bme-runtime' );
-		wp_add_inline_script( 'bme-runtime', 'window.BME_CONFIG=' . wp_json_encode( $this->config( $engines, $needs_three, $needs_tl ) ) . ';', 'before' );
+		wp_add_inline_script( 'bme-runtime', 'window.BME_CONFIG=' . Plugin::json( $this->config( $engines, $needs_three, $needs_tl ) ) . ';', 'before' );
 
 		// The inspector (?bme-debug, people who can edit): labels every animation on the page.
 		if ( self::inspecting() ) {

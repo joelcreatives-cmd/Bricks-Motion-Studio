@@ -165,7 +165,7 @@ class Effects {
 		wp_enqueue_script( $handle, BME_URL . 'assets/js/effects' . Assets::min() . '.js', array(), Assets::asset_version(), array( 'in_footer' => true, 'strategy' => 'defer' ) );
 		wp_add_inline_script(
 			$handle,
-			'window.BME_FX=' . wp_json_encode(
+			'window.BME_FX=' . Plugin::json(
 				array(
 					'cursor'       => $cursor,
 					'color'        => (string) ( $fx['cursor_color'] ?? '' ),
