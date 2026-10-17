@@ -10,8 +10,9 @@ import { build, transform } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL( '..', import.meta.url ).pathname;
+const root = fileURLToPath( new URL( '..', import.meta.url ) ); // a real path, also with spaces in it
 const read = ( p ) => readFileSync( join( root, p ), 'utf8' );
 export const hashOf = ( ...parts ) => createHash( 'sha1' ).update( parts.join( '\0' ) ).digest( 'hex' ).slice( 0, 10 );
 const stamp = ( hash ) => `/*! Bricks Motion Studio build ${ hash } */\n`;

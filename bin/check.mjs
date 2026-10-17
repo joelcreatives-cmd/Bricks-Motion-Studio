@@ -2,8 +2,9 @@
 import { execSync } from 'node:child_process';
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL( '..', import.meta.url ).pathname;
+const root = fileURLToPath( new URL( '..', import.meta.url ) ); // a real path, also with spaces in it
 const walk = ( dir ) => readdirSync( dir ).flatMap( ( f ) => {
 	const p = join( dir, f );
 	if ( /node_modules|vendor|\/three$/.test( p ) ) return [];

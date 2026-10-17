@@ -3,9 +3,10 @@
 // if scrub/loop presets don't move, if a 3D scene fails to mount, or on any page error.
 import puppeteer from 'puppeteer-core';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { start } from './server.mjs';
 
-execFileSync( 'node', [ new URL( './make-harness.mjs', import.meta.url ).pathname ], { stdio: 'inherit' } );
+execFileSync( 'node', [ fileURLToPath( new URL( './make-harness.mjs', import.meta.url ) ) ], { stdio: 'inherit' } );
 const server = await start();
 const executablePath = process.env.CHROME || ( process.platform === 'darwin' ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : '/usr/bin/google-chrome' );
 // CI runners (Ubuntu 24.04) restrict the user namespaces Chrome's sandbox needs; the page is our own local harness.

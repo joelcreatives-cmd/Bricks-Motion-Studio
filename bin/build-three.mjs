@@ -6,8 +6,9 @@ import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { copyFileSync, existsSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL( '..', import.meta.url ).pathname;
+const root = fileURLToPath( new URL( '..', import.meta.url ) ); // a real path, also with spaces in it
 const src = join( root, 'src/three' );
 const out = join( root, 'assets/js/three' );
 const tmp = join( root, 'assets/js/three.tmp' );
